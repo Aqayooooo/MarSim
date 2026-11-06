@@ -1,0 +1,272 @@
+{
+  "pipelineVersion": "1.0.0",
+  "builtUtc": "2026-11-06T18:50:48+00:00",
+  "crs": "PROJCRS[\"EQUIRECTANGULAR MARS\",BASEGEOGCRS[\"GCS_MARS\",DATUM[\"D_MARS\",ELLIPSOID[\"MARS_localRadius\",3396190,0,LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]]],PRIMEM[\"Reference_Meridian\",0,ANGLEUNIT[\"degree\",0.0174532925199433,ID[\"EPSG\",9122]]]],CONVERSION[\"unnamed\",METHOD[\"Equidistant Cylindrical (Spherical)\",ID[\"EPSG\",1029]],PARAMETER[\"Latitude of 1st standard parallel\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Longitude of natural origin\",137.39,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"False easting\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"easting\",east,ORDER[1],LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]],AXIS[\"northing\",north,ORDER[2],LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]]]",
+  "area": {
+    "widthM": 1440,
+    "heightM": 960,
+    "corners": {
+      "nw": [
+        137.36401316450218,
+        -4.665362109668104
+      ],
+      "ne": [
+        137.38830683549784,
+        -4.665362109668104
+      ],
+      "sw": [
+        137.36401316450218,
+        -4.681557890331895
+      ],
+      "se": [
+        137.38830683549784,
+        -4.681557890331895
+      ]
+    },
+    "center": {
+      "lon": 137.37616,
+      "lat": -4.67346
+    },
+    "note": "Współrzędne planetocentryczne, długość wschodnia, sfera Mars 2000 (IAU)"
+  },
+  "sources": [
+    {
+      "id": "DTEEC_040770_1755_039280_1755_U01",
+      "instrument": "MRO HiRISE",
+      "description": "Model wysokości HiRISE, 1,01 m/px, projekcja równokątna, sfera Mars 2000 (r = 3396,19 km)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/DTEEC_040770_1755_039280_1755_U01.IMG",
+      "sha256": null,
+      "bytes": null,
+      "access": "zdalny fragment"
+    },
+    {
+      "id": "ESP_039280_1755_RED_A_01_ORTHO",
+      "instrument": "MRO HiRISE",
+      "description": "Ortoobraz HiRISE 0,25 m/px (do wykrywania głazów)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/ESP_039280_1755_RED_A_01_ORTHO.JP2",
+      "sha256": "c699a5574c2320317927a271b52ab614f4db49f8c969f122ddd695420f22d207",
+      "bytes": 342969997,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "ESP_039280_1755_RED_C_01_ORTHO",
+      "instrument": "MRO HiRISE",
+      "description": "Ortoobraz HiRISE 1 m/px (podgląd, mapa bazowa)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/ESP_039280_1755_RED_C_01_ORTHO.JP2",
+      "sha256": "4f184be7109b4ce5d83ff31fc5542c0cb0276f2b7f29fed665cb0faf8b1f56ed",
+      "bytes": 26139255,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "ESP_039280_1755_RED",
+      "instrument": "MRO HiRISE",
+      "description": "Etykieta PDS zdjęcia: kąt padania i azymut Słońca, czas, Ls",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_039200_039299/ESP_039280_1755/ESP_039280_1755_RED.LBL",
+      "sha256": "ae0ac7255a9a5c407d4e5e69d39fcc21b09ff92a80b88522cf54ca1d90637960",
+      "bytes": 8066,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "ESP_040770_1755_RED",
+      "instrument": "MRO HiRISE",
+      "description": "Etykieta PDS drugiego zdjęcia pary stereo (kąt emisji do oceny dokładności DTM)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_040700_040799/ESP_040770_1755/ESP_040770_1755_RED.LBL",
+      "sha256": "ab0120b8777bb7314442f64ac48e8c69baf81a1d434241e66cf78bf60aac51cf",
+      "bytes": 8066,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp",
+      "instrument": "Mars Odyssey THEMIS",
+      "description": "Kontrolowana mozaika THEMIS w podczerwieni nocnej, 100 m/px (USGS, 2014) — jakościowa bezwładność termiczna",
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars/THEMIS_controlled_mosaics/Aeolis_NightIR_31Jan2014/THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp.tif",
+      "sha256": null,
+      "access": "zdalny fragment"
+    },
+    {
+      "id": "Gale_CTX_BlockAdj_dd",
+      "instrument": "MRO CTX",
+      "description": "Mozaika CTX krateru Gale (USGS, strefy eksploracji dla ludzi), ~5 m/px — kontrola spójności zdjęcia",
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars/CTX_EZs/Gale_CTX_BlockAdj_dd.tif",
+      "sha256": null,
+      "access": "zdalny fragment"
+    },
+    {
+      "id": "Mars_MGS_MOLA_DEM_mosaic_global_463m",
+      "instrument": "MGS MOLA",
+      "description": "Globalny model wysokości MOLA 463 m/px — kontrola wysokości bezwzględnej DTM",
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars_MGS_MOLA_DEM_mosaic_global_463m.tif",
+      "sha256": null,
+      "access": "zdalny fragment"
+    }
+  ],
+  "imaging": {
+    "image": "ESP_039280_1755",
+    "imageTimeUtc": "2014-12-13T04:58:02.786",
+    "pairImage": "ESP_040770_1755",
+    "pairTimeUtc": "2015-04-08T07:22:24.255",
+    "sunElevDeg": 39.42,
+    "sunAzDeg": 242.86,
+    "emissionDeg": [
+      5.798676,
+      26.132103
+    ]
+  },
+  "dtmPrecision": {
+    "rhoPx": 0.2,
+    "gsdM": 0.25,
+    "parallaxHeightRatio": 0.389,
+    "epM": 0.129,
+    "sigmaZUsedM": 0.2,
+    "rule": "σz = max(EP, sigmaZMinM)"
+  },
+  "methods": {
+    "slope": "różnice centralne na siatce 3 m; σ = σz/(√2·d)/(1+g²); do decyzji: nachylenie + 2σ",
+    "sand": {
+      "weights": {
+        "darkness": 0.35,
+        "ripples": 0.25,
+        "thermal": 0.2,
+        "imageSmooth": 0.1,
+        "dtmSmooth": 0.1
+      },
+      "indicators": [
+        "darkness",
+        "ripples",
+        "thermal",
+        "imageSmooth",
+        "dtmSmooth"
+      ]
+    },
+    "boulders": "metoda cieni (próg 2,6σ lokalnego szumu, weryfikacja oświetlonej ściany), wykrywalne ≥1 m",
+    "hazard": "zakaz: nachylenie+2σ > 25° lub piasek > 0,6 lub głaz (H≥0,5 m); uwaga: nachylenie+2σ > 18°, piasek > 0,35, nierówności > 0,5 m, > 1 głaz/100 m²",
+    "comms": "linia widoczności z masztu habitatu 10 m do odbiornika 1.8 m nad gruntem",
+    "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST"
+  },
+  "checks": {
+    "dtmMinusMolaM": 11.3,
+    "hiriseVsCtxCorrelation": 0.286
+  },
+  "stats": {
+    "boulders": 649,
+    "bouldersConfident": 155,
+    "sandFraction": 0.481,
+    "forbiddenFraction": 0.394,
+    "commsCoverage": 0.422,
+    "slopeSigmaMedianDeg": 1.54
+  },
+  "sun": {
+    "missionDateUtc": "2037-01-10T00:00:00Z",
+    "ls": 146.68,
+    "declDeg": 13.658,
+    "rAu": 1.5467,
+    "sunsetLtst": 17.92,
+    "hours": [
+      {
+        "ltst": 6,
+        "elevDeg": -1.1,
+        "azDeg": 76.39,
+        "shadowFrac": 1.0
+      },
+      {
+        "ltst": 7,
+        "elevDeg": 13.38,
+        "azDeg": 74.75,
+        "shadowFrac": 0.059
+      },
+      {
+        "ltst": 8,
+        "elevDeg": 27.71,
+        "azDeg": 71.91,
+        "shadowFrac": 0.002
+      },
+      {
+        "ltst": 9,
+        "elevDeg": 41.73,
+        "azDeg": 67.02,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 10,
+        "elevDeg": 55.03,
+        "azDeg": 57.97,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 11,
+        "elevDeg": 66.38,
+        "azDeg": 38.89,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 12,
+        "elevDeg": 71.67,
+        "azDeg": 0.0,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 13,
+        "elevDeg": 66.38,
+        "azDeg": 321.11,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 14,
+        "elevDeg": 55.03,
+        "azDeg": 302.03,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 15,
+        "elevDeg": 41.73,
+        "azDeg": 292.98,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 16,
+        "elevDeg": 27.71,
+        "azDeg": 288.09,
+        "shadowFrac": 0.001
+      },
+      {
+        "ltst": 17,
+        "elevDeg": 13.38,
+        "azDeg": 285.25,
+        "shadowFrac": 0.034
+      },
+      {
+        "ltst": 18,
+        "elevDeg": -1.1,
+        "azDeg": 283.61,
+        "shadowFrac": 1.0
+      }
+    ]
+  },
+  "outputs": {
+    "boulders.json": "c21584b672448d17c5a3a00ec4502a4d60627f119487a34d064af84e6b99b7c4",
+    "comms.png": "324a4662647fb2cceb0dbe8ca17cd96c33334807e329c3f0ad3ae4f79e9d2a1f",
+    "dem.f32": "18c36b96ef0fd93f20f158c2a95b20d6466dbc0cbc7bd59b8aa877f2082f78d9",
+    "hazards.png": "a7a235b48eec157dbd28b71f00d0670afd40feb9e8248ee186fd5430793eb18e",
+    "o2ToHabitat.f32": "9a0253d3b68713d305209a76680acde2ab74e089b4332258fe295e4aa320552e",
+    "optical.png": "748265a45172fd13ed76efeeddd8d05b0b9576b06e99a58a6e4d575aae2d4b81",
+    "sand.png": "17cdcde829714fda06aeb8edbeba45af866f7b80d555d837d3177100acd1a54f",
+    "sandConfidence.png": "84488b24f9df966e7a7d5fafaa33e798a09b118804c65d28ee31632291e123fe",
+    "shadow_06.png": "1e1729b602c0ff1bcc499afbeea2eb6faed51b3210b076c7d513475666451f12",
+    "shadow_07.png": "34846c8bc9af8cc69428256637f095b90134667b6ef6a715dc15271451fc3990",
+    "shadow_08.png": "1f7bfc2eb555e979fe9086f411883481c057eef8714a3efeeced11c88cc1bbca",
+    "shadow_09.png": "458dfdca168340a4ea02db7a66aec282aed699bdd77ba178a39f25ee7bcc729b",
+    "shadow_10.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_11.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_12.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_13.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_14.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_15.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_16.png": "259ba9514a476ed0e1aafba30a90872c72ffb258ccb6ffbfc993e3f31abb5840",
+    "shadow_17.png": "d94f4ff7a22006a7d491243b39efccac2b9249d67df7cfc759eafb69aa70727f",
+    "shadow_18.png": "1e1729b602c0ff1bcc499afbeea2eb6faed51b3210b076c7d513475666451f12",
+    "slope.f32": "c8c3435c0af046edc3a3a1df7397c940cd0e1cada73e76c72a16f9e79e089fae",
+    "slopeSigma.f32": "79a76ed8b1cc75753023325fa77539bf4a16ef5e61e5dfa8ae4e0c032095ea12",
+    "thermal.png": "01642ab71713f0b858e702d8b1c437b8f9aad179d55ce4bc4e64a81cf0301d47",
+    "timeToHabitat.f32": "ac2fcf04e7c176c2617a74d0b3cf963fc3a3b088668e4796a8725f8904f57bc0"
+  }
+}

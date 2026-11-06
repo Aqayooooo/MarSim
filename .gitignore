@@ -4,3 +4,4 @@ __pycache__/
 # surowe pliki NASA (duże) — pobiera je backend/fetch_data.py
 data/raw/
 backend/cache/
+backend/config/paths.local.json

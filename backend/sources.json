@@ -1,0 +1,48 @@
+{
+  "mission": "mount-sharp",
+  "note": "Produkty NASA PDS dla obszaru wydm Bagnold u podnóża Mount Sharp (krater Gale). Pole 'remote': true = czytany zdalnie we fragmencie (bez pobierania całości).",
+  "products": [
+    {
+      "id": "DTEEC_040770_1755_039280_1755_U01",
+      "kind": "dtm",
+      "instrument": "MRO HiRISE",
+      "description": "Model wysokości HiRISE, 1,01 m/px, projekcja równokątna, sfera Mars 2000 (r = 3396,19 km)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/DTEEC_040770_1755_039280_1755_U01.IMG",
+      "pdsDataSet": "MRO-M-HIRISE-5-DTM-V1.0",
+      "sourceImages": ["ESP_040770_1755", "ESP_039280_1755"],
+      "remote": true
+    },
+    {
+      "id": "ESP_039280_1755_RED_A_01_ORTHO",
+      "kind": "ortho",
+      "instrument": "MRO HiRISE",
+      "description": "Ortoobraz HiRISE 0,25 m/px (do wykrywania głazów)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/ESP_039280_1755_RED_A_01_ORTHO.JP2",
+      "file": "ESP_039280_1755_RED_A_01_ORTHO.JP2"
+    },
+    {
+      "id": "ESP_039280_1755_RED_C_01_ORTHO",
+      "kind": "ortho-1m",
+      "instrument": "MRO HiRISE",
+      "description": "Ortoobraz HiRISE 1 m/px (podgląd, mapa bazowa)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/ESP_039280_1755_RED_C_01_ORTHO.JP2",
+      "file": "ESP_039280_1755_RED_C_01_ORTHO.JP2"
+    },
+    {
+      "id": "ESP_039280_1755_RED",
+      "kind": "label",
+      "instrument": "MRO HiRISE",
+      "description": "Etykieta PDS zdjęcia: kąt padania i azymut Słońca, czas, Ls",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_039200_039299/ESP_039280_1755/ESP_039280_1755_RED.LBL",
+      "file": "ESP_039280_1755_RED.LBL"
+    },
+    {
+      "id": "ESP_040770_1755_RED",
+      "kind": "label",
+      "instrument": "MRO HiRISE",
+      "description": "Etykieta PDS drugiego zdjęcia pary stereo (kąt emisji do oceny dokładności DTM)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_040700_040799/ESP_040770_1755/ESP_040770_1755_RED.LBL",
+      "file": "ESP_040770_1755_RED.LBL"
+    }
+  ]
+}

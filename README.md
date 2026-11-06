@@ -1,21 +1,43 @@
-# STRATA — mapa i planer wyjścia (EVA) dla astronautów na Marsie
+# MarSim (interfejs STRATA) — mapa i planer wyjścia (EVA) dla astronautów na Marsie
 
 Interfejs na NASA Space Apps (wyzwanie o mapie dla astronautów na Marsie). Pokazuje warstwy danych o terenie, wyznacza bezpieczną trasę pieszą,
 śledzi załogę (pozycja, tlen, zapas na powrót), reaguje na zagrożenia (głazy, burza słoneczna) i pozwala przejść trasę w 3D z perspektywy hełmu.
 
 Etap: **sam interfejs**. Dane w `data/demo/` są syntetyczne; backend podłączy się według `docs/KONTRAKT_DANYCH.md`.
 
-## Uruchomienie
+## Uruchomienie na dowolnym komputerze
 
-Wymaga Pythona 3 (serwer) i przeglądarki z WebGL. Bez instalowania pakietów.
+Działa na Windows, macOS i Linux. Potrzebne: **Git**, **Python 3.10+**, przeglądarka z WebGL. Node.js tylko do generatora danych przykładowych.
+
+### A. Sam interfejs na danych przykładowych (1 minuta)
 
 ```
+git clone https://github.com/<konto>/MarSim.git
+cd MarSim
 python tools/serve.py
 ```
 
-Otwórz http://localhost:5173 (z `?demo`, żeby prezentacja ruszyła sama).
+Otwórz http://localhost:5173 (z `?demo` prezentacja rusza sama). Nic nie trzeba instalować.
 
-Dane przykładowe można wygenerować od nowa (Node 18+): `node tools/generate-mock-data.mjs`, a planer sprawdzić bez przeglądarki: `node tools/test-planner.mjs`.
+### B. Pełna wersja z backendem i prawdziwymi danymi NASA
+
+```
+python -m venv .venv
+# Windows:  .venv\Scripts\activate      macOS/Linux:  source .venv/bin/activate
+pip install -r requirements.txt
+python backend/fetch_data.py          # pobiera produkty NASA do data/raw (kilkaset MB, raz)
+python backend/build.py               # przetwarza je do data/missions/mount-sharp
+python backend/server.py              # backend + UI na http://localhost:8000
+```
+
+Otwórz http://localhost:8000. UI sam wykryje backend i użyje prawdziwych danych.
+
+### Kontynuowanie prac
+
+- Plan i status etapów: [docs/PLAN.md](docs/PLAN.md). Zacznij od pierwszego etapu oznaczonego ☐ lub ◐.
+- Format danych między backendem a UI: [docs/KONTRAKT_DANYCH.md](docs/KONTRAKT_DANYCH.md).
+- Testy backendu: `python -m pytest backend/tests`. Test planera w Node: `node tools/test-planner.mjs`.
+- Dane przykładowe od nowa (Node 18+): `node tools/generate-mock-data.mjs`.
 
 ## Obsługa
 
