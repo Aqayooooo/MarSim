@@ -57,6 +57,15 @@ export class Panels {
     const L = this.app.m.layers.find((l) => l.id === st.legend);
     const lg = $('legend');
     lg.innerHTML = '';
+    if (st.legend === 'shadow' && this.app.world.rasters.shadow) {
+      const hrs = this.app.world.rasters.shadow.hours, w = document.createElement('div');
+      w.className = 'hourpick';
+      w.innerHTML = `<span>Godzina LTST: <b></b></span><input type="range" min="${hrs[0]}" max="${hrs[hrs.length - 1]}" step="1">`;
+      const inp = w.querySelector('input'), b = w.querySelector('b');
+      inp.value = this.app.shadowHour; b.textContent = `${String(this.app.shadowHour).padStart(2, '0')}:00`;
+      inp.addEventListener('input', () => { b.textContent = `${String(inp.value).padStart(2, '0')}:00`; this.app.shadowHour = +inp.value; });
+      lg.appendChild(w);
+    }
     for (const e of L?.legend || []) {
       const d = document.createElement('div');
       d.className = 'lg';
@@ -73,10 +82,10 @@ export class Panels {
     this.o2 = this.app.m.crew.map((c) => {
       const r = document.createElement('div');
       r.className = 'o2';
-      r.innerHTML = `<b></b><div class="bar"><i></i></div><span></span>`;
+      r.innerHTML = `<div class="o2top"><b></b><div class="bar"><i></i></div><span></span></div><div class="tele"></div>`;
       r.querySelector('b').textContent = c.id;
       box.appendChild(r);
-      return { fill: r.querySelector('i'), val: r.querySelector('span') };
+      return { fill: r.querySelector('i'), val: r.querySelector('span'), tele: r.querySelector('.tele') };
     });
   }
 
@@ -93,12 +102,17 @@ export class Panels {
   update() {
     const app = this.app, st = app.state, sim = app.sim, m = app.m;
     // zegar i środowisko
-    setText($('clock'), `SOL ${m.mission.sol} · ${clock(sim.min)}`);
+    const snap = sim.snap;
+    const link = snap?.link;
+    setText($('clock'), `SOL ${m.mission.sol} · ${clock(sim.min)}${link ? ` ⇄${num(link.oneWayMin, 0)}′${link.up ? '' : '✕'}` : ''}`);
     const env = m.environment, on = app.envOn;
-    setText($('cDose').querySelector('.cv'), on ? int(env.doseUsvh) : '--');
+    setText($('cDose').querySelector('.cv'), on ? int(snap ? snap.env.doseUsvh : env.doseUsvh) : '--');
     setText($('cWind').querySelector('.cv'), on ? num(st.wind, 1) : '--');
-    setText($('cTemp').querySelector('.cv'), on ? int(tempAt(env.temperature, sim.min)) : '--');
-    setText($('cTau').querySelector('.cv'), on ? num(env.dustTau, 2) : '--');
+    setText($('cTemp').querySelector('.cl'), snap ? 'Grunt °C' : 'Temp. °C');
+    setText($('cTemp').querySelector('.cv'), on ? int(snap ? snap.env.groundTempC : tempAt(env.temperature, sim.min)) : '--');
+    setText($('cTau').querySelector('.cv'), on ? num(snap ? snap.env.tau : env.dustTau, 2) : '--');
+    const career = snap?.crew?.length ? Math.max(...snap.crew.map((c) => c.career.fraction)) : null;
+    setText($('cDoseSub'), on && career !== null ? `limit kariery ${num(career * 100, 0)}%` : '');
     setClass($('cDose'), 'hi', st.doseHi);
     // tlen i zapas
     sim.crew.forEach((c, i) => {
@@ -106,6 +120,8 @@ export class Panels {
       const w = `${(c.o2 / 100) * 190}px`;
       if (this.o2[i].fill.style.width !== w) this.o2[i].fill.style.width = w;
       setText(this.o2[i].val, `${p}%`);
+      const t = snap?.crew?.[i];
+      setText(this.o2[i].tele, t ? `CO₂ ${num(t.co2mmHg, 1)} mmHg · bat ${int(t.batteryPct)}% · ♥ ${t.hr} · ${num(t.pressureKPa, 1)} kPa` : '');
     });
     setText($('reserve'), hm(sim.reserveH()));
     // nakładki mapy
@@ -114,7 +130,10 @@ export class Panels {
     const card = $('routeCard');
     setHidden(card, !(isMap && r && app.now >= st.routeCardAt));
     if (r) {
-      const html = `<b>TRASA ${r.letter}</b> <span class="g">${r.rating}</span><br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${r.stops} ${plural(r.stops)}`;
+      const u = r.uncertainty, dem = app.m.dem;
+      const extra = u ? `<br><span class="u">nachylenie maks. ${num(u.maxSlopeDeg, 0)}° ±${num(Math.max(1, u.maxSlopeSigmaDeg), 0)}° · DTM ${dem.year || ''}</span>`
+        + `<br><span class="u">piasek ≤ ${num(u.maxSandProb * 100, 0)}% · O₂ ${int(r.o2L ?? 0)} L</span>` : '';
+      const html = `<b>TRASA ${r.letter}</b> <span class="g">${r.rating}</span><br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${r.stops} ${plural(r.stops)}${extra}`;
       if (card.dataset.k !== html) { card.innerHTML = html; card.dataset.k = html; }
     }
     const al = $('alert');

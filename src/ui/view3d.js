@@ -161,6 +161,10 @@ export class View3D {
       const r = 0.12 + rnd() ** 3 * 0.55;
       this.rocks.push({ x, y, r, rot: rnd() * 6.28, collide: r > 0.35 });
     }
+    // prawdziwe głazy wykryte metodą cieni (średnica i wysokość z pomiaru); pewne — z kolizją
+    for (const b of this.app.world.rasters.boulders?.boulders || []) {
+      this.rocks.push({ x: b.x, y: b.y, r: b.diameterM / 2, h: Math.max(0.3, b.heightM), rot: rnd() * 6.28, collide: b.confidence >= 0.5, real: true });
+    }
     this.#rebuildRocks();
   }
 
@@ -187,7 +191,7 @@ export class View3D {
     this.rocks.forEach((rk, i) => {
       o.position.set(this.X(rk.x), this.t.height(rk.x, rk.y) * this.ex + rk.r * 0.25, this.Z(rk.y));
       o.rotation.set(rk.rot, rk.rot * 1.7, 0);
-      o.scale.set(rk.r, rk.r * 0.7, rk.r * 0.9);
+      o.scale.set(rk.r, rk.h ? rk.h / 1.6 : rk.r * 0.7, rk.r * 0.9);
       o.updateMatrix();
       m.setMatrixAt(i, o.matrix);
     });

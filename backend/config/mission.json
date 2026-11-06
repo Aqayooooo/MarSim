@@ -19,5 +19,5 @@
   "eva": { "walkKmh": 2.5, "maxSlopeDeg": 25, "cautionSlopeDeg": 18, "o2ReservePct": 20, "sigmaZMinM": 0.2,
            "shelterMin": 15, "shelterRadiusM": 400, "rxHeightM": 1.8 },
   "habitatStores": { "o2TanksL": 6000, "batteriesWh": 12000, "waterL": 300 },
-  "uwbBeacons": [ { "id": "B1", "x": 220, "y": 820 }, { "id": "B2", "x": 301, "y": 760 }, { "id": "B3", "x": 700, "y": 300 }, { "id": "B4", "x": 1100, "y": 600 } ]
+  "uwbBeacons": [ { "id": "B1", "x": 220, "y": 820 }, { "id": "B2", "x": 301, "y": 760 }, { "id": "B3", "x": 520, "y": 640 }, { "id": "B4", "x": 640, "y": 500 }, { "id": "B5", "x": 700, "y": 330 }, { "id": "B6", "x": 790, "y": 230 } ]
 }

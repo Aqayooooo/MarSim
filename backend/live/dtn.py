@@ -1,0 +1,65 @@
+"""Łączność z Ziemią w trybie „zapisz i przekaż dalej” (DTN, Delay/Disruption Tolerant Networking).
+
+Habitat działa samodzielnie w sieci lokalnej. Wiadomości do Ziemi trafiają do kolejki i są „dostarczane” po czasie
+przelotu światła (3–22 min) — gdy łącze jest dostępne (nie w koniunkcji Słońca, nie w przerwie łączności).
+Odpowiedzi Ziemi wracają po kolejnym opóźnieniu. Czas: zegar misji (sekundy), opóźnienie: z położeń planet w dniu misji.
+"""
+from __future__ import annotations
+
+import itertools
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timedelta
+
+from backend.models.orbits import earth_mars
+
+_ids = itertools.count(1)
+
+
+@dataclass
+class Bundle:
+    id: int
+    direction: str          # "do Ziemi" | "z Ziemi"
+    kind: str               # alert, raport, telemetria, potwierdzenie, decyzja
+    text: str
+    created_s: float
+    deliver_s: float
+    delivered: bool = False
+    meta: dict = field(default_factory=dict)
+
+
+class DtnLink:
+    def __init__(self, mission_date: datetime):
+        self.date = mission_date
+        self.queue: list[Bundle] = []
+        self.outage_until_s = -1.0
+
+    def geometry(self, t_s: float) -> dict:
+        return earth_mars(self.date + timedelta(seconds=t_s))
+
+    def status(self, t_s: float) -> dict:
+        g = self.geometry(t_s)
+        up = not g["conjunction"] and t_s >= self.outage_until_s
+        pending = [b for b in self.queue if not b.delivered]
+        return {"up": up, "oneWayMin": round(g["oneWayMin"], 1), "distanceMkm": round(g["distanceKm"] / 1e6, 1),
+                "conjunction": g["conjunction"], "pendingOut": sum(b.direction == "do Ziemi" for b in pending),
+                "pendingIn": sum(b.direction == "z Ziemi" for b in pending),
+                "recent": [asdict(b) for b in sorted(self.queue, key=lambda b: -b.created_s)[:12]]}
+
+    def send(self, t_s: float, kind: str, text: str, meta: dict | None = None, reply: str | None = None) -> Bundle:
+        delay = self.geometry(t_s)["oneWayMin"] * 60
+        b = Bundle(next(_ids), "do Ziemi", kind, text, t_s, t_s + delay, meta=meta or {})
+        self.queue.append(b)
+        if reply:  # automatyczne potwierdzenie z kontroli misji po pełnej drodze tam i z powrotem (+2 min na decyzję)
+            self.queue.append(Bundle(next(_ids), "z Ziemi", "potwierdzenie", reply, t_s, t_s + 2 * delay + 120, meta={"re": b.id}))
+        return b
+
+    def step(self, t_s: float) -> list[Bundle]:
+        """Dostarcza paczki, których czas minął (gdy łącze działa). Zwraca nowo dostarczone."""
+        if t_s < self.outage_until_s or self.geometry(t_s)["conjunction"]:
+            return []
+        done = []
+        for b in self.queue:
+            if not b.delivered and t_s >= b.deliver_s:
+                b.delivered = True
+                done.append(b)
+        return done

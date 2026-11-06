@@ -1,6 +1,7 @@
 // Start aplikacji: wczytanie danych, złożenie widoków, pętla klatek.
 // Parametry adresu: ?data=ścieżka/do/katalogu (domyślnie data/demo), ?api=http://backend (tryb backendu), ?demo (autostart prezentacji).
-import { createDataSource } from './data/source.js';
+import { createDataSource, detectBackend } from './data/source.js';
+import { DeviceView, ReportView, ScheduleView, FieldReports } from './ui/views.js';
 import { App } from './app.js';
 import { Panels } from './ui/panels.js';
 import { Map2D } from './ui/map2d.js';
@@ -10,7 +11,8 @@ import { num } from './core/format.js';
 const $ = (id) => document.getElementById(id);
 const stage = $('stage');
 const q = new URLSearchParams(location.search);
-const ds = createDataSource({ mode: q.get('api') ? 'http' : 'files', base: q.get('data') || 'data/demo', api: q.get('api') });
+const api = q.has('data') ? null : await detectBackend(q.get('api'));
+const ds = createDataSource({ mode: api !== null ? 'http' : 'files', base: q.get('data') || 'data/demo', api: api ?? '' });
 
 let world;
 try {
@@ -26,6 +28,8 @@ const panels = new Panels(app);
 const map = new Map2D($('map'), app);
 let view3d = null;
 const director = new Director(app, () => view3d);
+const device = new DeviceView(app), report = new ReportView(app), schedule = new ScheduleView(app);
+new FieldReports(app, map);
 window.strata = { app, director, get view3d() { return view3d; } };   // do debugowania w konsoli
 
 function fit() {
@@ -38,12 +42,12 @@ addEventListener('resize', fit);
 fit();
 
 // Widok 3D wczytuje się w tle (three.js z CDN), mapa 2D działa od razu.
-document.querySelectorAll('#viewSeg button:not([data-view="map"])').forEach((b) => (b.disabled = true));
+document.querySelectorAll('#viewSeg button[data-view="orbit"], #viewSeg button[data-view="helmet"]').forEach((b) => (b.disabled = true));
 import('./ui/view3d.js').then(({ View3D }) => {
   view3d = new View3D($('view3d'), app);
   fit();
   document.querySelectorAll('#viewSeg button').forEach((b) => (b.disabled = false));
-  if (app.state.view !== 'map') view3d.setMode(app.state.view);
+  if (['orbit', 'helmet'].includes(app.state.view)) view3d.setMode(app.state.view);
 }).catch((e) => console.error('Widok 3D niedostępny:', e));
 
 // ---------- widoki ----------
@@ -55,11 +59,19 @@ $('viewSeg').addEventListener('click', (e) => {
 });
 function applyView(v) {
   document.querySelectorAll('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
-  $('view3d').classList.toggle('on', v !== 'map');
+  const is3d = v === 'orbit' || v === 'helmet';
+  $('view3d').classList.toggle('on', is3d);
   $('hud').hidden = v !== 'helmet';
   $('view3dLabel').hidden = v !== 'orbit';
   $('view3dLabel').textContent = 'WIDOK 3D · PRZEWYŻSZENIE ×10';
-  if (view3d && v !== 'map') view3d.setMode(v);
+  $('device').hidden = v !== 'device';
+  $('report').hidden = v !== 'report';
+  $('schedule').hidden = v !== 'schedule';
+  $('reportBtn').hidden = v !== 'map';
+  if (v !== 'map') { $('obsForm').hidden = true; app.state.reportMode = false; $('reportBtn').classList.remove('on'); $('main').classList.remove('reporting'); }
+  if (v === 'report') report.open();
+  if (v === 'schedule') schedule.open();
+  if (view3d && is3d) view3d.setMode(v);
 }
 app.on('view', applyView);
 app.on('reset', () => applyView(app.state.view));
@@ -72,8 +84,8 @@ $('demoBtn').addEventListener('click', () => {
 app.on('director', (on) => { $('demoBtn').textContent = on ? '■ Zatrzymaj' : '▶ Prezentacja'; $('evaBtn').disabled = on; });
 
 $('evaBtn').addEventListener('click', async () => {
-  if (app.sim.running) { app.sim.running = false; $('evaBtn').textContent = 'Wznów EVA'; return; }
-  if (app.state.route && app.sim.crewS > 0) { app.sim.running = true; $('evaBtn').textContent = 'Pauza EVA'; return; }
+  if (app.sim.running) { app.pauseEva(true); $('evaBtn').textContent = 'Wznów EVA'; return; }
+  if (app.state.route && app.sim.crewS > 0) { app.pauseEva(false); $('evaBtn').textContent = 'Pauza EVA'; return; }
   for (const id of ['optical', 'terrain', 'hazards']) app.toggleLayer(id, true);
   app.setView('map');
   await app.planInitial({ animate: true });
@@ -111,8 +123,10 @@ function frame(t) {
   const dt = Math.min(0.1, (t - last) / 1000);
   last = t;
   app.update(dt);
-  if (app.state.view === 'map') map.render(dt);
-  else if (view3d) { view3d.render(dt); if (app.state.view === 'helmet') updateHud(); }
+  const v = app.state.view;
+  if (v === 'map') map.render(dt);
+  else if ((v === 'orbit' || v === 'helmet') && view3d) { view3d.render(dt); if (v === 'helmet') updateHud(); }
+  else if (v === 'device') device.update();
   panels.update();
   requestAnimationFrame(frame);
 }

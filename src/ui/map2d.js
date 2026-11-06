@@ -4,7 +4,7 @@ export const MAIN_W = 972, MAIN_H = 648;
 const MONO = "700 15px 'JetBrains Mono', Consolas, monospace";
 const ROUTE = '#FFDC52', TRAIL = '#FC8151', ACCENT = '#FF7B3F';
 // krycie warstwy, gdy nie jest bieżąca (wyróżniona): zgodnie z obrazem końcowym z nagrania
-const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, hazards: 0.75, sky: 1 };
+const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -85,6 +85,62 @@ export class Map2D {
       g.putImageData(im, 0, 0);
       this.hazCanvas = c;
     }
+    // piasek: prawdopodobieństwo (bursztyn), kreskowanie tam, gdzie pewność wykrycia jest niska
+    if (rasters.sand) {
+      const R = rasters.sand, C = rasters.sandConfidence;
+      const sc = 2, [c, g] = this.#canvas(R.width * sc, R.height * sc), im = g.createImageData(R.width * sc, R.height * sc);
+      for (let j = 0; j < R.height * sc; j++) for (let i = 0; i < R.width * sc; i++) {
+        const k = ((j / sc) | 0) * R.width + ((i / sc) | 0), p = R.data[k] / 255, conf = C ? C.data[k] / 255 : 1;
+        if (p < 0.3) continue;
+        const hatch = conf < 0.4 && (i + j) % 6 < 2;
+        im.data.set(hatch ? [60, 45, 25, 200] : [232, 177, 58, Math.round(clamp01((p - 0.3) / 0.5) * 170)], (j * R.width * sc + i) * 4);
+      }
+      g.putImageData(im, 0, 0);
+      this.sandCanvas = c;
+    }
+    // łączność: brak zasięgu (czerwony), na granicy (żółty)
+    if (rasters.comms) {
+      const R = rasters.comms, [c, g] = this.#canvas(R.width, R.height), im = g.createImageData(R.width, R.height);
+      for (let k = 0; k < R.data.length; k++) {
+        const v = R.data[k];
+        if (v === 0) im.data.set([192, 57, 43, 120], k * 4);
+        else if (v === 1) im.data.set([241, 196, 15, 110], k * 4);
+      }
+      g.putImageData(im, 0, 0);
+      this.commsCanvas = c;
+    }
+    this.shadowCanvases = {};
+  }
+
+  #shadowCanvas(hour) {
+    const sh = this.app.world.rasters.shadow;
+    if (!sh) return null;
+    const h = sh.hours.reduce((a, b) => (Math.abs(b - hour) < Math.abs(a - hour) ? b : a));
+    if (!this.shadowCanvases[h]) {
+      const R = sh.hourly[h], [c, g] = this.#canvas(R.width, R.height), im = g.createImageData(R.width, R.height);
+      for (let k = 0; k < R.data.length; k++) if (R.data[k] > 127) im.data.set([18, 14, 40, 190], k * 4);
+      g.putImageData(im, 0, 0);
+      this.shadowCanvases[h] = c;
+    }
+    return this.shadowCanvases[h];
+  }
+
+  /** Granica powrotu pieszego: komórki, z których zapas O₂ (ponad rezerwę) wystarcza na dojście do habitatu. */
+  #walkbackCanvas(budgetL) {
+    const R = this.app.world.rasters.o2ToHabitat;
+    if (!R) return null;
+    const key = Math.round(budgetL / 2);
+    if (this.wbKey === key) return this.wbCanvas;
+    const [c, g] = this.wbCanvas && this.wbCanvas.width === R.width ? [this.wbCanvas, this.wbCanvas.getContext('2d')] : this.#canvas(R.width, R.height);
+    const im = g.createImageData(R.width, R.height), W = R.width, d = R.data;
+    for (let j = 1; j < R.height - 1; j++) for (let i = 1; i < W - 1; i++) {
+      const k = j * W + i, inside = d[k] <= budgetL;
+      if (!inside) { im.data.set([0, 0, 0, 70], k * 4); continue; }
+      if (d[k - 1] > budgetL || d[k + 1] > budgetL || d[k - W] > budgetL || d[k + W] > budgetL) im.data.set([120, 230, 255, 255], k * 4);
+    }
+    g.putImageData(im, 0, 0);
+    this.wbKey = key; this.wbCanvas = c;
+    return c;
   }
 
   // ---------- rysowanie ----------
@@ -104,10 +160,16 @@ export class Map2D {
     this.#optical(now);
     this.#imageLayer(this.slopeCanvas, A('terrain'), true);
     this.#thermal(A('thermal'));
-    this.#minerals(A('minerals'));
+    if (this.app.world.rasters.minerals) this.#minerals(A('minerals'));
+    if (this.sandCanvas && A('sand') > 0) this.#imageLayer(this.sandCanvas, A('sand'), false);
     if (A('hazards') > 0) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = A('hazards'); ctx.drawImage(this.hazBlur, 0, 0); ctx.restore(); }
+    if (this.commsCanvas && A('comms') > 0) this.#imageLayer(this.commsCanvas, A('comms'), false);
+    if (A('shadow') > 0) { const sc = this.#shadowCanvas(app.shadowHour); if (sc) this.#imageLayer(sc, A('shadow'), false); }
+    if (A('boulders') > 0) this.#boulders(A('boulders'));
     this.#wind(dt, A('sky'));
     ctx.globalAlpha = 1;
+    this.#walkback();
+    this.#emergency();
 
     this.#shelter(now);
     this.#search(now);
@@ -167,6 +229,36 @@ export class Map2D {
       ctx.fillRect(this.ox + i * c + pad, this.oy + j * c + pad, c - 2 * pad, c - 2 * pad);
     }
     ctx.globalAlpha = 1;
+  }
+
+  #boulders(a) {
+    const B = this.app.world.rasters.boulders?.boulders;
+    if (!B) return;
+    const ctx = this.ctx;
+    ctx.lineWidth = 1.2;
+    for (const b of B) {
+      const r = Math.max(2, b.diameterM / 2 * this.ps * 1.6);
+      ctx.globalAlpha = a * (b.confidence >= 0.5 ? 0.95 : 0.45);
+      ctx.strokeStyle = b.confidence >= 0.5 ? '#E6BE79' : '#8a7660';
+      ctx.beginPath(); ctx.arc(this.sx(b.x), this.sy(b.y), r, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  #walkback() {
+    const snap = this.app.sim.snap;
+    if (!snap || !this.app.state.crewVisible || !snap.crew?.length) return;
+    const avail = Math.min(...snap.crew.map((c) => c.walkback.availL));
+    const c = this.#walkbackCanvas(Math.max(0, avail));
+    if (!c) return;
+    this.#imageLayer(c, 0.9, false);
+  }
+
+  #emergency() {
+    const e = this.app.sim.snap?.emergency;
+    if (!e || !this.app.state.crewVisible || !this.app.sim.running) return;
+    if (e.habitat) this.#line(e.habitat.path, { color: 'rgba(120,230,255,.95)', width: 2, dash: [4, 5] });
+    if (e.rover) this.#line(e.rover.path, { color: 'rgba(255,123,63,.9)', width: 2, dash: [2, 5] });
   }
 
   #wind(dt, a) {
@@ -301,6 +393,22 @@ export class Map2D {
         this.#diamond(x, y, reached);
         this.#label(wp.id, x + 12, y - 18);
       });
+    }
+    // habitat i nadajniki UWB
+    const hab = app.m.habitat;
+    if (hab && (optOn || st.route)) {
+      const x = this.sx(hab.x), y = this.sy(hab.y);
+      ctx.fillStyle = '#e8e2d8'; ctx.fillRect(x - 9, y - 9, 18, 18);
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x - 9, y - 9, 18, 18);
+      this.#label('HABITAT', x + 14, y + 2);
+    }
+    // elipsy błędu pozycji (UWB / odometria)
+    if (st.crewVisible && app.sim.snap) for (const c of app.sim.snap.crew) {
+      if (!c.est) continue;
+      ctx.save(); ctx.translate(this.sx(c.est.x), this.sy(c.est.y)); ctx.rotate(-(c.est.ellipse.angleDeg || 0) * Math.PI / 180);
+      ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.ellipse(0, 0, Math.max(3, c.est.ellipse.a * this.ps * 3), Math.max(3, c.est.ellipse.b * this.ps * 3), 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]); ctx.restore();
     }
     // łazik
     if (optOn || st.route) {

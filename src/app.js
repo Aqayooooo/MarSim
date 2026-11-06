@@ -1,6 +1,8 @@
 // Kontroler aplikacji: stan UI + akcje. Widoki tylko czytają stan i wywołują akcje.
+// Tryb lokalny: symulacja w przeglądarce (Sim). Tryb backendu: stan z /api/stream (RemoteSim), akcje przez API.
 import { Polyline } from './core/path.js';
 import { Sim } from './core/sim.js';
+import { RemoteSim } from './core/remoteSim.js';
 import { routeStats } from './core/routeStats.js';
 
 export class App {
@@ -8,13 +10,21 @@ export class App {
     this.ds = ds;
     this.world = world;
     this.m = world.mission;
+    this.remote = ds.mode === 'http';
     this.now = 0;
-    this.autoEvents = true;   // false, gdy prezentacja sama steruje zdarzeniami
+    this.autoEvents = true;   // false, gdy prezentacja sama steruje końcem alarmów
     this.handlers = {};
-    this.sim = new Sim(this.m, {
+    this.shadowHour = 14;
+    const hooks = {
       onWaypoint: (wp, last) => this.#onWaypoint(wp, last),
       onEvent: (ev) => this.#onEvent(ev),
-    });
+      onRouteVersion: () => this.#syncRemoteRoute(),
+      onAlert: (a) => this.#onRemoteAlert(a),
+      onSep: (on) => this.#onRemoteSep(on),
+      onObstacles: (obs) => this.#syncObstacles(obs),
+      onSnapshot: (s) => this.emit('snapshot', s),
+    };
+    this.sim = this.remote ? new RemoteSim(this.m, ds, hooks) : new Sim(this.m, hooks);
     this.reset();
   }
 
@@ -23,7 +33,8 @@ export class App {
   emit(evt, data) { (this.handlers[evt] || []).forEach((fn) => fn(data)); }
 
   reset() {
-    this.sim.reset();
+    if (this.remote) { this.pendingReset = this.ds.post('eva/reset').catch(() => {}); this.sim.reset(); }
+    else this.sim.reset();
     this.windNext = 0;
     this.lastReplan = null;
     this.state = {
@@ -46,6 +57,7 @@ export class App {
       wind: this.m.environment.wind.meanMs,
       sepEndAt: null,
       fadeOut: false,
+      reportMode: false,
     };
     this.emit('reset');
   }
@@ -53,7 +65,7 @@ export class App {
   // ---------- warstwy ----------
   toggleLayer(id, on = !this.state.layers[id].on) {
     const L = this.state.layers[id];
-    if (L.on === on) return;
+    if (!L || L.on === on) return;
     L.on = on;
     L.changedAt = this.now;
     if (on) { this.state.focus = id; this.state.legend = id; }
@@ -62,18 +74,20 @@ export class App {
   }
   clearFocus(legend) {
     this.state.focus = null;
-    if (legend) this.state.legend = legend;
+    if (legend && this.state.layers[legend]) this.state.legend = legend;
     this.emit('layers');
   }
+  setShadowHour(h) { this.shadowHour = h; this.emit('layers'); }
   get envOn() { return this.state.layers.sky?.on; }
 
   // ---------- trasa ----------
   async planInitial({ animate = true } = {}) {
+    if (this.pendingReset) await this.pendingReset;
     const r = await this.ds.planRoute({ start: { x: this.m.rover.x, y: this.m.rover.y }, waypoints: this.m.waypoints });
-    if (!r.ok) { this.setAlert({ category: 'BRAK TRASY', text: r.error }); return null; }
+    if (!r.ok && !r.path) { this.setAlert({ category: 'BRAK TRASY', text: r.error }); return null; }
     const searchDur = animate ? 2.2 : 0, drawDur = animate ? 1.0 : 0;
-    this.state.search = animate ? { pts: r.expanded, t0: this.now, dur: searchDur } : null;
-    this.state.route = this.#makeRoute(r.path, r.waypointIndex, 'A', r, { t0: this.now + searchDur, dur: drawDur, s0: 0 });
+    this.state.search = animate ? { pts: r.expanded || [], t0: this.now, dur: searchDur } : null;
+    this.state.route = this.#makeRoute(r.path, r.waypointIndex, r.letter || 'A', r, { t0: this.now + searchDur, dur: drawDur, s0: 0 });
     this.state.routeCardAt = this.now + searchDur + drawDur;
     this.state.discarded = [];
     this.sim.setRoute(this.state.route);
@@ -86,8 +100,25 @@ export class App {
     return {
       letter, poly, wpS: wpIndex.map((i) => poly.cum[i]),
       lengthM: stats.lengthM, durationH: stats.durationH, stops: stats.stops, rating: stats.rating || 'bezpieczna',
-      draw,
+      o2L: stats.o2L, uncertainty: stats.uncertainty || null, draw,
     };
+  }
+
+  async #syncRemoteRoute() {
+    const { route, discarded } = await this.ds.get('route');
+    if (!route) return;
+    const cur = this.state.route;
+    if (cur && cur.letter === route.letter) return;              // ta sama trasa (np. po własnym POST /plan)
+    const s0 = route.replanFrom ?? 0;
+    this.state.discarded = discarded || [];
+    this.state.route = this.#makeRoute(route.path, route.waypointIndex, route.letter, route, { t0: this.now, dur: cur ? 0.65 : 0, s0: cur ? s0 : 0 });
+    this.state.routeCardAt = this.now + (cur ? 0.65 : 0);
+    this.sim.setRoute(this.state.route);
+    this.emit('route');
+    if (cur && route.deltaM !== undefined) {
+      this.lastReplan = { deltaM: route.deltaM };
+      this.emit('replanned', this.lastReplan);
+    }
   }
 
   async replanAround(obstacle) {
@@ -107,7 +138,7 @@ export class App {
     const stats = routeStats(this.world.terrain, path, this.m.eva, this.m.waypoints.length, totalStop);
     this.state.discarded.push(old.poly.slice(s, old.poly.length));
     const letter = String.fromCharCode(old.letter.charCodeAt(0) + 1);
-    this.state.route = this.#makeRoute(path, wpIndex, letter, stats, { t0: this.now, dur: 0.65, s0: s });
+    this.state.route = this.#makeRoute(path, wpIndex, letter, { ...stats, uncertainty: old.uncertainty }, { t0: this.now, dur: 0.65, s0: s });
     this.sim.setRoute(this.state.route);
     this.state.routeCardAt = this.now + 0.65;
     this.emit('route');
@@ -119,16 +150,44 @@ export class App {
     return bi;
   }
 
+  // ---------- zgłoszenia z terenu ----------
+  async reportObservation(obs) {
+    if (this.remote) return this.ds.post('observations', obs);
+    if (obs.kind === 'bezpieczne') return { ok: true };
+    const ob = { id: `obs${this.state.obstacles.length + 1}`, x: obs.x, y: obs.y, radiusM: obs.radiusM, t0: this.now, label: labelFor(obs.kind) };
+    this.state.obstacles.push(ob);
+    this.emit('obstacle', ob);
+    if (this.state.route && this.sim.running) {
+      const res = await this.replanAround(ob);
+      this.lastReplan = res;
+      this.emit('replanned', res);
+    }
+    return { ok: true };
+  }
+  #syncObstacles(list) {
+    const known = new Set(this.state.obstacles.map((o) => `${o.x}|${o.y}`));
+    for (const o of list) {
+      if (known.has(`${o.x}|${o.y}`)) continue;
+      const ob = { ...o, t0: this.now, label: labelFor(o.kind) };
+      this.state.obstacles.push(ob);
+      this.emit('obstacle', ob);
+    }
+  }
+
   // ---------- EVA ----------
   showCrew() { this.state.crewVisible = true; this.emit('crew'); }
   startEva(timeScale = 470) {
     if (!this.state.route) return;
     this.state.crewVisible = true;
-    this.sim.timeScale = timeScale;
-    this.sim.running = true;
+    if (this.remote) this.ds.post('eva/start', { timeScale, scenario: !this.autoEvents });
+    else { this.sim.timeScale = timeScale; this.sim.running = true; }
     this.emit('eva');
   }
-  setTimeScale(ts) { this.sim.timeScale = ts; }
+  pauseEva(paused) {
+    if (this.remote) this.ds.post(paused ? 'eva/pause' : 'eva/start', paused ? {} : { timeScale: this.sim.timeScale });
+    else this.sim.running = !paused;
+  }
+  setTimeScale(ts) { if (this.remote) this.ds.post('eva/timescale', { timeScale: ts }); else this.sim.timeScale = ts; }
 
   setAlert(a) { this.state.alert = a ? { ...a, t0: this.now } : null; this.emit('alert'); }
   setCaption(n, text) { this.state.caption = n ? { n, text, t0: this.now } : null; this.emit('caption'); }
@@ -136,14 +195,15 @@ export class App {
 
   endSep() {
     if (!this.sim.sep && !this.state.doseHi) return;
-    this.sim.sep = false;
+    if (this.remote) this.ds.post('eva/inject', { kind: 'sep-end' });
+    else this.sim.sep = false;
     this.state.doseHi = false;
     this.emit('sep-end');
   }
 
   #onWaypoint(wp, last) {
     this.state.reached[wp.id] = this.now;
-    if (last && this.autoEvents) this.sim.timeScale = Math.min(this.sim.timeScale, 150);
+    if (last && this.autoEvents) this.setTimeScale(Math.min(this.sim.timeScale, 150));
     this.emit('waypoint', { wp, last });
   }
   setWaypointView(id, src, caption) {
@@ -151,7 +211,19 @@ export class App {
     this.emit('wpview', id);
   }
 
-  async #onEvent(ev) {
+  #onRemoteAlert(a) {
+    this.setAlert({ category: a.category, text: a.text, source: a.source });
+    if (a.highlight === 'dose') this.state.doseHi = true;
+  }
+  #onRemoteSep(on) {
+    if (on) {
+      this.state.doseHi = true;
+      this.state.shelter = { radiusM: this.m.eva.shelterRadiusM, label: `SCHRON ≤ ${this.m.eva.shelterMin} MIN`, t0: this.now + 0.3 };
+      this.emit('sep');
+    } else this.state.doseHi = false;
+  }
+
+  async #onEvent(ev) {   // tylko tryb lokalny
     if (ev.type === 'obstacle') {
       const s = this.sim.crewS + ev.aheadM;
       const c = this.state.route.poly.at(Math.min(s, this.state.route.poly.length - ev.radiusM - 10));
@@ -179,14 +251,18 @@ export class App {
     this.sim.step(dt);
     if (this.now >= this.windNext) {
       const w = this.m.environment.wind;
-      this.state.wind = Math.round((w.meanMs + (Math.random() * 2 - 1) * w.spreadMs) * 10) / 10;
+      this.state.wind = this.sim.snap?.env?.windMs ?? Math.round((w.meanMs + (Math.random() * 2 - 1) * w.spreadMs) * 10) / 10;
       this.windNext = this.now + 0.4 + Math.random() * 0.6;
     }
     // koniec alarmu SEP w trybie ręcznym: załoga przy łaziku (w schronie) przez 20 min misji
     if (this.autoEvents && this.sim.sep) {
       const near = this.sim.crewS - this.sim.rover.s <= 111;
       if (near && this.state.sepEndAt === null) this.state.sepEndAt = this.sim.min + 20;
-      if (this.state.sepEndAt !== null && this.sim.min >= this.state.sepEndAt) { this.endSep(); this.setAlert(null); }
+      if (this.state.sepEndAt !== null && this.sim.min >= this.state.sepEndAt) { this.endSep(); this.setAlert(null); this.state.sepEndAt = null; }
     }
   }
+}
+
+export function labelFor(kind) {
+  return { glazy: 'GŁAZY', piasek: 'PIASEK', osuwisko: 'OSUWISKO', inne: 'PRZESZKODA', bezpieczne: 'BEZPIECZNIE' }[kind] || 'GŁAZY';
 }
