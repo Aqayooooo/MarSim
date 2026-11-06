@@ -13,7 +13,7 @@ from backend.server import create_app  # noqa: E402
 
 
 def client(db) -> TestClient:
-    return TestClient(create_app(store=Store(db), start_loop=False, live_feeds=False))
+    return TestClient(create_app(store=Store(db), db_dir=Path(db).parent, start_loop=False, live_feeds=False))
 
 
 @pytest.fixture()
@@ -70,7 +70,7 @@ def test_state_survives_restart(tmp_path):
     item = {"id": "EVA-9", "sol": 160, "startLtst": "10:00", "durationH": 2.5, "crew": ["EV1"], "purpose": "test"}
     assert a.post("/api/schedule", json=item).status_code == 200
     assert a.post("/api/observations", json={"kind": "piasek", "x": 500, "y": 400, "radiusM": 30}).status_code == 200
-    a.app.state.engine.store.close()
+    a.app.state.active().store.close()
 
     b = client(db)   # „restart serwera”: nowy silnik na tym samym pliku bazy
     ids = [i["id"] for i in b.get("/api/schedule").json()["items"]]
@@ -88,7 +88,7 @@ def test_delete_missing_schedule_item_404(api):
     assert r.status_code == 404 and r.json()["ok"] is False
 
 
-@pytest.mark.parametrize("path", ["/.git/config", "/backend/config/mission.json", "/backend/server.py", "/data/marsim.db",
+@pytest.mark.parametrize("path", ["/.git/config", "/backend/config/missions/mount-sharp.json", "/backend/server.py", "/data/marsim.db",
                                   "/missions/current/..%2F..%2F..%2Fbackend%2Fserver.py"])
 def test_project_files_not_served(api, path):
     assert api.get(path).status_code == 404
@@ -98,3 +98,25 @@ def test_project_files_not_served(api, path):
                                   "/vendor/fonts/fonts.css", "/missions/current/mission.json"])
 def test_ui_files_served(api, path):
     assert api.get(path).status_code == 200
+
+
+def test_missions_list_and_switch(api):
+    r = api.get("/api/missions").json()
+    ids = [m["id"] for m in r["missions"]]
+    assert r["active"] == "mount-sharp" and {"mount-sharp", "jezero"} <= set(ids)
+    assert api.post("/api/missions/select", json={"id": "jezero"}).json()["active"] == "jezero"
+    assert api.get("/api/health").json()["mission"] == "jezero"
+    m = api.get("/missions/current/mission.json").json()
+    assert m["mission"]["id"] == "jezero" and m["area"]["center"]["lat"] > 18
+    plan = api.post("/api/plan", json={})
+    assert plan.status_code == 200 and plan.json()["lengthM"] > 500
+    assert api.get("/api/report").json()["ok"]
+    # osobna baza na misję: harmonogram Jezero nie miesza się z Mount Sharp
+    api.post("/api/schedule", json={"id": "JZ-1", "sol": 213, "startLtst": "10:00", "durationH": 2, "crew": ["EV1"]})
+    api.post("/api/missions/select", json={"id": "mount-sharp"})
+    assert "JZ-1" not in [i["id"] for i in api.get("/api/schedule").json()["items"]]
+
+
+@pytest.mark.parametrize("body,code", [({"id": "olympus"}, 404), ({"id": "../x"}, 422), ({}, 422)])
+def test_mission_select_rejects_bad_ids(api, body, code):
+    assert api.post("/api/missions/select", json=body).status_code == code

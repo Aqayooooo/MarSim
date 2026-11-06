@@ -1,0 +1,134 @@
+{
+  "id": "jezero",
+  "title": "EVA-1 · dno krateru Jezero przy miejscu lądowania Perseverance",
+  "areaLabel": "JEZERO · LĄDOWISKO PERSEVERANCE · HiRISE",
+  "label": {
+    "pl": "Krater Jezero · lądowisko Perseverance",
+    "en": "Jezero crater · Perseverance landing site"
+  },
+  "aoi": {
+    "centerLon": 77.4508,
+    "centerLat": 18.4447,
+    "widthM": 1440,
+    "heightM": 960
+  },
+  "missionDateUtc": "2037-03-15T00:00:00Z",
+  "sol": 212,
+  "startLtst": "09:30",
+  "habitat": {
+    "x": 1130.5,
+    "y": 590.5,
+    "mastM": 10
+  },
+  "rover": {
+    "x": 1060.5,
+    "y": 520.5,
+    "speedKmh": 12,
+    "mastM": 3
+  },
+  "waypoints": [
+    {
+      "id": "WP1",
+      "x": 814.5,
+      "y": 814.5,
+      "stopMin": 15,
+      "target": null
+    },
+    {
+      "id": "WP2",
+      "x": 1261.5,
+      "y": 157.5,
+      "stopMin": 15,
+      "target": "punkt obserwacyjny nad polem zmarszczek piaskowych"
+    }
+  ],
+  "crew": [
+    {
+      "id": "EV1",
+      "bodyKg": 78,
+      "loadKg": 125,
+      "o2CapacityL": 520,
+      "batteryWh": 1100,
+      "co2CapacityL": 600,
+      "priorDoseMsv": 182
+    },
+    {
+      "id": "EV2",
+      "bodyKg": 66,
+      "loadKg": 120,
+      "o2CapacityL": 520,
+      "batteryWh": 1100,
+      "co2CapacityL": 600,
+      "priorDoseMsv": 240
+    }
+  ],
+  "eva": {
+    "walkKmh": 2.5,
+    "maxSlopeDeg": 25,
+    "cautionSlopeDeg": 18,
+    "o2ReservePct": 20,
+    "sigmaZMinM": 0.2,
+    "shelterMin": 15,
+    "shelterRadiusM": 400,
+    "rxHeightM": 1.8
+  },
+  "habitatStores": {
+    "o2TanksL": 6000,
+    "batteriesWh": 12000,
+    "waterL": 300
+  },
+  "uwbBeacons": [
+    {
+      "id": "B1",
+      "x": 1130,
+      "y": 590
+    },
+    {
+      "id": "B2",
+      "x": 1060,
+      "y": 520
+    },
+    {
+      "id": "B3",
+      "x": 908,
+      "y": 680
+    },
+    {
+      "id": "B4",
+      "x": 866,
+      "y": 722
+    },
+    {
+      "id": "B5",
+      "x": 1090,
+      "y": 490
+    },
+    {
+      "id": "B6",
+      "x": 1222,
+      "y": 278
+    }
+  ],
+  "products": {
+    "dtm": "DTEEC_045994_1985_046060_1985_U01",
+    "image": "ESP_045994_1985",
+    "pair": "ESP_046060_1985",
+    "orthoA": "ESP_045994_1985_RED_A_01_ORTHO",
+    "orthoC": "ESP_045994_1985_RED_C_01_ORTHO",
+    "crism": "FRT00005C5E_07_SU166J_MTR3"
+  },
+  "extra": {
+    "themis": {
+      "id": "THEMIS_NightIR_ControlledMosaic_SyrtisMajor_00N45E_100mpp",
+      "instrument": "Mars Odyssey THEMIS",
+      "description": "Kontrolowana mozaika THEMIS w podczerwieni nocnej, 100 m/px (USGS, 2015) — jakościowa bezwładność termiczna",
+      "path": "Mars/THEMIS_controlled_mosaics/SyrtisMajor_NightIR_30April2015/THEMIS_NightIR_ControlledMosaic_SyrtisMajor_00N45E_100mpp.tif"
+    },
+    "ctx": {
+      "id": "Jezero_CTX_BlockAdj_dd",
+      "instrument": "MRO CTX",
+      "description": "Mozaika CTX krateru Jezero (USGS, strefy eksploracji dla ludzi), ~5 m/px — kontrola spójności zdjęcia",
+      "path": "Mars/CTX_EZs/Jezero_CTX_BlockAdj_dd.tif"
+    }
+  }
+}

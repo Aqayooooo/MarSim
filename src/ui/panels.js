@@ -12,6 +12,8 @@ export class Panels {
     this.app = app;
     const m = app.m;
     setText($('missionTitle'), tx(m.mission.title));
+    $('missionTitle').title = tx(m.mission.title);
+    $('sourceLabel').title = tx(m.mission.sourceLabel);
     setText($('sourceLabel'), tx(m.mission.sourceLabel));
     setText($('locLabel'), tx(m.area.label));
     this.#buildLayers();

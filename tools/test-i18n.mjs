@@ -26,7 +26,7 @@ for (const f of ['src/main.js', 'src/app.js', 'src/demo.js', 'src/ui/panels.js',
 
 // teksty z danych misji
 const polish = /[ąćęłńóśźż]/i;
-for (const f of ['data/missions/mount-sharp/mission.json', 'data/demo/mission.json']) {
+for (const f of ['data/missions/mount-sharp/mission.json', 'data/missions/jezero/mission.json', 'data/demo/mission.json']) {
   const m = JSON.parse(readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'));
   const texts = [m.mission.title, m.mission.sourceLabel, m.area.label, ...m.layers.flatMap((l) => [l.name, l.desc, ...(l.legend || []).map((e) => e.text)]),
     ...(m.events || []).flatMap((e) => [e.alert?.category, e.alert?.text?.replace('{dist}', '120'), e.source])].filter(Boolean);

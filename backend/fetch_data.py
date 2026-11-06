@@ -1,12 +1,15 @@
-"""Pobiera produkty NASA z backend/sources.json do data/raw/ (wznawianie, SHA-256).
+"""Pobiera produkty NASA z backend/sources/<misja>.json do data/raw/ (wznawianie, SHA-256).
 
-    python backend/fetch_data.py            # pobierz brakujące
-    python backend/fetch_data.py --check    # pokaż stan i sumy kontrolne
+    python backend/fetch_data.py                     # pobierz brakujące (misja domyślna)
+    python backend/fetch_data.py --mission jezero    # inna misja
+    python backend/fetch_data.py --check             # pokaż stan i sumy kontrolne
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import subprocess
 import sys
 import time
 import urllib.request
@@ -15,9 +18,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 from backend.paths import RAW  # noqa: E402  (D:/MarSim-data/raw albo ./data/raw)
+from backend import missions  # noqa: E402
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-SOURCES = json.loads((Path(__file__).parent / "sources.json").read_text(encoding="utf-8"))
 
 
 def sha256(p: Path) -> str:
@@ -36,6 +39,19 @@ def remote_size(url: str) -> int | None:
 
 
 def download(url: str, dest: Path) -> None:
+    """Pobiera z wznawianiem. curl (wbudowany w Windows 10+, macOS, Linux) jest wielokrotnie szybszy niż urllib."""
+    curl = shutil.which("curl")
+    if curl:
+        tmp = dest.with_suffix(dest.suffix + ".part")
+        r = subprocess.run([curl, "-fL", "--retry", "10", "--retry-delay", "3", "-C", "-", "-o", str(tmp), url])
+        if r.returncode == 0:
+            tmp.replace(dest)
+            return
+        print(f"  curl zakończył się kodem {r.returncode}; próbuję urllib", flush=True)
+    download_urllib(url, dest)
+
+
+def download_urllib(url: str, dest: Path) -> None:
     total = remote_size(url)
     tmp = dest.with_suffix(dest.suffix + ".part")
     for attempt in range(20):
@@ -64,6 +80,9 @@ def download(url: str, dest: Path) -> None:
 
 def main() -> int:
     RAW.mkdir(parents=True, exist_ok=True)
+    mission = missions.from_argv()
+    SOURCES = missions.sources(mission)
+    print(f"Misja: {mission}")
     check = "--check" in sys.argv
     manifest = {}
     for p in SOURCES["products"]:
@@ -82,7 +101,7 @@ def main() -> int:
         digest = sha256(dest)
         manifest[p["id"]] = {"url": p["url"], "file": str(dest), "bytes": dest.stat().st_size, "sha256": digest}
         print(f"[OK]    {p['id']}  {dest.stat().st_size:>11} B  sha256 {digest[:16]}…")
-    (RAW / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (RAW / f"manifest-{mission}.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return 0
 
 

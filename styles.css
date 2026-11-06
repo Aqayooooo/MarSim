@@ -213,3 +213,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .seg.lang button { padding: 6px 7px; }
 .wpview .note { font-size: 11px; color: var(--text2); padding: 4px 2px 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* wybór misji */
+.missionSel { margin-left: 16px; max-width: 230px; background: #0d0905; color: var(--text); border: 1px solid #2a2117; border-radius: 7px;
+  padding: 5px 8px; font: 600 12px var(--mono); }
+/* nagłówek z wyborem misji: tytuł skraca się, przyciski się nie łamią */
+h1.title { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.controls { flex: none; }
+.controls button, .seg button { white-space: nowrap; }
+.src { flex: 0 1 auto; min-width: 0; max-width: 190px; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }

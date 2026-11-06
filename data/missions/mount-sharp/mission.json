@@ -4,6 +4,10 @@
   "mission": {
     "id": "mount-sharp",
     "title": "EVA-1 · trawers przez wydmy Bagnold · krater Gale",
+    "label": {
+      "pl": "Krater Gale · wydmy Bagnold",
+      "en": "Gale crater · Bagnold dunes"
+    },
     "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA, CRISM",
     "sol": 147,
     "startClock": "09:20",
@@ -155,7 +159,7 @@
         "classes": {
           "1": {
             "color": "#7CC36E",
-            "text": "oliwin wyraźny (piasek bazaltowy)"
+            "text": "oliwin wyraźny (bazalt lub piasek bazaltowy)"
           },
           "2": {
             "color": "#3E7A4B",
@@ -174,7 +178,7 @@
       "legend": [
         {
           "color": "#7CC36E",
-          "text": "oliwin wyraźny (piasek bazaltowy)"
+          "text": "oliwin wyraźny (bazalt lub piasek bazaltowy)"
         },
         {
           "color": "#3E7A4B",

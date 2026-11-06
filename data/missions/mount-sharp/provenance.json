@@ -1,6 +1,6 @@
 {
   "pipelineVersion": "1.1.0",
-  "builtUtc": "2026-11-06T18:50:48+00:00",
+  "builtUtc": "2026-11-06T20:53:51+00:00",
   "crs": "PROJCRS[\"EQUIRECTANGULAR MARS\",BASEGEOGCRS[\"GCS_MARS\",DATUM[\"D_MARS\",ELLIPSOID[\"MARS_localRadius\",3396190,0,LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]]],PRIMEM[\"Reference_Meridian\",0,ANGLEUNIT[\"degree\",0.0174532925199433,ID[\"EPSG\",9122]]]],CONVERSION[\"unnamed\",METHOD[\"Equidistant Cylindrical (Spherical)\",ID[\"EPSG\",1029]],PARAMETER[\"Latitude of 1st standard parallel\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Longitude of natural origin\",137.39,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"False easting\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"easting\",east,ORDER[1],LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]],AXIS[\"northing\",north,ORDER[2],LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]]]",
   "area": {
     "widthM": 1440,
@@ -151,7 +151,7 @@
     "hazard": "zakaz: nachylenie+2σ > 25° lub piasek > 0,6 lub głaz (H≥0,5 m); uwaga: nachylenie+2σ > 18°, piasek > 0,35, nierówności > 0,5 m, > 1 głaz/100 m²",
     "comms": "linia widoczności z masztu habitatu 10 m do odbiornika 1.8 m nad gruntem",
     "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST",
-    "minerals": "CRISM MTRDR, parametry Viviano-Beck i in. (2014); klasy: 1: oliwin wyraźny (piasek bazaltowy) (OLINDEX3 > 0,08); 2: oliwin słaby / materiał mieszany (0,05 < OLINDEX3 ≤ 0,08); 3: piroksen (max(LCPINDEX2, HCPINDEX2) > 0,01); 4: uwodnienie / siarczany (słaby sygnał) (BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02); 5: krzemiany warstwowe Fe/Mg (D2300 > 0,01). Warstwa informacyjna — nie zmienia mapy zagrożeń."
+    "minerals": "CRISM MTRDR, parametry Viviano-Beck i in. (2014); klasy: 1: oliwin wyraźny (bazalt lub piasek bazaltowy) (OLINDEX3 > 0,08); 2: oliwin słaby / materiał mieszany (0,05 < OLINDEX3 ≤ 0,08); 3: piroksen (max(LCPINDEX2, HCPINDEX2) > 0,01); 4: uwodnienie / siarczany (słaby sygnał) (BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02); 5: krzemiany warstwowe Fe/Mg (D2300 > 0,01). Warstwa informacyjna — nie zmienia mapy zagrożeń."
   },
   "checks": {
     "dtmMinusMolaM": 11.3,
@@ -268,6 +268,8 @@
     "comms.png": "324a4662647fb2cceb0dbe8ca17cd96c33334807e329c3f0ad3ae4f79e9d2a1f",
     "dem.f32": "18c36b96ef0fd93f20f158c2a95b20d6466dbc0cbc7bd59b8aa877f2082f78d9",
     "hazards.png": "a7a235b48eec157dbd28b71f00d0670afd40feb9e8248ee186fd5430793eb18e",
+    "minerals.png": "85e621acd064ed37e56b741b0138984175e16491c4a5abf29a55e31d434f8b56",
+    "mineralsConfidence.png": "41c693f80d8dd35444ed1c366152a992eca353d5336d227f0123d48c6f2bc19a",
     "o2ToHabitat.f32": "9a0253d3b68713d305209a76680acde2ab74e089b4332258fe295e4aa320552e",
     "optical.png": "748265a45172fd13ed76efeeddd8d05b0b9576b06e99a58a6e4d575aae2d4b81",
     "sand.png": "17cdcde829714fda06aeb8edbeba45af866f7b80d555d837d3177100acd1a54f",
@@ -288,8 +290,6 @@
     "slope.f32": "c8c3435c0af046edc3a3a1df7397c940cd0e1cada73e76c72a16f9e79e089fae",
     "slopeSigma.f32": "79a76ed8b1cc75753023325fa77539bf4a16ef5e61e5dfa8ae4e0c032095ea12",
     "thermal.png": "01642ab71713f0b858e702d8b1c437b8f9aad179d55ce4bc4e64a81cf0301d47",
-    "timeToHabitat.f32": "ac2fcf04e7c176c2617a74d0b3cf963fc3a3b088668e4796a8725f8904f57bc0",
-    "minerals.png": "85e621acd064ed37e56b741b0138984175e16491c4a5abf29a55e31d434f8b56",
-    "mineralsConfidence.png": "41c693f80d8dd35444ed1c366152a992eca353d5336d227f0123d48c6f2bc19a"
+    "timeToHabitat.f32": "ac2fcf04e7c176c2617a74d0b3cf963fc3a3b088668e4796a8725f8904f57bc0"
   }
 }

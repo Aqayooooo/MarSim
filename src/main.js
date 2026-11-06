@@ -19,6 +19,7 @@ document.querySelectorAll('#langSeg button').forEach((b) => {
 });
 const q = new URLSearchParams(location.search);
 const api = q.has('data') ? null : await detectBackend(q.get('api'));
+if (api !== null) setupMissions(api);
 const ds = createDataSource({ mode: api !== null ? 'http' : 'files', base: q.get('data') || 'data/demo', api: api ?? '' });
 
 let world;
@@ -56,6 +57,27 @@ import('./ui/view3d.js').then(({ View3D }) => {
   document.querySelectorAll('#viewSeg button').forEach((b) => (b.disabled = false));
   if (['orbit', 'helmet'].includes(app.state.view)) view3d.setMode(app.state.view);
 }).catch((e) => console.error('3D view unavailable / widok 3D niedostępny:', e));
+
+// ---------- wybór misji (tylko z backendem) ----------
+async function setupMissions(base) {
+  try {
+    const r = await (await fetch(`${base}/api/missions`, { cache: 'no-store' })).json();
+    const sel = $('missionSel');
+    if (!r.missions || r.missions.length < 2) return;
+    sel.innerHTML = '';
+    for (const m of r.missions) {
+      const o = document.createElement('option');
+      o.value = m.id; o.textContent = m.label?.[lang] || m.id; o.selected = m.id === r.active;
+      sel.appendChild(o);
+    }
+    sel.hidden = false;
+    sel.addEventListener('change', async () => {
+      sel.disabled = true;
+      const res = await fetch(`${base}/api/missions/select`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: sel.value }) });
+      if (res.ok) location.reload(); else { sel.disabled = false; alert(t('mission.error')); }
+    });
+  } catch { /* brak listy misji — zostaje jedna */ }
+}
 
 // ---------- widoki ----------
 $('viewSeg').addEventListener('click', (e) => {

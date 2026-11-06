@@ -2,13 +2,15 @@
 
 ## Stan na 2026-11-06
 
-- Obszar: wydmy Bagnold u podnóża Mount Sharp (krater Gale), środek 4,6735° S, 137,3762° E, wycinek 1440 × 960 m.
+- Obszary (wycinki 1440 × 960 m):
+  - wydmy Bagnold u podnóża Mount Sharp, krater Gale (4,6735° S, 137,3762° E);
+  - krater Jezero przy lądowisku Perseverance (18,4447° N, 77,4508° E).
 - Dane: DTM HiRISE DTEEC_040770_1755_039280_1755_U01, ortoobrazy ESP_039280_1755 (0,25 m i 1 m), THEMIS (podczerwień nocna, 100 m), CTX (Gale), MOLA,
   CRISM FRT0000C0EF (parametry mineralne, 18 m/px). Pełna lista: [data-sources.json](../data-sources.json).
 - Wyniki potoku: 649 kandydatów na głazy (155 pewnych), piasek ok. 48% obszaru, niepewność nachylenia (mediana) ±1,5°, DTM−MOLA 11,3 m,
   oliwin wyraźny na 18% obszaru i słaby na 54% (zgodnie z bazaltowym piaskiem wydm Bagnold).
 - Działa: backend, UI z backendem i bez, tryb offline, PL/EN, zapis w SQLite, walidacja API, 35 testów pytest + test planera + test tłumaczeń, CI.
-- Do zrobienia: drugi obszar (etap 10), GitHub Pages (etap 11), kalibracja modelu tlenu danymi z prawdziwego skafandra, walidacja głazów z obrazami z łazika.
+- Do zrobienia: GitHub Pages (etap 11), kalibracja modelu tlenu danymi z prawdziwego skafandra, walidacja głazów z obrazami z łazika.
 
 Dokument opisuje, **co** budujemy, **w jakiej kolejności** i **po czym poznać, że działa**.
 Każdy etap ma listę plików i test odbioru, więc pracę może podjąć ktokolwiek, na dowolnym komputerze (instrukcja w README).
@@ -36,7 +38,7 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
 
 ## Etap 1 ☑ Prawdziwe dane NASA
 
-- `backend/sources.json`: lista produktów z identyfikatorami PDS, adresem URL, wersją i datą pozyskania.
+- `backend/sources/<misja>.json`: lista produktów z identyfikatorami PDS, adresem URL, wersją i datą pozyskania.
   - HiRISE DTM (1 m/px, PDS `.IMG`) i ortoobraz (25 cm/px, `.JP2`) dla obszaru Mount Sharp (krater Gale).
   - CTX (6 m/px): kontekst wokół obszaru HiRISE.
   - THEMIS: bezwładność termiczna (~100 m/px).
@@ -134,10 +136,18 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
   Ograniczenie: ekran ma stały układ 1664×744 skalowany do okna (nie przebudowuje się na telefon); pełny audyt WCAG 2.1 nie był robiony.
 - Minerały z CRISM (`backend/pipeline/minerals.py`, `python backend/build.py --only-minerals`): warstwa informacyjna, nie zmienia trasy.
 
-## Etap 10 ☐ Drugi obszar (wiele misji)
+## Etap 10 ☑ Drugi obszar (wiele misji)
 
-- Konfiguracja na misję (`backend/config/missions/<id>.json`, własne `sources.json`), wybór misji w UI i w API.
-- Kandydat: krater Jezero (DTM HiRISE, CTX, THEMIS z innego kwadrantu, CRISM). Pobranie ok. 0,5 GB i przebudowa potoku.
+- Konfiguracja na misję: `backend/config/missions/<id>.json` (wycinek, habitat, łazik, punkty trasy, nadajniki, produkty NASA)
+  i `backend/sources/<id>.json` (produkty do pobrania). Skrypty: `--mission <id>`.
+- Jezero: DTM HiRISE DTEEC_045994_1985_046060_1985_U01, ortoobrazy ESP_045994_1985, THEMIS Syrtis Major, CTX Jezero, MOLA,
+  CRISM FRT00005C5E. Wyniki: 340 głazów (199 pewnych), oliwin wyraźny na 44% obszaru (zgodnie z formacją Séítah),
+  trasa 1,24 km / 1:15 h przez skaliste dno krateru, z WP2 na skraju pola zmarszczek piaskowych.
+- API: `GET /api/missions`, `POST /api/missions/select`; osobna baza SQLite na misję. W UI lista w nagłówku.
+- Poprawki potoku znalezione przy drugim obszarze: GDAL źle czyta odwzorowanie z nagłówka JP2 przy równoleżniku 15°
+  (ortoobrazy czytane w układzie DTM); zdalny odczyt fragmentu DTM bez trybu „boundless”, gdy okno mieści się w rastrze;
+  pamięć podręczna kroków osobno dla każdej misji. Mount Sharp po zmianach daje identyczne warstwy.
+- Nie sprawdzone w tej sesji: widok 3D i hełm dla Jezero, pełna prezentacja na Jezero.
 
 ## Etap 11 ☐ Wersja demo pod linkiem
 

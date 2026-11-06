@@ -27,7 +27,7 @@ export function setLang(l) {
 const UI = {
   pl: {
     'doc.title': 'MarSim · planowanie EVA na Marsie', 'skip': 'Przejdź do mapy', 'map.aria': 'Mapa obszaru EVA z warstwami danych i trasą',
-    'lang.label': 'Język',
+    'lang.label': 'Język', 'mission.label': 'Obszar misji', 'mission.error': 'Nie udało się przełączyć misji.',
     'view.aria': 'Widok',
     'view.map': 'Mapa 2D', 'view.orbit': '3D', 'view.helmet': 'Hełm EV1', 'view.device': 'Urządzenie', 'view.report': 'Raport', 'view.schedule': 'Plan wyjść',
     'eva.title': 'Wyznacz trasę i rozpocznij wyjście', 'eva.start': 'Start EVA', 'eva.pause': 'Pauza EVA', 'eva.resume': 'Wznów EVA',
@@ -100,7 +100,7 @@ const UI = {
   },
   en: {
     'doc.title': 'MarSim · Mars EVA planning', 'skip': 'Skip to map', 'map.aria': 'Map of the EVA area with data layers and route',
-    'lang.label': 'Language',
+    'lang.label': 'Language', 'mission.label': 'Mission area', 'mission.error': 'Could not switch the mission.',
     'view.aria': 'View',
     'view.map': '2D map', 'view.orbit': '3D', 'view.helmet': 'EV1 helmet', 'view.device': 'Device', 'view.report': 'Report', 'view.schedule': 'EVA plan',
     'eva.title': 'Plan the route and start the EVA', 'eva.start': 'Start EVA', 'eva.pause': 'Pause EVA', 'eva.resume': 'Resume EVA',
@@ -184,7 +184,7 @@ export function plural(n) {
 const EXACT = {
   // mission.json: warstwy, legenda, tytuły
   'Dane NASA: HiRISE, THEMIS, CTX, MOLA, CRISM': 'NASA data: HiRISE, THEMIS, CTX, MOLA, CRISM',
-  'oliwin wyraźny (piasek bazaltowy)': 'clear olivine (basaltic sand)', 'oliwin słaby / materiał mieszany': 'weak olivine / mixed material',
+  'oliwin wyraźny (bazalt lub piasek bazaltowy)': 'clear olivine (basalt or basaltic sand)', 'oliwin słaby / materiał mieszany': 'weak olivine / mixed material',
   'piroksen': 'pyroxene', 'uwodnienie / siarczany (słaby sygnał)': 'hydration / sulfates (weak signal)', 'krzemiany warstwowe Fe/Mg': 'Fe/Mg phyllosilicates',
   'minerały: oliwin, piroksen, uwodnienie, siarczany': 'minerals: olivine, pyroxene, hydration, sulfates',
   'Optyczna': 'Optical', 'Teren': 'Terrain', 'Termiczna': 'Thermal', 'Piasek': 'Sand', 'Głazy': 'Boulders', 'Zagrożenia': 'Hazards',
@@ -203,6 +203,9 @@ const EXACT = {
   'GALE · WYDMY BAGNOLD · HiRISE': 'GALE · BAGNOLD DUNES · HiRISE',
   'Render z DTM HiRISE · widok z hełmu': 'HiRISE DTM render · helmet view',
   'punkt obserwacyjny nad wydmami': 'the lookout above the dunes',
+  'EVA-1 · dno krateru Jezero przy miejscu lądowania Perseverance': 'EVA-1 · Jezero crater floor near the Perseverance landing site',
+  'JEZERO · LĄDOWISKO PERSEVERANCE · HiRISE': 'JEZERO · PERSEVERANCE LANDING SITE · HiRISE',
+  'punkt obserwacyjny nad polem zmarszczek piaskowych': 'the lookout above the sand ripple field',
   // dane przykładowe
   'Dane przykładowe (syntetyczne)': 'Sample data (synthetic)', 'HiRISE, grudzień 2006': 'HiRISE, December 2006', 'EVA-1 · trawers przez boxwork · krater Gale': 'EVA-1 · traverse across boxwork · Gale crater',
   'MT SHARP · BOXWORK · DEMO': 'MT SHARP · BOXWORK · DEMO', 'CRISM 18 m/px': 'CRISM 18 m/px', 'THEMIS 100 m/px': 'THEMIS 100 m/px', 'RAD + MAVEN': 'RAD + MAVEN',

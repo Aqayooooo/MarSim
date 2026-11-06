@@ -9,7 +9,8 @@ Parametry według Viviano-Beck i in. (2014), JGR Planets 119, „Revised CRISM s
 
 Progi są zachowawcze (szum CRISM przy 18 m/px to ok. 0,005–0,01). Warstwa jest informacyjna: NIE wpływa na mapę
 zagrożeń ani na trasę (piasek wykrywamy osobno, z 5 niezależnych wskaźników). Na wydmach Bagnold oczekiwany jest
-piasek bazaltowy bogaty w oliwin (Lapotre i in. 2017), więc OLINDEX3 jest tu głównym sygnałem.
+piasek bazaltowy bogaty w oliwin (Lapotre i in. 2017), a na dnie krateru Jezero skały bogate w oliwin (formacja Séítah,
+Liu i in. 2022), więc OLINDEX3 jest w obu obszarach głównym sygnałem.
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ PARAMS = ["OLINDEX3", "LCPINDEX2", "HCPINDEX2", "BD1900_2", "SINDEX2", "BD2100_2
 
 # klasa: (warunek opisany w provenance, kolor, opis PL)
 CLASSES = {
-    1: {"color": "#7CC36E", "text": "oliwin wyraźny (piasek bazaltowy)", "rule": "OLINDEX3 > 0,08"},
+    1: {"color": "#7CC36E", "text": "oliwin wyraźny (bazalt lub piasek bazaltowy)", "rule": "OLINDEX3 > 0,08"},
     2: {"color": "#3E7A4B", "text": "oliwin słaby / materiał mieszany", "rule": "0,05 < OLINDEX3 ≤ 0,08"},
     3: {"color": "#C9A3FF", "text": "piroksen", "rule": "max(LCPINDEX2, HCPINDEX2) > 0,01"},
     4: {"color": "#31D7B6", "text": "uwodnienie / siarczany (słaby sygnał)", "rule": "BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02"},

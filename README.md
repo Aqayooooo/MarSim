@@ -5,7 +5,9 @@ Projekt na **NASA Space Apps Challenge 2026** (wydarzenie lokalne: Stalowa Wola)
 
 MarSim pokazuje teren z prawdziwych danych NASA i wyznacza bezpieczną trasę pieszą. W czasie wyjścia śledzi załogę: pozycję, tlen i zapas na powrót do habitatu. Reaguje na zagrożenia (głazy, burza słoneczna), a trasę można przejść w 3D z perspektywy hełmu.
 
-- **Obszar:** wydmy Bagnold u podnóża Mount Sharp, krater Gale (4,67° S, 137,38° E), wycinek 1440 × 960 m.
+- **Dwa obszary misji** (przełącznik w nagłówku), każdy to wycinek 1440 × 960 m:
+  - krater Gale, wydmy Bagnold u podnóża Mount Sharp (4,67° S, 137,38° E);
+  - krater Jezero, okolica lądowiska łazika Perseverance (18,44° N, 77,45° E).
 - **Dane:** HiRISE (DTM 1 m i zdjęcia 0,25 m), CTX, THEMIS, MOLA, CRISM, NASA DONKI, NOAA SWPC. Pełna lista z adresami i sumami SHA-256 jest w [data-sources.json](data-sources.json).
 - **Bez uczenia maszynowego w produkcie.** Głazy wykrywa geometria cieni, piasek pięć wskaźników fizycznych, minerały parametry spektralne CRISM, a trasę algorytm A* z modelem wysiłku.
 
@@ -39,16 +41,18 @@ docker run --rm -p 8000:8000 -v marsim-data:/data marsim
 
 ### Przebudowa danych NASA (opcjonalnie)
 
-Gotowe pliki misji są w `data/missions/mount-sharp/`. Surowe produkty (ok. 0,5 GB) trafiają poza repozytorium. Katalog wskazuje zmienna `MARSIM_DATA` albo plik `backend/config/paths.local.json`, np. `{ "dataDir": "D:/MarSim-data" }`.
+Gotowe pliki misji są w `data/missions/<misja>/` (`mount-sharp`, `jezero`). Surowe produkty (ok. 0,5 GB na misję) trafiają poza repozytorium. Katalog wskazuje zmienna `MARSIM_DATA` albo plik `backend/config/paths.local.json`, np. `{ "dataDir": "D:/MarSim-data" }`.
 
 ```
-python backend/fetch_data.py          # pobiera brakujące produkty, liczy SHA-256
-python backend/build.py               # pełny potok → data/missions/mount-sharp
-python backend/build.py --only-minerals   # tylko warstwa CRISM
+python backend/fetch_data.py --mission jezero    # pobiera brakujące produkty, liczy SHA-256
+python backend/build.py --mission jezero         # pełny potok → data/missions/jezero
+python backend/build.py --mission jezero --only-minerals   # tylko warstwa CRISM
+python tools/make_data_sources.py                # odświeża data-sources.json
 ```
 
 ## Obsługa
 
+- **Obszar misji**: lista w nagłówku (Gale / Jezero). Każdy obszar ma osobną bazę (dziennik, zgłoszenia, harmonogram).
 - **PL / EN**: przełącznik w nagłówku (albo `?lang=en` w adresie).
 - **Warstwy**: kliknięcie albo spacja na wierszu w lewym panelu.
 - **Mapa 2D / 3D / Hełm EV1 / Urządzenie / Raport / Plan wyjść**: zakładki w nagłówku.
@@ -66,20 +70,22 @@ src/                       interfejs (moduły ES, bez kompilacji)
   ui/                      mapa 2D, 3D i hełm, panele, raport, harmonogram
 vendor/                    three.js 0.160.0 i czcionki (offline)
 backend/
-  server.py                API (FastAPI) + walidacja pydantic
+  server.py                API (FastAPI) + walidacja pydantic, wiele misji (/api/missions)
+  config/missions/<id>.json  konfiguracja obszaru: wycinek, habitat, trasa, załoga, produkty NASA
+  sources/<id>.json        produkty NASA do pobrania dla obszaru
   live/                    silnik EVA, SQLite (store.py), raport, harmonogram, DTN, pogoda kosmiczna
   pipeline/                teren, głazy, piasek, minerały (CRISM), środowisko
   build.py, fetch_data.py  potok danych NASA
-data/missions/mount-sharp/ gotowe warstwy misji + provenance.json (pochodzenie i sumy kontrolne)
+data/missions/<id>/        gotowe warstwy misji + provenance.json (pochodzenie i sumy kontrolne)
 data/demo/                 dane syntetyczne (tryb bez backendu)
 data-sources.json          wykaz użytych danych
 docs/                      plan, kontrakt danych, bezpieczeństwo
 ```
 
-**Zapis stanu.** Dziennik zdarzeń, zgłoszenia z terenu i harmonogram trafiają do bazy SQLite `marsim.db` w katalogu danych i przetrwają restart. Przebieg symulacji EVA po restarcie zaczyna się od nowa, a historia zostaje w dzienniku (`GET /api/log`).
+**Zapis stanu.** Dziennik zdarzeń, zgłoszenia z terenu i harmonogram trafiają do bazy SQLite `marsim-<misja>.db` w katalogu danych i przetrwają restart. Przebieg symulacji EVA po restarcie zaczyna się od nowa, a historia zostaje w dzienniku (`GET /api/log`).
 
 **Testy.**
-- `python -m pytest backend/tests` (35 testów: potok, API, walidacja, zapis po restarcie);
+- `python -m pytest backend/tests` (39 testów: potok, API, walidacja, zapis po restarcie, przełączanie misji);
 - `node tools/test-planner.mjs`;
 - `node tools/test-i18n.mjs`.
 
@@ -94,7 +100,8 @@ Uruchamia je też CI (`.github/workflows/ci.yml`).
 - Wykrywanie głazów widzi obiekty od ok. 1 m. Mniejsze kamienie nie są widoczne z orbity.
 - Brak logowania i ról. Serwer domyślnie słucha tylko lokalnie. Szczegóły: [docs/BEZPIECZENSTWO.md](docs/BEZPIECZENSTWO.md).
 - Układ ekranu jest stały (skalowany), nie przebudowuje się na telefon. Dostępność poprawiona, ale bez pełnego audytu WCAG.
-- Jeden obszar misji. Drugi obszar i wersja pod linkiem (GitHub Pages) są w planie: [docs/PLAN.md](docs/PLAN.md).
+- Wersja pod linkiem (GitHub Pages) jest w planie: [docs/PLAN.md](docs/PLAN.md).
+- Mapa piasku i zagrożeń jest względna dla wycinka (wskaźniki porównują miejsca w obrębie obszaru), więc procent „piasku” w różnych obszarach nie jest bezpośrednio porównywalny.
 
 ## Dokumenty
 
@@ -112,7 +119,7 @@ Dane: NASA/JPL-Caltech/University of Arizona (HiRISE), NASA/JPL/MSSS (CTX), NASA
 
 ## English summary
 
-**MarSim** is a map and EVA planner for astronauts on Mars, built for NASA Space Apps Challenge 2026. It uses real NASA data for the Bagnold dunes in Gale crater:
+**MarSim** is a map and EVA planner for astronauts on Mars, built for NASA Space Apps Challenge 2026. It uses real NASA data for two areas, the Bagnold dunes in Gale crater and the Perseverance landing site in Jezero crater:
 - HiRISE DTM and orthoimages, CTX, THEMIS, MOLA and CRISM;
 - live DONKI and NOAA space weather.
 

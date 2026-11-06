@@ -1,0 +1,547 @@
+{
+  "contractVersion": 2,
+  "synthetic": false,
+  "mission": {
+    "id": "jezero",
+    "title": "EVA-1 · dno krateru Jezero przy miejscu lądowania Perseverance",
+    "label": {
+      "pl": "Krater Jezero · lądowisko Perseverance",
+      "en": "Jezero crater · Perseverance landing site"
+    },
+    "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA, CRISM",
+    "sol": 212,
+    "startClock": "09:30",
+    "dateUtc": "2037-03-15T00:00:00Z"
+  },
+  "area": {
+    "label": "JEZERO · LĄDOWISKO PERSEVERANCE · HiRISE",
+    "widthM": 1440,
+    "heightM": 960,
+    "center": {
+      "lat": 18.4447,
+      "lon": 77.4508
+    },
+    "corners": {
+      "nw": [
+        77.43821966911506,
+        18.452801111003353
+      ],
+      "ne": [
+        77.46338033088495,
+        18.452801111003353
+      ],
+      "sw": [
+        77.43821966911506,
+        18.436598888996645
+      ],
+      "se": [
+        77.46338033088495,
+        18.436598888996645
+      ]
+    }
+  },
+  "dem": {
+    "file": "dem.f32",
+    "encoding": "float32le",
+    "width": 480,
+    "height": 320,
+    "cellM": 3.0,
+    "unit": "m",
+    "source": "DTEEC_045994_1985_046060_1985_U01",
+    "year": "2016",
+    "sigmaZM": 0.2
+  },
+  "rasters": {
+    "slope": {
+      "file": "slope.f32",
+      "encoding": "float32le",
+      "width": 480,
+      "height": 320,
+      "cellM": 3.0,
+      "unit": "°"
+    },
+    "slopeSigma": {
+      "file": "slopeSigma.f32",
+      "encoding": "float32le",
+      "width": 480,
+      "height": 320,
+      "cellM": 3.0,
+      "unit": "°"
+    },
+    "o2ToHabitat": {
+      "file": "o2ToHabitat.f32",
+      "encoding": "float32le",
+      "width": 480,
+      "height": 320,
+      "cellM": 3.0,
+      "unit": "L"
+    },
+    "timeToHabitat": {
+      "file": "timeToHabitat.f32",
+      "encoding": "float32le",
+      "width": 480,
+      "height": 320,
+      "cellM": 3.0,
+      "unit": "s"
+    }
+  },
+  "layers": [
+    {
+      "id": "optical",
+      "name": "Optyczna",
+      "desc": "HiRISE 25 cm/px",
+      "colorOff": "#45403F",
+      "colorOn": "#9F9F9E",
+      "raster": {
+        "file": "optical.png",
+        "encoding": "png-gray8",
+        "width": 1440,
+        "height": 960,
+        "cellM": 1
+      },
+      "legend": [
+        {
+          "color": "#9F9F9E",
+          "text": "HiRISE ESP_045994_1985, 2016"
+        }
+      ]
+    },
+    {
+      "id": "terrain",
+      "name": "Teren",
+      "desc": "nachylenie ±2° z DTM",
+      "colorOff": "#65615B",
+      "colorOn": "#F8F0E2",
+      "derivedFrom": "slope",
+      "legend": [
+        {
+          "color": "#F8F0E2",
+          "text": "jaśniej = bardziej stromo"
+        }
+      ]
+    },
+    {
+      "id": "thermal",
+      "name": "Termiczna",
+      "desc": "THEMIS noc 100 m/px",
+      "colorOff": "#1C4753",
+      "colorOn": "#3AAFD7",
+      "raster": {
+        "file": "thermal.png",
+        "encoding": "png-gray8",
+        "width": 14,
+        "height": 10,
+        "cellM": 100
+      },
+      "legend": [
+        {
+          "color": "#20469C",
+          "text": "chłodno nocą: luźny materiał"
+        },
+        {
+          "color": "#ED5F26",
+          "text": "ciepło nocą: lita skała"
+        }
+      ]
+    },
+    {
+      "id": "minerals",
+      "name": "Minerały",
+      "desc": "CRISM 18 m/px",
+      "colorOff": "#2f4a2a",
+      "colorOn": "#7CC36E",
+      "raster": {
+        "file": "minerals.png",
+        "encoding": "png-class8",
+        "width": 80,
+        "height": 53,
+        "cellM": 18,
+        "classes": {
+          "1": {
+            "color": "#7CC36E",
+            "text": "oliwin wyraźny (bazalt lub piasek bazaltowy)"
+          },
+          "2": {
+            "color": "#3E7A4B",
+            "text": "oliwin słaby / materiał mieszany"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#7CC36E",
+          "text": "oliwin wyraźny (bazalt lub piasek bazaltowy)"
+        },
+        {
+          "color": "#3E7A4B",
+          "text": "oliwin słaby / materiał mieszany"
+        }
+      ]
+    },
+    {
+      "id": "sand",
+      "name": "Piasek",
+      "desc": "5 wskaźników, bez AI",
+      "colorOff": "#5a4a1c",
+      "colorOn": "#E8B13A",
+      "raster": {
+        "file": "sand.png",
+        "encoding": "png-gray8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0
+      },
+      "confidence": {
+        "file": "sandConfidence.png",
+        "encoding": "png-gray8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0
+      },
+      "legend": [
+        {
+          "color": "#E8B13A",
+          "text": "prawdopodobieństwo piasku"
+        },
+        {
+          "color": "#7a6a50",
+          "text": "kreskowanie: niska pewność"
+        }
+      ]
+    },
+    {
+      "id": "boulders",
+      "name": "Głazy",
+      "desc": "metoda cieni, ≥1 m",
+      "colorOff": "#5b3f2a",
+      "colorOn": "#E6BE79",
+      "vector": {
+        "file": "boulders.json"
+      },
+      "legend": [
+        {
+          "color": "#E6BE79",
+          "text": "głaz (średnica w skali)"
+        },
+        {
+          "color": "#8a7660",
+          "text": "niska pewność wykrycia"
+        }
+      ]
+    },
+    {
+      "id": "hazards",
+      "name": "Zagrożenia",
+      "desc": "nachylenie+2σ, piasek, głazy",
+      "colorOff": "#691C0B",
+      "colorOn": "#FF441F",
+      "raster": {
+        "file": "hazards.png",
+        "encoding": "png-class8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0,
+        "classes": {
+          "1": {
+            "color": "#FFBD33",
+            "text": "uwaga"
+          },
+          "2": {
+            "color": "#FD4420",
+            "text": "zakaz"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#FD4420",
+          "text": "zakaz: piasek, stromo, głazy"
+        },
+        {
+          "color": "#FFBD33",
+          "text": "uwaga: nierówno"
+        }
+      ]
+    },
+    {
+      "id": "comms",
+      "name": "Łączność",
+      "desc": "z habitatu, maszt 10 m",
+      "colorOff": "#2d4a3a",
+      "colorOn": "#5FE0A0",
+      "raster": {
+        "file": "comms.png",
+        "encoding": "png-class8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0,
+        "classes": {
+          "0": {
+            "color": "#C0392B",
+            "text": "brak zasięgu"
+          },
+          "1": {
+            "color": "#F1C40F",
+            "text": "zasięg na granicy"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#C0392B",
+          "text": "brak zasięgu radiowego"
+        },
+        {
+          "color": "#F1C40F",
+          "text": "zasięg na granicy"
+        }
+      ]
+    },
+    {
+      "id": "shadow",
+      "name": "Cień",
+      "desc": "o godzinie (suwak)",
+      "colorOff": "#3a3550",
+      "colorOn": "#8E7CC3",
+      "hourly": {
+        "pattern": "shadow_{HH}.png",
+        "hours": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0
+      },
+      "legend": [
+        {
+          "color": "#1a1630",
+          "text": "cień terenu o wybranej godzinie"
+        }
+      ]
+    },
+    {
+      "id": "sky",
+      "name": "Niebo",
+      "desc": "RAD + DONKI + NOAA",
+      "colorOff": "#475E61",
+      "colorOn": "#A7E9FB",
+      "legend": [
+        {
+          "color": "#A7E9FB",
+          "text": "wiatr z modelu, dawka z pomiaru RAD"
+        }
+      ]
+    }
+  ],
+  "habitat": {
+    "x": 1130.5,
+    "y": 590.5,
+    "mastM": 10
+  },
+  "rover": {
+    "x": 1060.5,
+    "y": 520.5,
+    "speedKmh": 12,
+    "mastM": 3
+  },
+  "waypoints": [
+    {
+      "id": "WP1",
+      "x": 814.5,
+      "y": 814.5,
+      "stopMin": 15,
+      "target": null,
+      "view": null
+    },
+    {
+      "id": "WP2",
+      "x": 1261.5,
+      "y": 157.5,
+      "stopMin": 15,
+      "target": "punkt obserwacyjny nad polem zmarszczek piaskowych",
+      "view": {
+        "source": "render",
+        "caption": "Render z DTM HiRISE · widok z hełmu"
+      }
+    }
+  ],
+  "crew": [
+    {
+      "id": "EV1",
+      "o2": 100,
+      "o2RatePctH": 12
+    },
+    {
+      "id": "EV2",
+      "o2": 100,
+      "o2RatePctH": 12
+    }
+  ],
+  "eva": {
+    "walkKmh": 2.5,
+    "maxSlopeDeg": 25,
+    "cautionSlopeDeg": 18,
+    "o2ReservePct": 20,
+    "sigmaZMinM": 0.2,
+    "shelterMin": 15,
+    "shelterRadiusM": 400,
+    "rxHeightM": 1.8,
+    "sepO2Factor": 1.25
+  },
+  "environment": {
+    "doseUsvh": 26.7,
+    "dustTau": 0.5,
+    "wind": {
+      "meanMs": 6,
+      "spreadMs": 1.5,
+      "fromDeg": 315
+    },
+    "temperature": [
+      [
+        "06:00",
+        -85
+      ],
+      [
+        "09:20",
+        -50
+      ],
+      [
+        "13:30",
+        -5
+      ],
+      [
+        "18:00",
+        -40
+      ]
+    ]
+  },
+  "sun": {
+    "missionDateUtc": "2037-03-15T00:00:00Z",
+    "ls": 180.93,
+    "declDeg": -0.399,
+    "rAu": 1.4643,
+    "sunsetLtst": 17.99,
+    "hours": [
+      {
+        "ltst": 6,
+        "elevDeg": -0.13,
+        "azDeg": 90.38,
+        "shadowFrac": 1.0
+      },
+      {
+        "ltst": 7,
+        "elevDeg": 14.08,
+        "azDeg": 95.23,
+        "shadowFrac": 0.001
+      },
+      {
+        "ltst": 8,
+        "elevDeg": 28.17,
+        "azDeg": 100.77,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 9,
+        "elevDeg": 41.96,
+        "azDeg": 108.04,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 10,
+        "elevDeg": 55.02,
+        "azDeg": 119.3,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 11,
+        "elevDeg": 66.08,
+        "azDeg": 140.34,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 12,
+        "elevDeg": 71.16,
+        "azDeg": 180.0,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 13,
+        "elevDeg": 66.08,
+        "azDeg": 219.66,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 14,
+        "elevDeg": 55.02,
+        "azDeg": 240.7,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 15,
+        "elevDeg": 41.96,
+        "azDeg": 251.96,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 16,
+        "elevDeg": 28.17,
+        "azDeg": 259.23,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 17,
+        "elevDeg": 14.08,
+        "azDeg": 264.77,
+        "shadowFrac": 0.001
+      },
+      {
+        "ltst": 18,
+        "elevDeg": -0.13,
+        "azDeg": 269.62,
+        "shadowFrac": 1.0
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "boulders",
+      "type": "obstacle",
+      "trigger": {
+        "afterWaypoint": "WP1",
+        "afterM": 40
+      },
+      "aheadM": 150,
+      "radiusM": 35,
+      "source": "zgłoszenie z terenu (dron)",
+      "alert": {
+        "category": "ZAGROŻENIE",
+        "text": "Dron: pole głazów na trasie, {dist} m przed nami"
+      }
+    },
+    {
+      "id": "sep",
+      "type": "space-weather",
+      "source": "DONKI",
+      "trigger": {
+        "afterEvent": "boulders",
+        "afterMin": 3
+      },
+      "alert": {
+        "category": "POGODA KOSMICZNA",
+        "text": "ostrzeżenie SEP · łazik jedzie do załogi"
+      }
+    }
+  ]
+}

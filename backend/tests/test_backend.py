@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT))
 from backend.models import orbits, physiology, radiation, sun  # noqa: E402
 from backend.pipeline import boulders, sand, terrain  # noqa: E402
 
-CFG = json.loads((ROOT / "backend" / "config" / "mission.json").read_text(encoding="utf-8"))
+CFG = json.loads((ROOT / "backend" / "config" / "missions" / "mount-sharp.json").read_text(encoding="utf-8"))
 MISSION = ROOT / "data" / "missions" / CFG["id"]
 
 

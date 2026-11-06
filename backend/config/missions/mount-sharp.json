@@ -1,0 +1,134 @@
+{
+  "id": "mount-sharp",
+  "title": "EVA-1 · trawers przez wydmy Bagnold · krater Gale",
+  "areaLabel": "GALE · WYDMY BAGNOLD · HiRISE",
+  "aoi": {
+    "centerLon": 137.37616,
+    "centerLat": -4.67346,
+    "widthM": 1440,
+    "heightM": 960
+  },
+  "missionDateUtc": "2037-01-10T00:00:00Z",
+  "sol": 147,
+  "startLtst": "09:20",
+  "habitat": {
+    "x": 220.5,
+    "y": 820.5,
+    "mastM": 10
+  },
+  "rover": {
+    "x": 301.5,
+    "y": 760.5,
+    "speedKmh": 12,
+    "mastM": 3
+  },
+  "waypoints": [
+    {
+      "id": "WP1",
+      "x": 643.5,
+      "y": 526.5,
+      "stopMin": 15,
+      "target": null
+    },
+    {
+      "id": "WP2",
+      "x": 778.5,
+      "y": 205.5,
+      "stopMin": 15,
+      "target": "punkt obserwacyjny nad wydmami"
+    }
+  ],
+  "crew": [
+    {
+      "id": "EV1",
+      "bodyKg": 78,
+      "loadKg": 125,
+      "o2CapacityL": 520,
+      "batteryWh": 1100,
+      "co2CapacityL": 600,
+      "priorDoseMsv": 182
+    },
+    {
+      "id": "EV2",
+      "bodyKg": 66,
+      "loadKg": 120,
+      "o2CapacityL": 520,
+      "batteryWh": 1100,
+      "co2CapacityL": 600,
+      "priorDoseMsv": 240
+    }
+  ],
+  "eva": {
+    "walkKmh": 2.5,
+    "maxSlopeDeg": 25,
+    "cautionSlopeDeg": 18,
+    "o2ReservePct": 20,
+    "sigmaZMinM": 0.2,
+    "shelterMin": 15,
+    "shelterRadiusM": 400,
+    "rxHeightM": 1.8
+  },
+  "habitatStores": {
+    "o2TanksL": 6000,
+    "batteriesWh": 12000,
+    "waterL": 300
+  },
+  "uwbBeacons": [
+    {
+      "id": "B1",
+      "x": 220,
+      "y": 820
+    },
+    {
+      "id": "B2",
+      "x": 301,
+      "y": 760
+    },
+    {
+      "id": "B3",
+      "x": 520,
+      "y": 640
+    },
+    {
+      "id": "B4",
+      "x": 640,
+      "y": 500
+    },
+    {
+      "id": "B5",
+      "x": 700,
+      "y": 330
+    },
+    {
+      "id": "B6",
+      "x": 790,
+      "y": 230
+    }
+  ],
+  "label": {
+    "pl": "Krater Gale · wydmy Bagnold",
+    "en": "Gale crater · Bagnold dunes"
+  },
+  "products": {
+    "dtm": "DTEEC_040770_1755_039280_1755_U01",
+    "image": "ESP_039280_1755",
+    "pair": "ESP_040770_1755",
+    "orthoA": "ESP_039280_1755_RED_A_01_ORTHO",
+    "orthoC": "ESP_039280_1755_RED_C_01_ORTHO",
+    "crism": "FRT0000C0EF_07_SU165J_MTR3"
+  },
+  "extra": {
+    "themis": {
+      "id": "THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp",
+      "instrument": "Mars Odyssey THEMIS",
+      "description": "Kontrolowana mozaika THEMIS w podczerwieni nocnej, 100 m/px (USGS, 2014) — jakościowa bezwładność termiczna",
+      "path": "Mars/THEMIS_controlled_mosaics/Aeolis_NightIR_31Jan2014/THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp.tif"
+    },
+    "ctx": {
+      "id": "Gale_CTX_BlockAdj_dd",
+      "instrument": "MRO CTX",
+      "description": "Mozaika CTX krateru Gale (USGS, strefy eksploracji dla ludzi), ~5 m/px — kontrola spójności zdjęcia",
+      "path": "Mars/CTX_EZs/Gale_CTX_BlockAdj_dd.tif"
+    }
+  }
+}

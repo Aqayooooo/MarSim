@@ -1,7 +1,9 @@
 """Potok danych MarSim: produkty NASA → pliki misji dla UI (data/missions/<id>/) + pochodzenie danych.
 
-    python backend/build.py            # pełne przetwarzanie (używa pamięci podręcznej kroków)
-    python backend/build.py --fresh    # bez pamięci podręcznej
+    python backend/build.py                      # pełne przetwarzanie misji domyślnej (z pamięcią podręczną kroków)
+    python backend/build.py --mission jezero     # inna misja (backend/config/missions/<id>.json)
+    python backend/build.py --fresh              # bez pamięci podręcznej
+    python backend/build.py --only-minerals      # tylko warstwa CRISM
 """
 from __future__ import annotations
 
@@ -25,7 +27,8 @@ from rasterio.enums import Resampling  # noqa: E402
 
 from backend.models import sun  # noqa: E402
 from backend.models.physiology import Person  # noqa: E402
-from backend.paths import CACHE, MISSIONS, RAW  # noqa: E402
+from backend.paths import CACHE as CACHE_ROOT, MISSIONS, RAW  # noqa: E402
+from backend import missions  # noqa: E402
 from backend.pipeline import boulders as bld  # noqa: E402
 from backend.pipeline import environment as env  # noqa: E402
 from backend.pipeline import sand as snd  # noqa: E402
@@ -35,19 +38,15 @@ from backend.pipeline.grid import block_mean, cache_remote_window, grid_from_cen
 from backend import planning  # noqa: E402
 
 PIPELINE_VERSION = "1.1.0"
-CFG = json.loads((ROOT / "backend" / "config" / "mission.json").read_text(encoding="utf-8"))
-SOURCES = {p["id"]: p for p in json.loads((ROOT / "backend" / "sources.json").read_text(encoding="utf-8"))["products"]}
+MISSION_ID = missions.from_argv()
+CFG = missions.config(MISSION_ID)
+SOURCES = {p["id"]: p for p in missions.sources(MISSION_ID)["products"]}
+PROD = CFG["products"]
+CACHE = CACHE_ROOT / MISSION_ID
 S3 = "/vsicurl/https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/"
 EXTRA = {
-    "THEMIS_NightIR_Aeolis": {
-        "id": "THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp", "instrument": "Mars Odyssey THEMIS",
-        "description": "Kontrolowana mozaika THEMIS w podczerwieni nocnej, 100 m/px (USGS, 2014) — jakościowa bezwładność termiczna",
-        "url": S3 + "Mars/THEMIS_controlled_mosaics/Aeolis_NightIR_31Jan2014/THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp.tif"},
-    "CTX_Gale": {
-        "id": "Gale_CTX_BlockAdj_dd", "instrument": "MRO CTX",
-        "description": "Mozaika CTX krateru Gale (USGS, strefy eksploracji dla ludzi), ~5 m/px — kontrola spójności zdjęcia",
-        "url": S3 + "Mars/CTX_EZs/Gale_CTX_BlockAdj_dd.tif"},
-    "MOLA_MEGDR": {
+    **{k: {**v, "url": S3 + v["path"]} for k, v in CFG.get("extra", {}).items()},
+    "mola": {
         "id": "Mars_MGS_MOLA_DEM_mosaic_global_463m", "instrument": "MGS MOLA",
         "description": "Globalny model wysokości MOLA 463 m/px — kontrola wysokości bezwzględnej DTM",
         "url": S3 + "Mars_MGS_MOLA_DEM_mosaic_global_463m.tif"},
@@ -56,6 +55,11 @@ EXTRA = {
 
 def log(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+def load_manifest() -> dict:
+    f = RAW / f"manifest-{MISSION_ID}.json"
+    return json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
 
 
 def label_value(text: str, key: str):
@@ -91,12 +95,12 @@ def png_gray(path: Path, a: np.ndarray):
     Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), mode="L").save(path, optimize=True)
 
 
-CRISM_ID = "FRT0000C0EF_07_SU165J_MTR3"
+CRISM_ID = PROD.get("crism")
 
 
 def build_minerals(out: Path, g1) -> dict | None:
     """Warstwa minerałów z CRISM (gdy plik jest pobrany). Zwraca {"layer", "source", "stats", "method"} albo None."""
-    p = SOURCES.get(CRISM_ID)
+    p = SOURCES.get(CRISM_ID) if CRISM_ID else None
     if not p or not (RAW / p["file"]).exists():
         log("CRISM: brak pliku — warstwa minerałów pominięta (python backend/fetch_data.py)")
         return None
@@ -113,7 +117,7 @@ def build_minerals(out: Path, g1) -> dict | None:
                         "cellM": 18, "classes": classes},
              "legend": [{"color": mnr.CLASSES[k]["color"], "text": mnr.CLASSES[k]["text"]} for k in present]}
     log(f"  klasy: {st['fractions']}, mediana OLINDEX3 {st['olindex3Median']}")
-    manifest = json.loads((RAW / "manifest.json").read_text(encoding="utf-8")) if (RAW / "manifest.json").exists() else {}
+    manifest = load_manifest()
     f = RAW / p["file"]
     source = {"id": CRISM_ID, "instrument": p["instrument"], "description": p["description"], "url": p["url"],
               "sha256": manifest.get(CRISM_ID, {}).get("sha256") or sha256(f), "bytes": f.stat().st_size, "access": "plik lokalny"}
@@ -159,11 +163,11 @@ def main() -> int:
     fresh = "--fresh" in sys.argv
     out = MISSIONS / CFG["id"]
     out.mkdir(parents=True, exist_ok=True)
-    dtm_url = "/vsicurl/" + SOURCES["DTEEC_040770_1755_039280_1755_U01"]["url"]
-    ortho_a = str(RAW / SOURCES["ESP_039280_1755_RED_A_01_ORTHO"]["file"])
-    ortho_c = str(RAW / SOURCES["ESP_039280_1755_RED_C_01_ORTHO"]["file"])
-    lbl_img = (RAW / "ESP_039280_1755_RED.LBL").read_text(encoding="latin-1")
-    lbl_pair = (RAW / "ESP_040770_1755_RED.LBL").read_text(encoding="latin-1")
+    dtm_url = "/vsicurl/" + SOURCES[PROD["dtm"]]["url"]
+    ortho_a = str(RAW / SOURCES[PROD["orthoA"]]["file"])
+    ortho_c = str(RAW / SOURCES[PROD["orthoC"]]["file"])
+    lbl_img = (RAW / SOURCES[PROD["image"] + "_RED"]["file"]).read_text(encoding="latin-1")
+    lbl_pair = (RAW / SOURCES[PROD["pair"] + "_RED"]["file"]).read_text(encoding="latin-1")
 
     a = CFG["aoi"]
     log("Siatka obszaru (układ DTM HiRISE)")
@@ -180,15 +184,16 @@ def main() -> int:
     cell = 3.0
 
     log("Ortoobrazy HiRISE")
-    img1 = cached("img1", lambda: read_into(g1, ortho_c, resampling=Resampling.average), fresh)
-    img025 = cached("img025", lambda: read_into(g025, ortho_a, resampling=Resampling.bilinear), fresh)
+    # ortoobrazy z katalogu DTM są w układzie DTM (GDAL źle czyta układ z nagłówka JP2 przy równoleżniku ≠ 0°)
+    img1 = cached("img1", lambda: read_into(g1, ortho_c, resampling=Resampling.average, src_crs=crs), fresh)
+    img025 = cached("img025", lambda: read_into(g025, ortho_a, resampling=Resampling.bilinear, src_crs=crs), fresh)
     for im in (img1, img025):
         im[im <= 0] = np.nan
 
     log("THEMIS (podczerwień nocna), CTX i MOLA — odczyt zdalny")
-    th_local = cache_remote_window(EXTRA["THEMIS_NightIR_Aeolis"]["url"], g1, str(RAW / f"themis_window_{CFG['id']}.tif"), margin_m=1500)
-    ctx_local = cache_remote_window(EXTRA["CTX_Gale"]["url"], g1, str(RAW / f"ctx_window_{CFG['id']}.tif"), margin_m=300)
-    mola_local = cache_remote_window(EXTRA["MOLA_MEGDR"]["url"], g1, str(RAW / f"mola_window_{CFG['id']}.tif"), margin_m=3000)
+    th_local = cache_remote_window(EXTRA["themis"]["url"], g1, str(RAW / f"themis_window_{CFG['id']}.tif"), margin_m=1500)
+    ctx_local = cache_remote_window(EXTRA["ctx"]["url"], g1, str(RAW / f"ctx_window_{CFG['id']}.tif"), margin_m=300)
+    mola_local = cache_remote_window(EXTRA["mola"]["url"], g1, str(RAW / f"mola_window_{CFG['id']}.tif"), margin_m=3000)
     themis1 = cached("themis1", lambda: read_into(g1, th_local, resampling=Resampling.bilinear), fresh)
     themis100 = cached("themis100", lambda: read_into(g1.with_res(100.0), th_local, resampling=Resampling.average), fresh)
     ctx6 = cached("ctx6", lambda: read_into(g1.with_res(6.0), ctx_local, resampling=Resampling.average), fresh)
@@ -301,7 +306,7 @@ def main() -> int:
             ctx_corr = float(np.corrcoef(hr6[m], ctx6[m])[0, 1])
 
     # ---------- pochodzenie danych ----------
-    manifest = json.loads((RAW / "manifest.json").read_text(encoding="utf-8")) if (RAW / "manifest.json").exists() else {}
+    manifest = load_manifest()
     prov_sources = []
     for pid, p in SOURCES.items():
         m = manifest.get(pid, {})
@@ -310,14 +315,14 @@ def main() -> int:
     for k, p in EXTRA.items():
         prov_sources.append({"id": p["id"], "instrument": p["instrument"], "description": p["description"],
                              "url": p["url"].replace("/vsicurl/", ""), "sha256": None, "access": "zdalny fragment"})
-    prov_sources = [s for s in prov_sources if not s["id"].startswith(CRISM_ID)] + ([mins["source"]] if mins else [])
+    prov_sources = [s for s in prov_sources if not (CRISM_ID and s["id"].startswith(CRISM_ID))] + ([mins["source"]] if mins else [])
     provenance = {
         "pipelineVersion": PIPELINE_VERSION, "builtUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "crs": crs.to_wkt(), "area": {"widthM": a["widthM"], "heightM": a["heightM"], "corners": corners,
                                       "center": {"lon": round(lon_c, 5), "lat": round(lat_c, 5)},
                                       "note": "Współrzędne planetocentryczne, długość wschodnia, sfera Mars 2000 (IAU)"},
         "sources": prov_sources,
-        "imaging": {"image": "ESP_039280_1755", "imageTimeUtc": img_time, "pairImage": "ESP_040770_1755", "pairTimeUtc": pair_time,
+        "imaging": {"image": PROD["image"], "imageTimeUtc": img_time, "pairImage": PROD["pair"], "pairTimeUtc": pair_time,
                     "sunElevDeg": round(sun_elev_img, 2), "sunAzDeg": round(sun_az_img, 2), "emissionDeg": [em1, em2]},
         "dtmPrecision": {**ep, "sigmaZUsedM": sigma_z, "rule": "σz = max(EP, sigmaZMinM)"},
         "methods": {
@@ -354,12 +359,12 @@ def write_mission_json(out: Path, H: int, W: int, cell: float, prov: dict, lat: 
     mission = {
         "contractVersion": 2,
         "synthetic": False,
-        "mission": {"id": CFG["id"], "title": CFG["title"], "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA" + (", CRISM" if minerals_layer else ""),
+        "mission": {"id": CFG["id"], "title": CFG["title"], "label": CFG.get("label"), "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA" + (", CRISM" if minerals_layer else ""),
                     "sol": CFG["sol"], "startClock": CFG["startLtst"], "dateUtc": CFG["missionDateUtc"]},
         "area": {"label": CFG["areaLabel"], "widthM": a["widthM"], "heightM": a["heightM"],
                  "center": {"lat": round(lat, 5), "lon": round(lon, 5)}, "corners": prov["area"]["corners"]},
         "dem": {"file": "dem.f32", "encoding": "float32le", "width": W, "height": H, "cellM": cell, "unit": "m",
-                "source": "DTEEC_040770_1755_039280_1755_U01", "year": dtm_year, "sigmaZM": prov["dtmPrecision"]["sigmaZUsedM"]},
+                "source": PROD["dtm"], "year": dtm_year, "sigmaZM": prov["dtmPrecision"]["sigmaZUsedM"]},
         "rasters": {
             "slope": {"file": "slope.f32", "encoding": "float32le", "width": W, "height": H, "cellM": cell, "unit": "°"},
             "slopeSigma": {"file": "slopeSigma.f32", "encoding": "float32le", "width": W, "height": H, "cellM": cell, "unit": "°"},
@@ -369,7 +374,7 @@ def write_mission_json(out: Path, H: int, W: int, cell: float, prov: dict, lat: 
         "layers": [
             {"id": "optical", "name": "Optyczna", "desc": "HiRISE 25 cm/px", "colorOff": "#45403F", "colorOn": "#9F9F9E",
              "raster": {"file": "optical.png", "encoding": "png-gray8", "width": a["widthM"], "height": a["heightM"], "cellM": 1},
-             "legend": [{"color": "#9F9F9E", "text": f"HiRISE ESP_039280_1755, {dtm_year}"}]},
+             "legend": [{"color": "#9F9F9E", "text": f"HiRISE {PROD['image']}, {dtm_year}"}]},
             {"id": "terrain", "name": "Teren", "desc": f"nachylenie ±{prov['stats']['slopeSigmaMedianDeg']:.0f}° z DTM", "colorOff": "#65615B", "colorOn": "#F8F0E2",
              "derivedFrom": "slope", "legend": [{"color": "#F8F0E2", "text": "jaśniej = bardziej stromo"}]},
             {"id": "thermal", "name": "Termiczna", "desc": "THEMIS noc 100 m/px", "colorOff": "#1C4753", "colorOn": "#3AAFD7",

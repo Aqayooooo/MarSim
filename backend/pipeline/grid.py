@@ -54,9 +54,10 @@ def grid_from_center(src_crs: CRS, center_lon: float, center_lat: float, width_m
 
 
 def read_into(grid: Grid, path: str, band: int = 1, resampling=Resampling.bilinear, nodata_out=np.nan,
-              driver: str | None = None, src_nodata: float | None = None) -> np.ndarray:
+              driver: str | None = None, src_nodata: float | None = None, src_crs=None) -> np.ndarray:
     """Czyta fragment produktu (lokalny plik lub /vsicurl/…) i przelicza go do siatki.
-    driver="ENVI" (np. CRISM): plik nagłówka .hdr obok danych — wtedy GDAL musi móc czytać katalog."""
+    driver="ENVI" (np. CRISM): plik nagłówka .hdr obok danych — wtedy GDAL musi móc czytać katalog.
+    src_crs: wymuszony układ źródła (ortoobrazy HiRISE JP2: GDAL źle czyta równoleżnik standardowy z nagłówka GML)."""
     out = np.full(grid.shape, nodata_out, dtype=np.float32)
     env = dict(GDAL_HTTP_MAX_RETRY=5, GDAL_HTTP_RETRY_DELAY=2, CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".IMG,.img,.tif,.TIF,.JP2,.jp2")
     if driver is None:
@@ -64,12 +65,27 @@ def read_into(grid: Grid, path: str, band: int = 1, resampling=Resampling.biline
     with rasterio.Env(**env):
         with rasterio.open(path, driver=driver) as src:
             src_nodata = src.nodata if src_nodata is None else src_nodata
-            reproject(
-                source=rasterio.band(src, band), destination=out,
-                src_transform=src.transform, src_crs=src.crs, src_nodata=src_nodata,
-                dst_transform=grid.transform, dst_crs=grid.crs, dst_nodata=nodata_out,
-                resampling=resampling,
-            )
+            if src_crs is None:
+                reproject(
+                    source=rasterio.band(src, band), destination=out,
+                    src_transform=src.transform, src_crs=src.crs, src_nodata=src_nodata,
+                    dst_transform=grid.transform, dst_crs=grid.crs, dst_nodata=nodata_out,
+                    resampling=resampling,
+                )
+            else:
+                # przy źródle-pliku GDAL bierze układ z pliku, więc wymuszony układ wymaga odczytu fragmentu do pamięci
+                from rasterio.windows import Window, from_bounds
+                m = 4 * max(grid.res, abs(src.transform.a))
+                w = from_bounds(grid.x0 - m, grid.y0 - grid.height_m - m, grid.x0 + grid.width_m + m, grid.y0 + m,
+                                transform=src.transform).round_offsets().round_lengths()
+                w = w.intersection(Window(0, 0, src.width, src.height))
+                arr = src.read(band, window=w)
+                reproject(
+                    source=arr, destination=out,
+                    src_transform=src.window_transform(w), src_crs=rasterio.crs.CRS.from_wkt(CRS(src_crs).to_wkt()),
+                    src_nodata=src_nodata, dst_transform=grid.transform, dst_crs=grid.crs, dst_nodata=nodata_out,
+                    resampling=resampling,
+                )
     if src_nodata is not None and src_nodata < -1e30:
         out[out < -1e30] = np.nan
     return out
@@ -105,7 +121,11 @@ def cache_remote_window(url: str, grid: Grid, dest: str, margin_m: float = 200.0
                     b = (grid.x0 - margin_m, grid.y0 - grid.height_m - margin_m, grid.x0 + grid.width_m + margin_m, grid.y0 + margin_m)
                     sb = transform_bounds(grid.crs, src.crs, *b, densify_pts=21)
                     w = from_bounds(*sb, transform=src.transform).round_offsets().round_lengths()
-                    data = src.read(1, window=w, boundless=True, fill_value=src.nodata if src.nodata is not None else 0)
+                    inside = w.col_off >= 0 and w.row_off >= 0 and w.col_off + w.width <= src.width and w.row_off + w.height <= src.height
+                    if inside:   # odczyt „boundless” bywa zawodny dla zdalnych plików PDS — tylko gdy okno wychodzi poza raster
+                        data = src.read(1, window=w)
+                    else:
+                        data = src.read(1, window=w, boundless=True, fill_value=src.nodata if src.nodata is not None else 0)
                     prof = {"driver": "GTiff", "height": data.shape[0], "width": data.shape[1], "count": 1, "dtype": data.dtype,
                             "crs": src.crs, "transform": src.window_transform(w), "nodata": src.nodata, "compress": "deflate", "tiled": True}
             with rasterio.open(dest, "w", **prof) as dst:
