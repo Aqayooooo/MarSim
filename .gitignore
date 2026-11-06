@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+# surowe pliki NASA (duże) — pobiera je backend/fetch_data.py
+data/raw/
+backend/cache/

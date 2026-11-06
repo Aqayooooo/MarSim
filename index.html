@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STRATA · planowanie EVA na Marsie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage">
+  <header id="hdr">
+    <div class="logo">STRATA</div>
+    <div class="title" id="missionTitle"></div>
+    <div class="controls">
+      <div class="seg" id="viewSeg" role="tablist" aria-label="Widok">
+        <button data-view="map" class="on">Mapa 2D</button>
+        <button data-view="orbit">3D</button>
+        <button data-view="helmet">Hełm EV1</button>
+      </div>
+      <button id="evaBtn" class="btn" title="Wyznacz trasę i rozpocznij wyjście">Start EVA</button>
+      <button id="demoBtn" class="btn accent" title="Odtwórz prezentację 8 kroków">▶ Prezentacja</button>
+    </div>
+    <div class="src" id="sourceLabel"></div>
+  </header>
+
+  <aside id="left" class="panel">
+    <div class="ph">Warstwy danych</div>
+    <div id="layerList"></div>
+    <div id="legend"></div>
+  </aside>
+
+  <main id="main">
+    <canvas id="map"></canvas>
+    <div id="view3d"></div>
+    <div id="hud" hidden>
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="hl tl" id="hudTitle"></div>
+      <div class="hl tr" id="hudHeading"></div>
+      <div class="hl bl" id="hudDist"></div>
+      <div class="hl br" id="hudSpeed"></div>
+      <div class="hudmid" id="hudMid"></div>
+      <div class="hudwarn" id="hudWarn" hidden></div>
+      <div class="hudhelp" id="hudHelp">W A S D — chodzenie · przeciągnij — rozglądanie · Shift — szybciej</div>
+    </div>
+    <div id="locLabel" class="maplabel"></div>
+    <div id="view3dLabel" class="maplabel" hidden></div>
+    <div id="alert" hidden><div class="a1"></div><div class="a2"></div></div>
+    <div id="routeCard" hidden></div>
+    <div id="scale"><span class="bar"></span><span>100 m</span></div>
+    <div id="caption" hidden><b class="n"></b><span class="t"></span></div>
+    <div id="fade"></div>
+    <div id="loading">Wczytywanie danych terenu…</div>
+  </main>
+
+  <aside id="right" class="panel">
+    <div class="ph clock" id="clock">SOL — · --:--</div>
+    <div class="cards">
+      <div class="card big" id="cDose"><div class="cl">Dawka<br>μSv/h</div><div class="cv">--</div></div>
+      <div class="card big" id="cWind"><div class="cl">Wiatr m/s</div><div class="cv">--</div></div>
+      <div class="card" id="cTemp"><div class="cl">Temp. °C</div><div class="cv">--</div></div>
+      <div class="card" id="cTau"><div class="cl">Pył τ</div><div class="cv">--</div></div>
+    </div>
+    <div class="ph sec" id="o2Head">Załoga O<span class="sub2">₂</span></div>
+    <div id="o2Rows"></div>
+    <div class="ph sec" id="resHead">Zapas na powrót</div>
+    <div class="reserve" id="reserve">--</div>
+    <div class="ph sec" id="wpViewHead">Widok w WP2</div>
+    <div class="wpview" id="wpView">
+      <div class="locked" id="wpLocked">odblokuje się w WP2</div>
+      <div class="shot" id="wpShot"><img alt="Widok terenu w punkcie WP2"><div class="cap"></div></div>
+    </div>
+  </aside>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

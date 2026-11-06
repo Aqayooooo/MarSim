@@ -1,0 +1,269 @@
+{
+  "contractVersion": 1,
+  "synthetic": true,
+  "mission": {
+    "id": "eva-1",
+    "title": "EVA-1 · trawers przez boxwork · krater Gale",
+    "sourceLabel": "Dane przykładowe (syntetyczne)",
+    "sol": 147,
+    "startClock": "09:20"
+  },
+  "area": {
+    "label": "MT SHARP · BOXWORK · DEMO",
+    "widthM": 1440,
+    "heightM": 960,
+    "note": "Układ lokalny w metrach: x rośnie na wschód, y na południe, (0,0) = lewy górny róg."
+  },
+  "dem": {
+    "file": "dem.f32",
+    "encoding": "float32le",
+    "width": 480,
+    "height": 320,
+    "cellM": 3,
+    "unit": "m"
+  },
+  "layers": [
+    {
+      "id": "optical",
+      "name": "Optyczna",
+      "desc": "HiRISE 25 cm/px",
+      "colorOff": "#45403F",
+      "colorOn": "#9F9F9E",
+      "raster": {
+        "file": "optical.png",
+        "encoding": "png-gray8",
+        "width": 1440,
+        "height": 960,
+        "cellM": 1
+      },
+      "legend": [
+        {
+          "color": "#9F9F9E",
+          "text": "HiRISE, grudzień 2006"
+        }
+      ]
+    },
+    {
+      "id": "terrain",
+      "name": "Teren",
+      "desc": "nachylenie z DTM",
+      "colorOff": "#65615B",
+      "colorOn": "#F8F0E2",
+      "derivedFrom": "dem",
+      "legend": [
+        {
+          "color": "#F8F0E2",
+          "text": "jaśniej = bardziej stromo"
+        }
+      ]
+    },
+    {
+      "id": "thermal",
+      "name": "Termiczna",
+      "desc": "THEMIS 100 m/px",
+      "colorOff": "#1C4753",
+      "colorOn": "#3AAFD7",
+      "raster": {
+        "file": "thermal.png",
+        "encoding": "png-gray8",
+        "width": 15,
+        "height": 10,
+        "cellM": 100,
+        "valueRange": [
+          100,
+          600
+        ],
+        "unit": "J m⁻² K⁻¹ s⁻½"
+      },
+      "legend": [
+        {
+          "color": "#20469C",
+          "text": "luźny piasek"
+        },
+        {
+          "color": "#ED5F26",
+          "text": "lita skała"
+        }
+      ]
+    },
+    {
+      "id": "minerals",
+      "name": "Minerały",
+      "desc": "CRISM 18 m/px",
+      "colorOff": "#48336D",
+      "colorOn": "#AD7EFF",
+      "raster": {
+        "file": "minerals.png",
+        "encoding": "png-class8",
+        "width": 80,
+        "height": 54,
+        "cellM": 18,
+        "classes": {
+          "1": {
+            "color": "#AE7EFF",
+            "text": "spoiwo grzbietów"
+          },
+          "2": {
+            "color": "#31D7B6",
+            "text": "skały z siarczanami"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#31D7B6",
+          "text": "skały z siarczanami"
+        },
+        {
+          "color": "#AE7EFF",
+          "text": "spoiwo grzbietów"
+        }
+      ]
+    },
+    {
+      "id": "hazards",
+      "name": "Zagrożenia",
+      "desc": "piasek, skarpy",
+      "colorOff": "#691C0B",
+      "colorOn": "#FF441F",
+      "raster": {
+        "file": "hazards.png",
+        "encoding": "png-class8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3,
+        "classes": {
+          "1": {
+            "color": "#FFBD33",
+            "text": "uwaga: nierówno"
+          },
+          "2": {
+            "color": "#FD4420",
+            "text": "zakaz: piasek, skarpy"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#FD4420",
+          "text": "zakaz: piasek, skarpy"
+        },
+        {
+          "color": "#FFBD33",
+          "text": "uwaga: nierówno"
+        }
+      ]
+    },
+    {
+      "id": "sky",
+      "name": "Niebo",
+      "desc": "RAD + MAVEN",
+      "colorOff": "#475E61",
+      "colorOn": "#A7E9FB",
+      "legend": [
+        {
+          "color": "#A7E9FB",
+          "text": "wiatr 7 m/s z NW"
+        }
+      ]
+    }
+  ],
+  "rover": {
+    "x": 350,
+    "y": 720,
+    "speedKmh": 12
+  },
+  "waypoints": [
+    {
+      "id": "WP1",
+      "x": 560,
+      "y": 470,
+      "stopMin": 15,
+      "target": null,
+      "view": null
+    },
+    {
+      "id": "WP2",
+      "x": 985,
+      "y": 180,
+      "stopMin": 15,
+      "target": "cel próbki S-02",
+      "view": {
+        "source": "render",
+        "caption": "Render z DTM · widok z hełmu"
+      }
+    }
+  ],
+  "crew": [
+    {
+      "id": "EV1",
+      "o2": 100,
+      "o2RatePctH": 12
+    },
+    {
+      "id": "EV2",
+      "o2": 100,
+      "o2RatePctH": 14
+    }
+  ],
+  "eva": {
+    "walkKmh": 2.5,
+    "maxSlopeDeg": 25,
+    "o2ReservePct": 55,
+    "sepO2Factor": 1.25,
+    "shelterMin": 15,
+    "shelterRadiusM": 400
+  },
+  "environment": {
+    "doseUsvh": 27,
+    "dustTau": 0.52,
+    "wind": {
+      "meanMs": 7,
+      "spreadMs": 1,
+      "fromDeg": 315
+    },
+    "temperature": [
+      [
+        "09:20",
+        -41
+      ],
+      [
+        "11:30",
+        -25
+      ],
+      [
+        "14:00",
+        -18
+      ]
+    ]
+  },
+  "events": [
+    {
+      "id": "boulders",
+      "type": "obstacle",
+      "trigger": {
+        "afterWaypoint": "WP1",
+        "afterM": 40
+      },
+      "aheadM": 181,
+      "radiusM": 55,
+      "alert": {
+        "category": "ZAGROŻENIE",
+        "text": "Pole głazów na trasie, {dist} m przed nami"
+      }
+    },
+    {
+      "id": "sep",
+      "type": "space-weather",
+      "source": "DONKI",
+      "trigger": {
+        "afterEvent": "boulders",
+        "afterMin": 3
+      },
+      "alert": {
+        "category": "POGODA KOSMICZNA",
+        "text": "ostrzeżenie SEP · łazik jedzie do załogi"
+      }
+    }
+  ]
+}
