@@ -7,6 +7,7 @@ dla misji potrzebny byłby monitor przy Marsie (np. RAD, przyszłe sondy). Wynik
 from __future__ import annotations
 
 import json
+import os
 import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -19,13 +20,14 @@ NOAA_PROTONS = "https://services.swpc.noaa.gov/json/goes/primary/integral-proton
 CACHE_FILE = CACHE / "spaceweather.json"
 
 
-def _get(url: str, timeout: int = 20):
+def _get(url: str, timeout: int = 40):
     req = urllib.request.Request(url, headers={"User-Agent": "MarSim/1.0 (hackathon prototype)"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
-def fetch(api_key: str = "DEMO_KEY", days: int = 7) -> dict:
+def fetch(api_key: str | None = None, days: int = 7) -> dict:
+    api_key = api_key or os.environ.get("NASA_API_KEY", "DEMO_KEY")   # własny klucz: https://api.nasa.gov
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=days)
     out = {"fetchedUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "errors": []}
@@ -79,5 +81,5 @@ def summarize(d: dict, source: str) -> dict:
     level = "S4+" if pfu >= 10000 else "S3" if pfu >= 1000 else "S2" if pfu >= 100 else "S1" if pfu >= 10 else "brak"
     return {"available": True, "source": source, "fetchedUtc": d.get("fetchedUtc"), "pfu": round(float(pfu), 3), "stormLevel": level,
             "events": events[:8], "errors": d.get("errors", []),
-            "summary": f"Protony ≥10 MeV przy Ziemi: {pfu:.2f} pfu (burza: {level}); zdarzenia DONKI z 7 dni: {len(events)}",
+            "summary": f"Protony ≥10 MeV przy Ziemi: {pfu:.2f} pfu (burza: {level}); zdarzenia DONKI z 7 dni: {len(events)}".replace(".", ","),
             "note": "Pomiary przy Ziemi — dla Marsa wskaźnik orientacyjny."}

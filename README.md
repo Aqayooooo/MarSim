@@ -78,3 +78,8 @@ docs/KONTRAKT_DANYCH.md     format danych dla backendu
 
 - three.js i czcionki ładują się z CDN, więc pierwsze uruchomienie wymaga internetu. Na konkurs offline: pobrać `three.module.js` i dodatki do `vendor/` i zmienić importmap w `index.html`.
 - Zdjęcie w karcie „Widok w WP2” to render z modelu terenu, a nie zdjęcie Mastcam (brak prawdziwych danych na tym etapie).
+
+### Klucz NASA API (pogoda kosmiczna)
+
+DONKI działa na wspólnym kluczu `DEMO_KEY`, który ma niskie limity i bywa przeciążony. Własny, darmowy klucz z https://api.nasa.gov
+ustaw w zmiennej `NASA_API_KEY` przed `python backend/server.py`. Bez sieci backend pokazuje ostatnie zapisane dane i ich wiek.
