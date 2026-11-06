@@ -7,9 +7,16 @@ import { Panels } from './ui/panels.js';
 import { Map2D } from './ui/map2d.js';
 import { Director } from './demo.js';
 import { num } from './core/format.js';
+import { t, lang, setLang, applyStatic } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 const stage = $('stage');
+applyStatic();
+document.querySelectorAll('#langSeg button').forEach((b) => {
+  b.classList.toggle('on', b.dataset.lang === lang);
+  b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+  b.addEventListener('click', () => setLang(b.dataset.lang));
+});
 const q = new URLSearchParams(location.search);
 const api = q.has('data') ? null : await detectBackend(q.get('api'));
 const ds = createDataSource({ mode: api !== null ? 'http' : 'files', base: q.get('data') || 'data/demo', api: api ?? '' });
@@ -18,7 +25,7 @@ let world;
 try {
   world = await ds.loadMission();
 } catch (e) {
-  $('loading').textContent = `Nie udało się wczytać danych: ${e.message}`;
+  $('loading').textContent = t('loading.fail', { e: e.message });
   throw e;
 }
 $('loading').remove();
@@ -30,7 +37,7 @@ let view3d = null;
 const director = new Director(app, () => view3d);
 const device = new DeviceView(app), report = new ReportView(app), schedule = new ScheduleView(app);
 new FieldReports(app, map);
-window.strata = { app, director, map, panels, device, report, schedule, get view3d() { return view3d; } };   // do debugowania w konsoli
+window.marsim = { app, director, map, panels, device, report, schedule, get view3d() { return view3d; } };   // do debugowania w konsoli
 
 function fit() {
   const s = Math.min(innerWidth / 1664, innerHeight / 744);
@@ -48,7 +55,7 @@ import('./ui/view3d.js').then(({ View3D }) => {
   fit();
   document.querySelectorAll('#viewSeg button').forEach((b) => (b.disabled = false));
   if (['orbit', 'helmet'].includes(app.state.view)) view3d.setMode(app.state.view);
-}).catch((e) => console.error('Widok 3D niedostępny:', e));
+}).catch((e) => console.error('3D view unavailable / widok 3D niedostępny:', e));
 
 // ---------- widoki ----------
 $('viewSeg').addEventListener('click', (e) => {
@@ -58,12 +65,12 @@ $('viewSeg').addEventListener('click', (e) => {
   app.setView(b.dataset.view);
 });
 function applyView(v) {
-  document.querySelectorAll('#viewSeg button').forEach((b) => b.classList.toggle('on', b.dataset.view === v));
+  document.querySelectorAll('#viewSeg button').forEach((b) => { b.classList.toggle('on', b.dataset.view === v); b.setAttribute('aria-selected', String(b.dataset.view === v)); });
   const is3d = v === 'orbit' || v === 'helmet';
   $('view3d').classList.toggle('on', is3d);
   $('hud').hidden = v !== 'helmet';
   $('view3dLabel').hidden = v !== 'orbit';
-  $('view3dLabel').textContent = `WIDOK 3D · PRZEWYŻSZENIE ×${view3d?.exOrbit ?? 10}`;
+  $('view3dLabel').textContent = t('view3d.label', { x: view3d?.exOrbit ?? 10 });
   $('device').hidden = v !== 'device';
   $('report').hidden = v !== 'report';
   $('schedule').hidden = v !== 'schedule';
@@ -81,17 +88,17 @@ $('demoBtn').addEventListener('click', () => {
   if (director.playing) { director.stop(); return; }
   director.play();
 });
-app.on('director', (on) => { $('demoBtn').textContent = on ? '■ Zatrzymaj' : '▶ Prezentacja'; $('evaBtn').disabled = on; });
+app.on('director', (on) => { $('demoBtn').textContent = on ? t('demo.stop') : t('demo.play'); $('evaBtn').disabled = on; });
 
 $('evaBtn').addEventListener('click', async () => {
-  if (app.sim.running) { app.pauseEva(true); $('evaBtn').textContent = 'Wznów EVA'; return; }
-  if (app.state.route && app.sim.crewS > 0) { app.pauseEva(false); $('evaBtn').textContent = 'Pauza EVA'; return; }
+  if (app.sim.running) { app.pauseEva(true); $('evaBtn').textContent = t('eva.resume'); return; }
+  if (app.state.route && app.sim.crewS > 0) { app.pauseEva(false); $('evaBtn').textContent = t('eva.pause'); return; }
   for (const id of ['optical', 'terrain', 'hazards']) app.toggleLayer(id, true);
   app.setView('map');
   await app.planInitial({ animate: true });
-  setTimeout(() => { app.startEva(470); $('evaBtn').textContent = 'Pauza EVA'; }, 3400);
+  setTimeout(() => { app.startEva(470); $('evaBtn').textContent = t('eva.pause'); }, 3400);
 });
-app.on('reset', () => { $('evaBtn').textContent = 'Start EVA'; });
+app.on('reset', () => { $('evaBtn').textContent = t('eva.start'); });
 
 // ---------- WP z widokiem: render terenu z poziomu gruntu ----------
 app.on('waypoint', ({ wp }) => {
@@ -104,14 +111,14 @@ app.on('waypoint', ({ wp }) => {
 // ---------- HUD hełmu ----------
 function updateHud() {
   const h = view3d.hudInfo(), crew = app.sim.crew[0];
-  $('hudTitle').textContent = `HEŁM ${crew.id}${h.timelapse > 1 ? ` · TIMELAPSE ×${h.timelapse}` : ''}`;
-  $('hudHeading').textContent = `KURS ${String(h.heading).padStart(3, '0')}°`;
-  $('hudDist').textContent = `DO ${h.target}: ${Math.round(h.dist)} M`;
+  $('hudTitle').textContent = `${t('hud.title', { id: crew.id })}${h.timelapse > 1 ? ` · TIMELAPSE ×${h.timelapse}` : ''}`;
+  $('hudHeading').textContent = t('hud.heading', { h: String(h.heading).padStart(3, '0') });
+  $('hudDist').textContent = t('hud.to', { t: h.target, d: Math.round(h.dist) });
   $('hudSpeed').textContent = `${num(h.speed, h.speed < 10 ? 1 : 0)} KM/H`;
-  const mid = `O<span class="sub2">₂</span> ${Math.round(crew.o2)}% · NACHYLENIE ${Math.round(h.slope)}°`;
+  const mid = `O<span class="sub2">₂</span> ${Math.round(crew.o2)}% · ${t('hud.slope')} ${Math.round(h.slope)}°`;
   if ($('hudMid').innerHTML !== mid) $('hudMid').innerHTML = mid;
   const w = $('hudWarn');
-  const msg = h.warn || (h.zone === 2 ? 'STREFA ZAKAZANA: PIASEK / SKARPA' : h.zone === 1 ? 'UWAGA: NIERÓWNY TEREN' : null);
+  const msg = h.warn || (h.zone === 2 ? t('hud.nogo') : h.zone === 1 ? t('hud.caution') : null);
   w.hidden = !msg;
   if (msg) { w.textContent = msg; w.classList.toggle('caution', !h.warn && h.zone === 1); }
   $('hudHelp').hidden = h.timelapse > 1;

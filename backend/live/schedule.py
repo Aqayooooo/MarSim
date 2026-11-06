@@ -9,7 +9,6 @@ Reguły (założenia planistyczne do uzgodnienia z lekarzem lotu, nie normy NASA
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from backend.models import sun
@@ -30,16 +29,19 @@ def _h(s: str) -> float:
 
 
 class Scheduler:
-    def __init__(self, path: Path, crew_cfg: list[dict], stores: dict, lat: float, decl: float, o2_rate_lh: float = 50.0):
-        self.path = path
+    def __init__(self, store, crew_cfg: list[dict], stores: dict, lat: float, decl: float, o2_rate_lh: float = 50.0):
+        """store: backend.live.store.Store — harmonogram jest zapisywany w SQLite."""
+        self.store = store
         self.crew_cfg = {c["id"]: c for c in crew_cfg}
         self.stores = stores
         self.lat, self.decl = lat, decl
         self.o2_rate_lh = o2_rate_lh   # średnie zużycie O₂ podczas EVA (L/h na osobę), z modelu wysiłku
-        self.items = json.loads(path.read_text(encoding="utf-8")) if path.exists() else default_schedule()
+        saved = store.schedule_load()
+        self.items = saved if saved is not None else default_schedule()
+        self.items.sort(key=lambda i: (i["sol"], _h(i["startLtst"])))
 
     def save(self):
-        self.path.write_text(json.dumps(self.items, indent=2, ensure_ascii=False), encoding="utf-8")
+        self.store.schedule_save(self.items)
 
     def upsert(self, item: dict):
         self.items = [i for i in self.items if i["id"] != item["id"]] + [item]

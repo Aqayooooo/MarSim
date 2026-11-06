@@ -4,6 +4,7 @@ import { Polyline } from './core/path.js';
 import { Sim } from './core/sim.js';
 import { RemoteSim } from './core/remoteSim.js';
 import { routeStats } from './core/routeStats.js';
+import { t, tx } from './i18n.js';
 
 export class App {
   constructor(ds, world) {
@@ -84,7 +85,7 @@ export class App {
   async planInitial({ animate = true } = {}) {
     if (this.pendingReset) await this.pendingReset;
     const r = await this.ds.planRoute({ start: { x: this.m.rover.x, y: this.m.rover.y }, waypoints: this.m.waypoints });
-    if (!r.ok && !r.path) { this.setAlert({ category: 'BRAK TRASY', text: r.error }); return null; }
+    if (!r.ok && !r.path) { this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return null; }
     const searchDur = animate ? 2.2 : 0, drawDur = animate ? 1.0 : 0;
     this.state.search = animate ? { pts: r.expanded || [], t0: this.now, dur: searchDur } : null;
     this.state.route = this.#makeRoute(r.path, r.waypointIndex, r.letter || 'A', r, { t0: this.now + searchDur, dur: drawDur, s0: 0 });
@@ -126,7 +127,7 @@ export class App {
     const pos = old.poly.at(s);
     const remaining = this.m.waypoints.slice(this.sim.nextWp);
     const r = await this.ds.planRoute({ start: pos, waypoints: remaining, obstacles: this.state.obstacles });
-    if (!r.ok) { this.setAlert({ category: 'BRAK TRASY', text: r.error }); return; }
+    if (!r.ok) { this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return; }
     const walked = old.poly.slice(0, s);
     const path = walked.concat(r.path.slice(1));
     const off = walked.length - 1;
@@ -212,13 +213,13 @@ export class App {
   }
 
   #onRemoteAlert(a) {
-    this.setAlert({ category: a.category, text: a.text, source: a.source });
+    this.setAlert({ category: tx(a.category), text: tx(a.text), source: tx(a.source) });
     if (a.highlight === 'dose') this.state.doseHi = true;
   }
   #onRemoteSep(on) {
     if (on) {
       this.state.doseHi = true;
-      this.state.shelter = { radiusM: this.m.eva.shelterRadiusM, label: `SCHRON ≤ ${this.m.eva.shelterMin} MIN`, t0: this.now + 0.3 };
+      this.state.shelter = { radiusM: this.m.eva.shelterRadiusM, label: t('map.shelter', { m: this.m.eva.shelterMin }), t0: this.now + 0.3 };
       this.emit('sep');
     } else this.state.doseHi = false;
   }
@@ -227,20 +228,20 @@ export class App {
     if (ev.type === 'obstacle') {
       const s = this.sim.crewS + ev.aheadM;
       const c = this.state.route.poly.at(Math.min(s, this.state.route.poly.length - ev.radiusM - 10));
-      const ob = { id: ev.id, x: c.x, y: c.y, radiusM: ev.radiusM, t0: this.now, label: 'GŁAZY' };
+      const ob = { id: ev.id, x: c.x, y: c.y, radiusM: ev.radiusM, t0: this.now, label: t('lbl.glazy') };
       this.state.obstacles.push(ob);
-      this.setAlert({ category: ev.alert.category, text: ev.alert.text.replace('{dist}', Math.round(ev.aheadM)) });
+      this.setAlert({ category: tx(ev.alert.category), text: tx(ev.alert.text.replace('{dist}', Math.round(ev.aheadM))) });
       this.emit('obstacle', ob);
       const res = await this.replanAround(ob);
       this.lastReplan = res;
       this.emit('replanned', res);
     }
     if (ev.type === 'space-weather') {
-      this.setAlert({ category: ev.alert.category, text: ev.alert.text, source: ev.source });
+      this.setAlert({ category: tx(ev.alert.category), text: tx(ev.alert.text), source: tx(ev.source) });
       this.state.doseHi = true;
       this.sim.sep = true;
       this.sim.rover.mode = 'toCrew';
-      this.state.shelter = { radiusM: this.m.eva.shelterRadiusM, label: `SCHRON ≤ ${this.m.eva.shelterMin} MIN`, t0: this.now + 0.3 };
+      this.state.shelter = { radiusM: this.m.eva.shelterRadiusM, label: t('map.shelter', { m: this.m.eva.shelterMin }), t0: this.now + 0.3 };
       this.emit('sep');
     }
   }
@@ -264,5 +265,5 @@ export class App {
 }
 
 export function labelFor(kind) {
-  return { glazy: 'GŁAZY', piasek: 'PIASEK', osuwisko: 'OSUWISKO', inne: 'PRZESZKODA', bezpieczne: 'BEZPIECZNIE' }[kind] || 'GŁAZY';
+  return ['glazy', 'piasek', 'osuwisko', 'inne', 'bezpieczne'].includes(kind) ? t(`lbl.${kind}`) : t('lbl.glazy');
 }

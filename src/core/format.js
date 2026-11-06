@@ -1,5 +1,8 @@
-// Polski zapis liczb i czasu: przecinek dziesiętny, długi minus, „g:mm h”.
-export const num = (v, d = 1) => v.toFixed(d).replace('.', ',').replace('-', '−');
+// Zapis liczb i czasu zależny od języka: PL — przecinek dziesiętny i długi minus, EN — kropka. Czas „g:mm h”.
+import { lang } from '../i18n.js';
+
+const dec = (s) => (lang === 'pl' ? s.replace('.', ',').replace('-', '−') : s.replace('-', '−'));
+export const num = (v, d = 1) => dec(v.toFixed(d));
 export const int = (v) => String(Math.round(v)).replace('-', '−');
 export const hm = (hours) => {
   const m = Math.max(0, Math.round(hours * 60));

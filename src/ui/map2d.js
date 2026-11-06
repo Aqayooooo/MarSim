@@ -1,5 +1,6 @@
 // Mapa 2D na canvasie: zdjęcie, nakładki 6 warstw, trasa, załoga, łazik, strefy, etykiety.
 // Rysuje w układzie 972 × 648 px (obszar główny z nagrania); skala okna jest uwzględniana przez k.
+import { t as tr } from '../i18n.js';
 export const MAIN_W = 972, MAIN_H = 648;
 const MONO = "700 15px 'JetBrains Mono', Consolas, monospace";
 const ROUTE = '#FFDC52', TRAIL = '#FC8151', ACCENT = '#FF7B3F';
@@ -225,10 +226,10 @@ export class Map2D {
     for (let j = 0; j < R.height; j++) for (let i = 0; i < R.width; i++) {
       const v = R.data[j * R.width + i];
       if (!v) continue;
-      ctx.globalAlpha = a * (v === 2 ? 0.42 : 0.55);
+      if (!cls[v]) continue;
+      ctx.globalAlpha = a * 0.5;
       ctx.fillStyle = cls[v].color;
-      const pad = v === 2 ? 0 : 1;
-      ctx.fillRect(this.ox + i * c + pad, this.oy + j * c + pad, c - 2 * pad, c - 2 * pad);
+      ctx.fillRect(this.ox + i * c, this.oy + j * c, c, c);
     }
     ctx.globalAlpha = 1;
   }
@@ -403,7 +404,7 @@ export class Map2D {
       ctx.fillStyle = '#e8e2d8'; ctx.fillRect(x - 9, y - 9, 18, 18);
       ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x - 9, y - 9, 18, 18);
       ctx.font = MONO;
-      this.#label('HABITAT', x - 14 - ctx.measureText('HABITAT').width - 10, y + 2);
+      this.#label(tr('map.habitat'), x - 14 - ctx.measureText(tr('map.habitat')).width - 10, y + 2);
     }
     // elipsy błędu pozycji (UWB / odometria)
     if (st.crewVisible && app.sim.snap) for (const c of app.sim.snap.crew) {
@@ -417,8 +418,8 @@ export class Map2D {
     if (optOn || st.route) {
       const p = sim.roverPos(), x = this.sx(p.x), y = this.sy(p.y);
       ctx.fillStyle = ACCENT; ctx.fillRect(x - 8, y - 7, 16, 14);
-      const w = (ctx.font = MONO, ctx.measureText('ŁAZIK').width + 10);
-      this.#label('ŁAZIK', x - w / 2, y + 26);
+      const w = (ctx.font = MONO, ctx.measureText(tr('map.rover')).width + 10);
+      this.#label(tr('map.rover'), x - w / 2, y + 26);
     }
     // załoga
     if (st.crewVisible && st.route) {

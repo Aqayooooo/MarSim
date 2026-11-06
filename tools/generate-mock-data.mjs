@@ -1,4 +1,4 @@
-// Generator danych przykładowych dla UI STRATA.
+// Generator danych przykładowych dla UI MarSim.
 // Udaje backend: tworzy pliki w formacie opisanym w docs/KONTRAKT_DANYCH.md.
 // Teren jest syntetyczny (szum + komórki „boxwork” + wydmy + skarpa), NIE pochodzi z NASA.
 // Uruchomienie: node tools/generate-mock-data.mjs [katalog_wyjściowy]

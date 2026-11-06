@@ -5,3 +5,7 @@ __pycache__/
 data/raw/
 backend/cache/
 backend/config/paths.local.json
+.pytest_cache/
+# baza stanu (SQLite) i jej pliki tymczasowe
+*.db
+*.db-journal

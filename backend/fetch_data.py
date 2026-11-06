@@ -76,6 +76,7 @@ def main() -> int:
             if check:
                 print(f"[BRAK]  {p['id']}")
                 continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
             print(f"[pobieram] {p['id']} → {dest}")
             download(p["url"], dest)
         digest = sha256(dest)

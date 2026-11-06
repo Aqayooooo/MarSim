@@ -9,7 +9,10 @@
       "description": "Model wysokości HiRISE, 1,01 m/px, projekcja równokątna, sfera Mars 2000 (r = 3396,19 km)",
       "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/DTEEC_040770_1755_039280_1755_U01.IMG",
       "pdsDataSet": "MRO-M-HIRISE-5-DTM-V1.0",
-      "sourceImages": ["ESP_040770_1755", "ESP_039280_1755"],
+      "sourceImages": [
+        "ESP_040770_1755",
+        "ESP_039280_1755"
+      ],
       "remote": true
     },
     {
@@ -43,6 +46,31 @@
       "description": "Etykieta PDS drugiego zdjęcia pary stereo (kąt emisji do oceny dokładności DTM)",
       "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_040700_040799/ESP_040770_1755/ESP_040770_1755_RED.LBL",
       "file": "ESP_040770_1755_RED.LBL"
+    },
+    {
+      "id": "FRT0000C0EF_07_SU165J_MTR3",
+      "kind": "crism",
+      "instrument": "MRO CRISM",
+      "description": "Parametry sumaryczne CRISM MTRDR, 18 m/px (Viviano-Beck i in. 2014) — minerały: oliwin, piroksen, uwodnienie, siarczany",
+      "url": "https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2008/2008_230/frt0000c0ef/frt0000c0ef_07_su165j_mtr3.img",
+      "file": "crism/frt0000c0ef_07_su165j_mtr3.img",
+      "pdsDataSet": "MRO-M-CRISM-5-RDR-MPTARGETED-V1.0"
+    },
+    {
+      "id": "FRT0000C0EF_07_SU165J_MTR3_HDR",
+      "kind": "crism-header",
+      "instrument": "MRO CRISM",
+      "description": "Nagłówek ENVI produktu CRISM (nazwy pasm, odwzorowanie)",
+      "url": "https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2008/2008_230/frt0000c0ef/frt0000c0ef_07_su165j_mtr3.hdr",
+      "file": "crism/frt0000c0ef_07_su165j_mtr3.hdr"
+    },
+    {
+      "id": "FRT0000C0EF_07_SU165J_MTR3_LBL",
+      "kind": "label",
+      "instrument": "MRO CRISM",
+      "description": "Etykieta PDS produktu CRISM",
+      "url": "https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2008/2008_230/frt0000c0ef/frt0000c0ef_07_su165j_mtr3.lbl",
+      "file": "crism/frt0000c0ef_07_su165j_mtr3.lbl"
     }
   ]
 }

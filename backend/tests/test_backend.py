@@ -88,3 +88,15 @@ def test_engine_full_eva():
     rep = report.build(e)
     assert rep["ok"] and rep["hazards"] and rep["summary"]
     assert e.scheduler.evaluate()["items"]
+
+
+def test_crism_mineral_classes():
+    from backend.pipeline import minerals as mnr
+    z = np.zeros((2, 3), np.float32)
+    p = {k: z.copy() for k in mnr.PARAMS}
+    p["OLINDEX3"] = np.array([[0.02, 0.06, 0.12], [np.nan, 0.02, 0.02]], np.float32)
+    p["D2300"][1, 1] = 0.02
+    p["LCPINDEX2"][1, 2] = 0.02
+    cls, conf = mnr.classify(p)
+    assert cls.tolist() == [[0, 2, 1], [0, 5, 3]]
+    assert conf[0, 2] == pytest.approx(1.0) and 0 < conf[0, 1] < 1

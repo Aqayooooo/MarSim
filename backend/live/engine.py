@@ -22,6 +22,7 @@ from backend.live import spaceweather
 from backend.live.dtn import DtnLink
 from backend.live.positioning import Positioner
 from backend.live.schedule import Scheduler
+from backend.live.store import Store
 from backend.models import radiation, sun
 from backend.models.physiology import Person, co2_l_per_min, heart_rate, metabolic_w, o2_l_per_min
 from backend.pipeline.environment import surface_temperature
@@ -63,9 +64,10 @@ class Polyline:
 
 
 class EvaEngine:
-    def __init__(self, mission_dir: Path, cfg: dict):
+    def __init__(self, mission_dir: Path, cfg: dict, store: Store | None = None, live_feeds: bool = True):
         self.dir = mission_dir
         self.cfg = cfg
+        self.store = store or Store(":memory:")
         self.mission = json.loads((mission_dir / "mission.json").read_text(encoding="utf-8"))
         self.provenance = json.loads((mission_dir / "provenance.json").read_text(encoding="utf-8"))
         d = self.mission["dem"]
@@ -85,12 +87,13 @@ class EvaEngine:
         c0 = cfg["crew"][0]
         self.model = planning.CostModel(self.layers, self.cell, cfg["eva"], Person(c0["id"], c0["bodyKg"], c0["loadKg"], c0["o2CapacityL"], c0["o2CapacityL"]))
         self.positioner = Positioner(cfg["uwbBeacons"], self.dem, self.cell)
-        self.scheduler = Scheduler(mission_dir / "schedule.json", cfg["crew"], cfg["habitatStores"], self.lat, self.mt.decl,
+        self.scheduler = Scheduler(self.store, cfg["crew"], cfg["habitatStores"], self.lat, self.mt.decl,
                                    o2_rate_lh=float(o2_l_per_min(metabolic_w(self.model_person(c0), 0.6, 3)) * 60 + 1.2))
         self.lock = threading.RLock()
         self.spaceweather = None
-        self._sw_thread = threading.Thread(target=self._refresh_spaceweather, daemon=True)
-        self._sw_thread.start()
+        if live_feeds:   # pogoda kosmiczna z sieci (w testach wyłączona)
+            self._sw_thread = threading.Thread(target=self._refresh_spaceweather, daemon=True)
+            self._sw_thread.start()
         self.reset()
 
     # ---------- pomocnicze ----------
@@ -162,6 +165,8 @@ class EvaEngine:
             self._emerg_t = -1e9
             self.link = DtnLink(self.date)
             self.log = []
+            session = self.store.new_session()
+            self.add_log("EVA", f"Nowa sesja EVA nr {session}", to_earth=False)
 
     @property
     def clock_min(self) -> float:
@@ -170,6 +175,7 @@ class EvaEngine:
     def add_log(self, kind, text, meta=None, to_earth=True):
         entry = {"t": round(self.t), "clock": self.clock_str(), "kind": kind, "text": text, **({"meta": meta} if meta else {})}
         self.log.append(entry)
+        self.store.log(kind, text, self.t, entry["clock"], meta)
         if to_earth:
             self.link.send(self.t, kind, text, meta, reply=f"Kontrola misji: przyjęto „{text[:60]}”")
         return entry
@@ -236,6 +242,7 @@ class EvaEngine:
         with self.lock:
             obs = {**obs, "id": len(self.observations) + 1, "t": self.t, "clock": self.clock_str()}
             self.observations.append(obs)
+            self.store.add_observation(obs)
             kind = obs.get("kind", "glazy")
             r = float(obs.get("radiusM", 20))
             if kind in ("glazy", "piasek", "osuwisko", "inne"):
@@ -287,6 +294,7 @@ class EvaEngine:
             for b in delivered:
                 if b.direction == "z Ziemi":
                     self.log.append({"t": round(self.t), "clock": self.clock_str(), "kind": "z Ziemi", "text": b.text})
+                    self.store.log("z Ziemi", b.text, self.t, self.clock_str())
             if not self.running:
                 return
             dt = dt_real * self.time_scale

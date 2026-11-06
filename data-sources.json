@@ -1,0 +1,279 @@
+{
+  "name": "MarSim",
+  "description": {
+    "en": "Data used by MarSim (Mars EVA map and planner). Generated from data/missions/mount-sharp/provenance.json plus live feeds.",
+    "pl": "Dane użyte w MarSim (mapa i planer EVA na Marsie). Wygenerowane z data/missions/mount-sharp/provenance.json oraz źródeł na żywo."
+  },
+  "area": {
+    "name": "Bagnold dunes, foot of Mount Sharp (Aeolis Mons), Gale crater",
+    "centerLat": -4.67346,
+    "centerLonEast": 137.37616,
+    "sizeM": [
+      1440,
+      960
+    ],
+    "crs": "Mars 2000 sphere (IAU), planetocentric, east longitude"
+  },
+  "pipelineVersion": "1.1.0",
+  "builtUtc": "2026-11-06T18:50:48+00:00",
+  "notUsed": {
+    "en": [
+      "Mastcam / rover images: the WP2 view is a render from the HiRISE DTM, not a photograph",
+      "Synthetic sample data in data/demo/ (used only without the backend)"
+    ],
+    "pl": [
+      "Mastcam / zdjęcia z łazika: widok w WP2 to render z DTM HiRISE, nie zdjęcie",
+      "Syntetyczne dane przykładowe w data/demo/ (tylko bez backendu)"
+    ]
+  },
+  "usage": {
+    "en": "NASA data are generally not subject to copyright in the US; credit the instrument teams as listed.",
+    "pl": "Dane NASA zasadniczo nie podlegają prawu autorskiemu w USA; należy podać źródło jak w polu credit."
+  },
+  "sources": [
+    {
+      "id": "DTEEC_040770_1755_039280_1755_U01",
+      "type": "orbital",
+      "spacecraft": "Mars Reconnaissance Orbiter",
+      "instrument": "HiRISE",
+      "description": {
+        "en": "HiRISE stereo digital terrain model (DTM), 1.01 m/px",
+        "pl": "Model wysokości HiRISE (DTM), 1,01 m/px"
+      },
+      "usedFor": {
+        "en": "terrain, slope ±σ, 3D view, route planning, radio line of sight, terrain shadows",
+        "pl": "teren, nachylenie ±σ, widok 3D, planowanie trasy, zasięg radiowy, cienie"
+      },
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/DTEEC_040770_1755_039280_1755_U01.IMG",
+      "access": "remote window (only the area of interest is read)",
+      "credit": "NASA/JPL/University of Arizona"
+    },
+    {
+      "id": "ESP_039280_1755_RED_A_01_ORTHO",
+      "type": "orbital",
+      "spacecraft": "Mars Reconnaissance Orbiter",
+      "instrument": "HiRISE",
+      "description": {
+        "en": "HiRISE orthoimage 0.25 m/px",
+        "pl": "Ortoobraz HiRISE 0,25 m/px"
+      },
+      "usedFor": {
+        "en": "boulder detection (shadow method), sand indicators (darkness, ripples)",
+        "pl": "wykrywanie głazów (metoda cieni), wskaźniki piasku (ciemność, zmarszczki)"
+      },
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/ESP_039280_1755_RED_A_01_ORTHO.JP2",
+      "access": "downloaded file",
+      "bytes": 342969997,
+      "sha256": "c699a5574c2320317927a271b52ab614f4db49f8c969f122ddd695420f22d207",
+      "credit": "NASA/JPL/University of Arizona"
+    },
+    {
+      "id": "ESP_039280_1755_RED_C_01_ORTHO",
+      "type": "orbital",
+      "spacecraft": "Mars Reconnaissance Orbiter",
+      "instrument": "HiRISE",
+      "description": {
+        "en": "HiRISE orthoimage 1 m/px",
+        "pl": "Ortoobraz HiRISE 1 m/px"
+      },
+      "usedFor": {
+        "en": "base map (Optical layer)",
+        "pl": "mapa bazowa (warstwa Optyczna)"
+      },
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_040700_040799/ESP_040770_1755_ESP_039280_1755/ESP_039280_1755_RED_C_01_ORTHO.JP2",
+      "access": "downloaded file",
+      "bytes": 26139255,
+      "sha256": "4f184be7109b4ce5d83ff31fc5542c0cb0276f2b7f29fed665cb0faf8b1f56ed",
+      "credit": "NASA/JPL/University of Arizona"
+    },
+    {
+      "id": "ESP_039280_1755_RED",
+      "type": "orbital",
+      "spacecraft": "Mars Reconnaissance Orbiter",
+      "instrument": "HiRISE",
+      "description": {
+        "en": "HiRISE PDS label of the orthoimage",
+        "pl": "Etykieta PDS ortoobrazu"
+      },
+      "usedFor": {
+        "en": "Sun incidence/azimuth for the shadow method, image time, Ls",
+        "pl": "kąt i azymut Słońca do metody cieni, czas zdjęcia, Ls"
+      },
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_039200_039299/ESP_039280_1755/ESP_039280_1755_RED.LBL",
+      "access": "downloaded file",
+      "bytes": 8066,
+      "sha256": "ae0ac7255a9a5c407d4e5e69d39fcc21b09ff92a80b88522cf54ca1d90637960",
+      "credit": "NASA/JPL/University of Arizona"
+    },
+    {
+      "id": "ESP_040770_1755_RED",
+      "type": "orbital",
+      "spacecraft": "Mars Reconnaissance Orbiter",
+      "instrument": "HiRISE",
+      "description": {
+        "en": "HiRISE PDS label of the second stereo image",
+        "pl": "Etykieta PDS drugiego zdjęcia stereo"
+      },
+      "usedFor": {
+        "en": "emission angle to estimate DTM vertical precision",
+        "pl": "kąt emisji do oceny dokładności pionowej DTM"
+      },
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_040700_040799/ESP_040770_1755/ESP_040770_1755_RED.LBL",
+      "access": "downloaded file",
+      "bytes": 8066,
+      "sha256": "ab0120b8777bb7314442f64ac48e8c69baf81a1d434241e66cf78bf60aac51cf",
+      "credit": "NASA/JPL/University of Arizona"
+    },
+    {
+      "id": "THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp",
+      "type": "orbital",
+      "spacecraft": "2001 Mars Odyssey",
+      "instrument": "THEMIS",
+      "description": {
+        "en": "THEMIS night-time infrared controlled mosaic, 100 m/px (USGS)",
+        "pl": "Mozaika THEMIS w podczerwieni nocnej, 100 m/px (USGS)"
+      },
+      "usedFor": {
+        "en": "Thermal layer: qualitative thermal inertia (loose sand vs bedrock), sand indicator",
+        "pl": "warstwa Termiczna: jakościowa bezwładność termiczna (piasek vs skała), wskaźnik piasku"
+      },
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars/THEMIS_controlled_mosaics/Aeolis_NightIR_31Jan2014/THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp.tif",
+      "access": "remote window (only the area of interest is read)",
+      "credit": "NASA/JPL/Arizona State University; mosaic: USGS Astrogeology"
+    },
+    {
+      "id": "Gale_CTX_BlockAdj_dd",
+      "type": "orbital",
+      "spacecraft": "Mars Reconnaissance Orbiter",
+      "instrument": "CTX",
+      "description": {
+        "en": "CTX mosaic of Gale crater, ~5 m/px (USGS Human Exploration Zones)",
+        "pl": "Mozaika CTX krateru Gale, ~5 m/px (USGS)"
+      },
+      "usedFor": {
+        "en": "consistency check of the HiRISE image",
+        "pl": "kontrola spójności zdjęcia HiRISE"
+      },
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars/CTX_EZs/Gale_CTX_BlockAdj_dd.tif",
+      "access": "remote window (only the area of interest is read)",
+      "credit": "NASA/JPL/Malin Space Science Systems; mosaic: USGS Astrogeology"
+    },
+    {
+      "id": "Mars_MGS_MOLA_DEM_mosaic_global_463m",
+      "type": "orbital",
+      "spacecraft": "Mars Global Surveyor",
+      "instrument": "MOLA",
+      "description": {
+        "en": "MOLA global elevation model, 463 m/px",
+        "pl": "Globalny model wysokości MOLA, 463 m/px"
+      },
+      "usedFor": {
+        "en": "absolute elevation check of the DTM",
+        "pl": "kontrola wysokości bezwzględnej DTM"
+      },
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars_MGS_MOLA_DEM_mosaic_global_463m.tif",
+      "access": "remote window (only the area of interest is read)",
+      "credit": "NASA/GSFC; mosaic: USGS Astrogeology"
+    },
+    {
+      "id": "FRT0000C0EF_07_SU165J_MTR3",
+      "type": "orbital",
+      "spacecraft": "Mars Reconnaissance Orbiter",
+      "instrument": "CRISM",
+      "description": {
+        "en": "CRISM map-projected targeted reduced data record (MTRDR), summary parameters, 18 m/px, acquired 2008",
+        "pl": "CRISM MTRDR (produkt odwzorowany), parametry sumaryczne, 18 m/px, zdjęcie z 2008 r."
+      },
+      "usedFor": {
+        "en": "Minerals layer: olivine (OLINDEX3), pyroxene, hydration and sulfate indices (informational, does not change the hazard map)",
+        "pl": "warstwa Minerały: oliwin (OLINDEX3), piroksen, wskaźniki uwodnienia i siarczanów (informacyjna, nie zmienia mapy zagrożeń)"
+      },
+      "url": "https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2008/2008_230/frt0000c0ef/frt0000c0ef_07_su165j_mtr3.img",
+      "access": "downloaded file",
+      "bytes": 145162320,
+      "sha256": "bb1f683ba6b868196a3df00c01c12d42d52d071b2ed8f994c9d70c47abbfb396",
+      "coverage": 1.0,
+      "credit": "NASA/JPL-Caltech/JHUAPL; parameters: Viviano-Beck et al. (2014), JGR Planets 119"
+    },
+    {
+      "id": "DONKI",
+      "type": "live API",
+      "provider": "NASA CCMC (Space Weather Database Of Notifications, Knowledge, Information)",
+      "description": {
+        "en": "Solar energetic particle (SEP), CME and flare events, last 7 days",
+        "pl": "Zdarzenia SEP, CME i rozbłyski z ostatnich 7 dni"
+      },
+      "usedFor": {
+        "en": "radiation risk, space weather alerts, report",
+        "pl": "ryzyko promieniowania, alarmy pogody kosmicznej, raport"
+      },
+      "url": "https://api.nasa.gov/DONKI/",
+      "access": "live, cached for offline use (NASA_API_KEY or DEMO_KEY)",
+      "credit": "NASA CCMC"
+    },
+    {
+      "id": "NOAA-SWPC-GOES-integral-protons",
+      "type": "live API",
+      "provider": "NOAA Space Weather Prediction Center",
+      "description": {
+        "en": "GOES integral proton flux ≥10 MeV, 1 day",
+        "pl": "Strumień protonów ≥10 MeV z GOES, 1 doba"
+      },
+      "usedFor": {
+        "en": "solar storm level (S-scale) indicator",
+        "pl": "wskaźnik poziomu burzy słonecznej (skala S)"
+      },
+      "url": "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json",
+      "access": "live, cached for offline use",
+      "credit": "NOAA SWPC"
+    },
+    {
+      "id": "MSL-RAD-dose-rate",
+      "type": "published measurement",
+      "provider": "Curiosity Radiation Assessment Detector (Hassler et al., Science 2014)",
+      "description": {
+        "en": "Surface dose rate in Gale crater ≈ 0.64 mSv/sol (GCR background)",
+        "pl": "Dawka na powierzchni w kraterze Gale ≈ 0,64 mSv/sol (tło GCR)"
+      },
+      "usedFor": {
+        "en": "background dose rate and crew dose budget",
+        "pl": "tło dawki i bilans dawki załogi"
+      },
+      "url": "https://doi.org/10.1126/science.1244797",
+      "access": "constant in model",
+      "credit": "NASA/JPL-Caltech/SwRI"
+    },
+    {
+      "id": "NASA-STD-3001",
+      "type": "standard",
+      "provider": "NASA",
+      "description": {
+        "en": "NASA Space Flight Human-System Standard Vol. 1 — career radiation limit 600 mSv",
+        "pl": "Norma NASA-STD-3001 t. 1 — limit dawki w karierze 600 mSv"
+      },
+      "usedFor": {
+        "en": "career dose limit in the dose card",
+        "pl": "limit dawki w karcie dawki"
+      },
+      "url": "https://www.nasa.gov/ochmo/human-system-standards/",
+      "access": "constant in model",
+      "credit": "NASA OCHMO"
+    },
+    {
+      "id": "Allison-McEwen-2000",
+      "type": "algorithm",
+      "provider": "Allison & McEwen, Planetary and Space Science 48 (2000) — basis of NASA GISS Mars24",
+      "description": {
+        "en": "Mars Sun position and local solar time",
+        "pl": "Położenie Słońca i czas słoneczny na Marsie"
+      },
+      "usedFor": {
+        "en": "terrain shadows, sunset, daylight rules, thermal model",
+        "pl": "cienie terenu, zmierzch, reguły dnia, model cieplny"
+      },
+      "url": "https://www.giss.nasa.gov/tools/mars24/help/algorithm.html",
+      "access": "implemented in backend/models/sun.py",
+      "credit": "NASA GISS"
+    }
+  ]
+}

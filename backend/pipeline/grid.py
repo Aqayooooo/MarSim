@@ -53,13 +53,17 @@ def grid_from_center(src_crs: CRS, center_lon: float, center_lat: float, width_m
     return Grid(src_crs, cx - width_m / 2, cy + height_m / 2, width_m, height_m, res)
 
 
-def read_into(grid: Grid, path: str, band: int = 1, resampling=Resampling.bilinear, nodata_out=np.nan) -> np.ndarray:
-    """Czyta fragment produktu (lokalny plik lub /vsicurl/…) i przelicza go do siatki."""
+def read_into(grid: Grid, path: str, band: int = 1, resampling=Resampling.bilinear, nodata_out=np.nan,
+              driver: str | None = None, src_nodata: float | None = None) -> np.ndarray:
+    """Czyta fragment produktu (lokalny plik lub /vsicurl/…) i przelicza go do siatki.
+    driver="ENVI" (np. CRISM): plik nagłówka .hdr obok danych — wtedy GDAL musi móc czytać katalog."""
     out = np.full(grid.shape, nodata_out, dtype=np.float32)
-    with rasterio.Env(GDAL_HTTP_MAX_RETRY=5, GDAL_HTTP_RETRY_DELAY=2, CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".IMG,.img,.tif,.TIF,.JP2,.jp2",
-                      GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR"):
-        with rasterio.open(path) as src:
-            src_nodata = src.nodata
+    env = dict(GDAL_HTTP_MAX_RETRY=5, GDAL_HTTP_RETRY_DELAY=2, CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".IMG,.img,.tif,.TIF,.JP2,.jp2")
+    if driver is None:
+        env["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
+    with rasterio.Env(**env):
+        with rasterio.open(path, driver=driver) as src:
+            src_nodata = src.nodata if src_nodata is None else src_nodata
             reproject(
                 source=rasterio.band(src, band), destination=out,
                 src_transform=src.transform, src_crs=src.crs, src_nodata=src_nodata,

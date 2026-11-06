@@ -1,5 +1,6 @@
 // Panele boczne i nakładki DOM nad mapą. Aktualizowane z pętli, zmieniają DOM tylko przy zmianie.
 import { num, int, hm, clock, km, parseClock } from '../core/format.js';
+import { t, tx, plural } from '../i18n.js';
 
 const $ = (id) => document.getElementById(id);
 function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
@@ -10,15 +11,16 @@ export class Panels {
   constructor(app) {
     this.app = app;
     const m = app.m;
-    setText($('missionTitle'), m.mission.title);
-    setText($('sourceLabel'), m.mission.sourceLabel);
-    setText($('locLabel'), m.area.label);
+    setText($('missionTitle'), tx(m.mission.title));
+    setText($('sourceLabel'), tx(m.mission.sourceLabel));
+    setText($('locLabel'), tx(m.area.label));
     this.#buildLayers();
     this.#buildO2();
     const wp = m.waypoints.find((w) => w.view) || m.waypoints[m.waypoints.length - 1];
     this.viewWp = wp.id;
-    setText($('wpViewHead'), `Widok w ${wp.id}`);
-    setText($('wpLocked'), `odblokuje się w ${wp.id}`);
+    setText($('wpViewHead'), t('wp.view', { wp: wp.id }));
+    setText($('wpLocked'), t('wp.locked', { wp: wp.id }));
+    $('wpShot').querySelector('img').alt = t('wp.alt', { wp: wp.id });
     app.on('layers', () => this.#syncLayers());
     app.on('reset', () => { this.#syncLayers(); $('wpView').classList.remove('open'); });
     app.on('wpview', (id) => this.#showWpView(id));
@@ -35,8 +37,9 @@ export class Panels {
       r.tabIndex = 0;
       r.setAttribute('role', 'switch');
       r.innerHTML = `<i class="sw"></i><div class="nm"></div><div class="ds"></div><span class="tg"></span>`;
-      r.querySelector('.nm').textContent = l.name;
-      r.querySelector('.ds').textContent = l.desc;
+      r.querySelector('.nm').textContent = tx(l.name);
+      r.querySelector('.ds').textContent = tx(l.desc);
+      r.setAttribute('aria-label', `${tx(l.name)}: ${tx(l.desc)}`);
       const toggle = () => this.app.toggleLayer(l.id);
       r.addEventListener('click', toggle);
       r.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } });
@@ -60,7 +63,7 @@ export class Panels {
     if (st.legend === 'shadow' && this.app.world.rasters.shadow) {
       const hrs = this.app.world.rasters.shadow.hours, w = document.createElement('div');
       w.className = 'hourpick';
-      w.innerHTML = `<span>Godzina LTST: <b></b></span><input type="range" min="${hrs[0]}" max="${hrs[hrs.length - 1]}" step="1">`;
+      w.innerHTML = `<span>${t('shadow.hour')} <b></b></span><input type="range" min="${hrs[0]}" max="${hrs[hrs.length - 1]}" step="1" aria-label="${t('shadow.hour')}">`;
       const inp = w.querySelector('input'), b = w.querySelector('b');
       inp.value = this.app.shadowHour; b.textContent = `${String(this.app.shadowHour).padStart(2, '0')}:00`;
       inp.addEventListener('input', () => { b.textContent = `${String(inp.value).padStart(2, '0')}:00`; this.app.shadowHour = +inp.value; });
@@ -71,7 +74,7 @@ export class Panels {
       d.className = 'lg';
       d.innerHTML = '<i></i><span></span>';
       d.querySelector('i').style.background = e.color;
-      d.querySelector('span').textContent = e.text;
+      d.querySelector('span').textContent = tx(e.text);
       lg.appendChild(d);
     }
   }
@@ -94,7 +97,7 @@ export class Panels {
     const v = this.app.state.wpView[id];
     const box = $('wpView');
     box.querySelector('img').src = v.src;
-    setText(box.querySelector('.cap'), v.caption);
+    setText(box.querySelector('.cap'), `${tx(v.caption)} · ${t('wp.note')}`);
     requestAnimationFrame(() => box.classList.add('open'));
   }
 
@@ -108,11 +111,11 @@ export class Panels {
     const env = m.environment, on = app.envOn;
     setText($('cDose').querySelector('.cv'), on ? int(snap ? snap.env.doseUsvh : env.doseUsvh) : '--');
     setText($('cWind').querySelector('.cv'), on ? num(st.wind, 1) : '--');
-    setText($('cTemp').querySelector('.cl'), snap ? 'Grunt °C' : 'Temp. °C');
+    setText($('cTemp').querySelector('.cl'), snap ? t('card.ground') : t('card.temp'));
     setText($('cTemp').querySelector('.cv'), on ? int(snap ? snap.env.groundTempC : tempAt(env.temperature, sim.min)) : '--');
     setText($('cTau').querySelector('.cv'), on ? num(snap ? snap.env.tau : env.dustTau, 2) : '--');
     const career = snap?.crew?.length ? Math.max(...snap.crew.map((c) => c.career.fraction)) : null;
-    setText($('cDoseSub'), on && career !== null ? `limit kariery ${num(career * 100, 0)}%` : '');
+    setText($('cDoseSub'), on && career !== null ? t('card.career', { p: num(career * 100, 0) }) : '');
     setClass($('cDose'), 'hi', st.doseHi);
     // tlen i zapas
     sim.crew.forEach((c, i) => {
@@ -120,8 +123,8 @@ export class Panels {
       const w = `${(c.o2 / 100) * 190}px`;
       if (this.o2[i].fill.style.width !== w) this.o2[i].fill.style.width = w;
       setText(this.o2[i].val, `${p}%`);
-      const t = snap?.crew?.[i];
-      setText(this.o2[i].tele, t ? `CO₂ ${num(t.co2mmHg, 1)} mmHg · bat ${int(t.batteryPct)}% · ♥ ${t.hr} · ${num(t.pressureKPa, 1)} kPa` : '');
+      const tl = snap?.crew?.[i];
+      setText(this.o2[i].tele, tl ? t('tele', { co2: num(tl.co2mmHg, 1), bat: int(tl.batteryPct), hr: tl.hr, kpa: num(tl.pressureKPa, 1) }) : '');
     });
     setText($('reserve'), hm(sim.reserveH()));
     // nakładki mapy
@@ -131,9 +134,9 @@ export class Panels {
     setHidden(card, !(isMap && r && app.now >= st.routeCardAt));
     if (r) {
       const u = r.uncertainty, dem = app.m.dem;
-      const extra = u ? `<br><span class="u">nachylenie maks. ${num(u.maxSlopeDeg, 0)}° ±${num(Math.max(1, u.maxSlopeSigmaDeg), 0)}° · DTM ${dem.year || ''}</span>`
-        + `<br><span class="u">piasek ≤ ${num(u.maxSandProb * 100, 0)}% · O₂ ${int(r.o2L ?? 0)} L</span>` : '';
-      const html = `<b>TRASA ${r.letter}</b> <span class="g">${r.rating}</span><br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${r.stops} ${plural(r.stops)}${extra}`;
+      const extra = u ? `<br><span class="u">${t('route.slope', { s: num(u.maxSlopeDeg, 0), sg: num(Math.max(1, u.maxSlopeSigmaDeg), 0), y: dem.year || '' })}</span>`
+        + `<br><span class="u">${t('route.sand', { p: num(u.maxSandProb * 100, 0), o2: int(r.o2L ?? 0) })}</span>` : '';
+      const html = `<b>${t('route', { l: r.letter })}</b> <span class="g">${tx(r.rating)}</span><br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${r.stops} ${plural(r.stops)}${extra}`;
       if (card.dataset.k !== html) { card.innerHTML = html; card.dataset.k = html; }
     }
     const al = $('alert');
@@ -148,7 +151,6 @@ export class Panels {
   }
 }
 
-function plural(n) { return n === 1 ? 'przystanek' : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? 'przystanki' : 'przystanków'; }
 
 export function tempAt(curve, min) {
   const pts = curve.map(([c, t]) => [parseClock(c), t]);

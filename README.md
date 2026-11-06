@@ -1,85 +1,124 @@
-# MarSim (interfejs STRATA) — mapa i planer wyjścia (EVA) dla astronautów na Marsie
+# MarSim — mapa i planer wyjść (EVA) dla astronautów na Marsie
 
-Interfejs na NASA Space Apps (wyzwanie o mapie dla astronautów na Marsie). Pokazuje warstwy danych o terenie, wyznacza bezpieczną trasę pieszą,
-śledzi załogę (pozycja, tlen, zapas na powrót), reaguje na zagrożenia (głazy, burza słoneczna) i pozwala przejść trasę w 3D z perspektywy hełmu.
+Projekt na **NASA Space Apps Challenge 2026** (wydarzenie lokalne: Stalowa Wola), wyzwanie o mapie dla astronautów na Marsie.
+*English summary below.*
 
-Dwa tryby:
-- **z backendem** (`python backend/server.py`): prawdziwe dane NASA (HiRISE DTM i zdjęcia, THEMIS, CTX, MOLA) dla wydm Bagnold w kraterze Gale,
-  wykrywanie głazów (metoda cieni) i piasku (5 wskaźników, bez AI), nachylenie z marginesem błędu, pochodzenie danych, EVA na żywo
-  (telemetria skafandrów, pozycjonowanie UWB, granica powrotu, trasy awaryjne, łączność, cienie, temperatura, promieniowanie z DONKI/NOAA,
-  łącze z Ziemią w trybie DTN), harmonogram wyjść, raport ryzyka i ekran urządzenia w hełmie;
-- **bez backendu** (`python tools/serve.py`): sam interfejs na syntetycznych danych z `data/demo/`.
+MarSim pokazuje teren z prawdziwych danych NASA i wyznacza bezpieczną trasę pieszą. W czasie wyjścia śledzi załogę: pozycję, tlen i zapas na powrót do habitatu. Reaguje na zagrożenia (głazy, burza słoneczna), a trasę można przejść w 3D z perspektywy hełmu.
 
-Duże pliki NASA trafiają do katalogu danych poza repozytorium: zmienna `MARSIM_DATA` albo `backend/config/paths.local.json`
-(np. `{ "dataDir": "D:/MarSim-data" }`), domyślnie `./data`.
+- **Obszar:** wydmy Bagnold u podnóża Mount Sharp, krater Gale (4,67° S, 137,38° E), wycinek 1440 × 960 m.
+- **Dane:** HiRISE (DTM 1 m i zdjęcia 0,25 m), CTX, THEMIS, MOLA, CRISM, NASA DONKI, NOAA SWPC. Pełna lista z adresami i sumami SHA-256 jest w [data-sources.json](data-sources.json).
+- **Bez uczenia maszynowego w produkcie.** Głazy wykrywa geometria cieni, piasek pięć wskaźników fizycznych, minerały parametry spektralne CRISM, a trasę algorytm A* z modelem wysiłku.
 
-## Uruchomienie na dowolnym komputerze
+## Uruchomienie
 
-Działa na Windows, macOS i Linux. Potrzebne: **Git**, **Python 3.10+**, przeglądarka z WebGL. Node.js tylko do generatora danych przykładowych.
+Wymagania: Windows, macOS albo Linux, **Python 3.10+** i przeglądarka z WebGL. Po pierwszej instalacji pakietów **działa bez internetu**: three.js i czcionki są w `vendor/`, a pogoda kosmiczna ma pamięć podręczną.
 
-### A. Sam interfejs na danych przykładowych (1 minuta)
+### Windows: jedno kliknięcie
 
-```
-git clone https://github.com/<konto>/MarSim.git
-cd MarSim
-python tools/serve.py
-```
+| Polecenie | Co robi |
+|---|---|
+| `URUCHOM.bat` | pełna wersja z backendem: http://localhost:8000 (przy pierwszym uruchomieniu tworzy `.venv` i instaluje pakiety) |
+| `URUCHOM.bat en` | to samo po angielsku |
+| `URUCHOM.bat demo` | sam interfejs na danych przykładowych, bez instalacji: http://localhost:5173 |
 
-Otwórz http://localhost:5173 (z `?demo` prezentacja rusza sama). Nic nie trzeba instalować.
-
-### B. Pełna wersja z backendem i prawdziwymi danymi NASA
+### Ręcznie (każdy system)
 
 ```
 python -m venv .venv
-# Windows:  .venv\Scripts\activate      macOS/Linux:  source .venv/bin/activate
+# Windows: .venv\Scripts\activate     macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
-python backend/fetch_data.py          # pobiera produkty NASA do data/raw (kilkaset MB, raz)
-python backend/build.py               # przetwarza je do data/missions/mount-sharp
-python backend/server.py              # backend + UI na http://localhost:8000
+python backend/server.py              # http://localhost:8000
 ```
 
-Otwórz http://localhost:8000. UI sam wykryje backend i użyje prawdziwych danych.
+### Docker
 
-### Kontynuowanie prac
+```
+docker build -t marsim .
+docker run --rm -p 8000:8000 -v marsim-data:/data marsim
+```
 
-- Plan i status etapów: [docs/PLAN.md](docs/PLAN.md). Zacznij od pierwszego etapu oznaczonego ☐ lub ◐.
-- Format danych między backendem a UI: [docs/KONTRAKT_DANYCH.md](docs/KONTRAKT_DANYCH.md).
-- Testy backendu: `python -m pytest backend/tests`. Test planera w Node: `node tools/test-planner.mjs`.
-- Dane przykładowe od nowa (Node 18+): `node tools/generate-mock-data.mjs`.
+### Przebudowa danych NASA (opcjonalnie)
+
+Gotowe pliki misji są w `data/missions/mount-sharp/`. Surowe produkty (ok. 0,5 GB) trafiają poza repozytorium. Katalog wskazuje zmienna `MARSIM_DATA` albo plik `backend/config/paths.local.json`, np. `{ "dataDir": "D:/MarSim-data" }`.
+
+```
+python backend/fetch_data.py          # pobiera brakujące produkty, liczy SHA-256
+python backend/build.py               # pełny potok → data/missions/mount-sharp
+python backend/build.py --only-minerals   # tylko warstwa CRISM
+```
 
 ## Obsługa
 
-- **Warstwy**: kliknięcie wiersza w lewym panelu włącza lub wyłącza warstwę.
-- **Mapa 2D / 3D / Hełm EV1**: przełącznik w nagłówku. W 3D: przeciąganie obraca, kółko przybliża.
-- **Hełm EV1**: W A S D lub strzałki to chodzenie, przeciąganie myszą to rozglądanie, Shift przyspiesza (×8).
-  Kolizje: astronauta idzie po powierzchni terenu, nie wejdzie na zbocze powyżej `eva.maxSlopeDeg` (25°), omija głazy i nie wyjdzie poza mapę.
-  HUD ostrzega o strefach zakazanych i nierównym terenie.
-- **Start EVA**: wyznacza trasę i uruchamia marsz załogi (ponowne kliknięcie to pauza).
-- **▶ Prezentacja**: scenariusz 8 kroków jak w nagraniu wzorcowym.
+- **PL / EN**: przełącznik w nagłówku (albo `?lang=en` w adresie).
+- **Warstwy**: kliknięcie albo spacja na wierszu w lewym panelu.
+- **Mapa 2D / 3D / Hełm EV1 / Urządzenie / Raport / Plan wyjść**: zakładki w nagłówku.
+- **Hełm**: klawisze W A S D lub strzałki to chodzenie, mysz to rozglądanie, Shift przyspiesza. Kolizje z terenem powyżej 25° i z głazami.
+- **Start EVA**: wyznacza trasę i rusza z załogą. **▶ Prezentacja** odtwarza scenariusz w 8 krokach.
+- **＋ Zgłoś z terenu**: kliknięcie na mapie dodaje przeszkodę albo bezpieczne przejście. Trasa przelicza się, jeśli trzeba.
 
-## Struktura
+## Co jest w środku
 
 ```
-index.html, styles.css      ekran 1664×744 skalowany do okna
-src/main.js                 start, pętla klatek, przyciski, HUD
-src/app.js                  stan i akcje (warstwy, trasa, EVA, zdarzenia)
-src/demo.js                 reżyser prezentacji
-src/core/                   teren (DEM), linie, symulacja EVA, formatowanie liczb
-src/data/source.js          JEDYNE miejsce styku z danymi (pliki albo backend)
-src/data/mockPlanner.js     zaślepka backendu: A* (do zastąpienia przez POST /plan)
-src/ui/map2d.js             mapa 2D (canvas)
-src/ui/panels.js            panele boczne i nakładki
-src/ui/view3d.js            3D i widok z hełmu (three.js 0.160 z CDN)
-tools/                      serwer, generator danych, test planera
-docs/KONTRAKT_DANYCH.md     format danych dla backendu
+index.html, styles.css     ekran 1664×744 skalowany do okna
+src/                       interfejs (moduły ES, bez kompilacji)
+  i18n.js                  tłumaczenia PL/EN
+  data/source.js           jedyne miejsce styku z danymi (pliki albo backend)
+  ui/                      mapa 2D, 3D i hełm, panele, raport, harmonogram
+vendor/                    three.js 0.160.0 i czcionki (offline)
+backend/
+  server.py                API (FastAPI) + walidacja pydantic
+  live/                    silnik EVA, SQLite (store.py), raport, harmonogram, DTN, pogoda kosmiczna
+  pipeline/                teren, głazy, piasek, minerały (CRISM), środowisko
+  build.py, fetch_data.py  potok danych NASA
+data/missions/mount-sharp/ gotowe warstwy misji + provenance.json (pochodzenie i sumy kontrolne)
+data/demo/                 dane syntetyczne (tryb bez backendu)
+data-sources.json          wykaz użytych danych
+docs/                      plan, kontrakt danych, bezpieczeństwo
 ```
 
-## Uwagi
+**Zapis stanu.** Dziennik zdarzeń, zgłoszenia z terenu i harmonogram trafiają do bazy SQLite `marsim.db` w katalogu danych i przetrwają restart. Przebieg symulacji EVA po restarcie zaczyna się od nowa, a historia zostaje w dzienniku (`GET /api/log`).
 
-- three.js i czcionki ładują się z CDN, więc pierwsze uruchomienie wymaga internetu. Na konkurs offline: pobrać `three.module.js` i dodatki do `vendor/` i zmienić importmap w `index.html`.
-- Zdjęcie w karcie „Widok w WP2” to render z modelu terenu, a nie zdjęcie Mastcam (brak prawdziwych danych na tym etapie).
+**Testy.**
+- `python -m pytest backend/tests` (35 testów: potok, API, walidacja, zapis po restarcie);
+- `node tools/test-planner.mjs`;
+- `node tools/test-i18n.mjs`.
 
-### Klucz NASA API (pogoda kosmiczna)
+Uruchamia je też CI (`.github/workflows/ci.yml`).
 
-DONKI działa na wspólnym kluczu `DEMO_KEY`, który ma niskie limity i bywa przeciążony. Własny, darmowy klucz z https://api.nasa.gov
-ustaw w zmiennej `NASA_API_KEY` przed `python backend/server.py`. Bez sieci backend pokazuje ostatnie zapisane dane i ich wiek.
+**Klucz NASA API.** DONKI działa na wspólnym kluczu `DEMO_KEY` o niskich limitach. Własny, darmowy klucz z https://api.nasa.gov ustaw w zmiennej `NASA_API_KEY`.
+
+## Ograniczenia (uczciwie)
+
+- Widok w punkcie WP2 to **render z modelu terenu HiRISE**, nie zdjęcie z kamery łazika. Interfejs to podpisuje.
+- Model tlenu (równanie Pandolfa przeliczone na 0,38 g) nie jest skalibrowany danymi z prawdziwego skafandra.
+- Wykrywanie głazów widzi obiekty od ok. 1 m. Mniejsze kamienie nie są widoczne z orbity.
+- Brak logowania i ról. Serwer domyślnie słucha tylko lokalnie. Szczegóły: [docs/BEZPIECZENSTWO.md](docs/BEZPIECZENSTWO.md).
+- Układ ekranu jest stały (skalowany), nie przebudowuje się na telefon. Dostępność poprawiona, ale bez pełnego audytu WCAG.
+- Jeden obszar misji. Drugi obszar i wersja pod linkiem (GitHub Pages) są w planie: [docs/PLAN.md](docs/PLAN.md).
+
+## Dokumenty
+
+- [docs/PLAN.md](docs/PLAN.md): etapy i stan prac;
+- [docs/KONTRAKT_DANYCH.md](docs/KONTRAKT_DANYCH.md): format danych między backendem a UI;
+- [docs/BEZPIECZENSTWO.md](docs/BEZPIECZENSTWO.md): bezpieczeństwo i droga do wdrożenia;
+
+## Licencja i podziękowania
+
+Kod: licencja MIT ([LICENSE](LICENSE)). three.js: MIT. Czcionki Inter i JetBrains Mono: SIL OFL 1.1.
+
+Dane: NASA/JPL-Caltech/University of Arizona (HiRISE), NASA/JPL/MSSS (CTX), NASA/JPL/ASU (THEMIS), NASA/GSFC (MOLA), NASA/JPL/JHUAPL (CRISM), USGS Astrogeology (mozaiki), NASA CCMC (DONKI), NOAA SWPC. Projekt nie jest popierany przez NASA.
+
+---
+
+## English summary
+
+**MarSim** is a map and EVA planner for astronauts on Mars, built for NASA Space Apps Challenge 2026. It uses real NASA data for the Bagnold dunes in Gale crater:
+- HiRISE DTM and orthoimages, CTX, THEMIS, MOLA and CRISM;
+- live DONKI and NOAA space weather.
+
+It shows hazard layers with uncertainty and plans a safe walking route. During the EVA it tracks crew oxygen and the walk-back limit, and replans around field reports. The route can also be viewed in 3D or from a helmet camera.
+
+- **Run (Windows):** double-click `URUCHOM.bat`, or `URUCHOM.bat en` for English.
+- **Run (any OS):** `pip install -r requirements.txt`, then `python backend/server.py`, then open http://localhost:8000.
+
+It works offline after the first install. All data products are listed in [data-sources.json](data-sources.json).

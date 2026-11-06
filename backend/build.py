@@ -30,10 +30,11 @@ from backend.pipeline import boulders as bld  # noqa: E402
 from backend.pipeline import environment as env  # noqa: E402
 from backend.pipeline import sand as snd  # noqa: E402
 from backend.pipeline import terrain as ter  # noqa: E402
+from backend.pipeline import minerals as mnr  # noqa: E402
 from backend.pipeline.grid import block_mean, cache_remote_window, grid_from_center, open_crs, read_into  # noqa: E402
 from backend import planning  # noqa: E402
 
-PIPELINE_VERSION = "1.0.0"
+PIPELINE_VERSION = "1.1.0"
 CFG = json.loads((ROOT / "backend" / "config" / "mission.json").read_text(encoding="utf-8"))
 SOURCES = {p["id"]: p for p in json.loads((ROOT / "backend" / "sources.json").read_text(encoding="utf-8"))["products"]}
 S3 = "/vsicurl/https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/"
@@ -90,7 +91,71 @@ def png_gray(path: Path, a: np.ndarray):
     Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), mode="L").save(path, optimize=True)
 
 
+CRISM_ID = "FRT0000C0EF_07_SU165J_MTR3"
+
+
+def build_minerals(out: Path, g1) -> dict | None:
+    """Warstwa minerałów z CRISM (gdy plik jest pobrany). Zwraca {"layer", "source", "stats", "method"} albo None."""
+    p = SOURCES.get(CRISM_ID)
+    if not p or not (RAW / p["file"]).exists():
+        log("CRISM: brak pliku — warstwa minerałów pominięta (python backend/fetch_data.py)")
+        return None
+    log("Minerały: parametry sumaryczne CRISM (18 m/px)")
+    params = mnr.read_params(g1.with_res(18.0), str(RAW / p["file"]))
+    cls, conf = mnr.classify(params)
+    png_gray(out / "minerals.png", cls)
+    png_gray(out / "mineralsConfidence.png", conf * 255)
+    st = mnr.stats(cls, params)
+    present = [k for k in mnr.CLASSES if (cls == k).any()]
+    classes = {str(k): {"color": mnr.CLASSES[k]["color"], "text": mnr.CLASSES[k]["text"]} for k in present}
+    layer = {"id": "minerals", "name": "Minerały", "desc": "CRISM 18 m/px", "colorOff": "#2f4a2a", "colorOn": "#7CC36E",
+             "raster": {"file": "minerals.png", "encoding": "png-class8", "width": int(cls.shape[1]), "height": int(cls.shape[0]),
+                        "cellM": 18, "classes": classes},
+             "legend": [{"color": mnr.CLASSES[k]["color"], "text": mnr.CLASSES[k]["text"]} for k in present]}
+    log(f"  klasy: {st['fractions']}, mediana OLINDEX3 {st['olindex3Median']}")
+    manifest = json.loads((RAW / "manifest.json").read_text(encoding="utf-8")) if (RAW / "manifest.json").exists() else {}
+    f = RAW / p["file"]
+    source = {"id": CRISM_ID, "instrument": p["instrument"], "description": p["description"], "url": p["url"],
+              "sha256": manifest.get(CRISM_ID, {}).get("sha256") or sha256(f), "bytes": f.stat().st_size, "access": "plik lokalny"}
+    rules = "; ".join(f"{k}: {c['text']} ({c['rule']})" for k, c in mnr.CLASSES.items())
+    method = f"CRISM MTRDR, parametry Viviano-Beck i in. (2014); klasy: {rules}. Warstwa informacyjna — nie zmienia mapy zagrożeń."
+    return {"layer": layer, "source": source, "stats": st, "method": method}
+
+
+def insert_layer(layers: list, layer: dict) -> list:
+    layers = [x for x in layers if x["id"] != layer["id"]]
+    i = next((k + 1 for k, x in enumerate(layers) if x["id"] == "thermal"), len(layers))
+    return layers[:i] + [layer] + layers[i:]
+
+
+def only_minerals() -> int:
+    """Dodaje/odświeża warstwę minerałów w istniejącej misji bez przeliczania reszty potoku."""
+    out = MISSIONS / CFG["id"]
+    a = CFG["aoi"]
+    crs = open_crs(str(RAW / f"dtm_window_{CFG['id']}.tif"))
+    g1 = grid_from_center(crs, a["centerLon"], a["centerLat"], a["widthM"], a["heightM"], 1.0)
+    res = build_minerals(out, g1)
+    if not res:
+        return 1
+    mission = json.loads((out / "mission.json").read_text(encoding="utf-8"))
+    prov = json.loads((out / "provenance.json").read_text(encoding="utf-8"))
+    mission["layers"] = insert_layer(mission["layers"], res["layer"])
+    mission["mission"]["sourceLabel"] = "Dane NASA: HiRISE, THEMIS, CTX, MOLA, CRISM"
+    prov["sources"] = [s for s in prov["sources"] if s["id"] != CRISM_ID] + [res["source"]]
+    prov["methods"]["minerals"] = res["method"]
+    prov["stats"]["minerals"] = res["stats"]
+    prov["pipelineVersion"] = PIPELINE_VERSION
+    for name in ("minerals.png", "mineralsConfidence.png"):
+        prov.setdefault("outputs", {})[name] = sha256(out / name)
+    (out / "provenance.json").write_text(json.dumps(prov, indent=2, ensure_ascii=False), encoding="utf-8")
+    (out / "mission.json").write_text(json.dumps(mission, indent=2, ensure_ascii=False), encoding="utf-8")
+    log(f"Gotowe: warstwa minerałów → {out}")
+    return 0
+
+
 def main() -> int:
+    if "--only-minerals" in sys.argv:
+        return only_minerals()
     fresh = "--fresh" in sys.argv
     out = MISSIONS / CFG["id"]
     out.mkdir(parents=True, exist_ok=True)
@@ -224,6 +289,8 @@ def main() -> int:
     (out / "boulders.json").write_text(json.dumps({"sunAzDeg": round(sun_az_img, 2), "sunElevDeg": round(sun_elev_img, 2),
                                                    "pixelM": 0.25, "minDiameterM": 1.0, "boulders": boulders}), encoding="utf-8")
 
+    mins = build_minerals(out, g1)
+
     # kontrola spójności z MOLA i CTX
     mola_off = float(np.nanmean(dem1) - np.nanmean(mola[mola > -1e4])) if np.isfinite(mola).any() else None
     ctx_corr = None
@@ -243,6 +310,7 @@ def main() -> int:
     for k, p in EXTRA.items():
         prov_sources.append({"id": p["id"], "instrument": p["instrument"], "description": p["description"],
                              "url": p["url"].replace("/vsicurl/", ""), "sha256": None, "access": "zdalny fragment"})
+    prov_sources = [s for s in prov_sources if not s["id"].startswith(CRISM_ID)] + ([mins["source"]] if mins else [])
     provenance = {
         "pipelineVersion": PIPELINE_VERSION, "builtUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "crs": crs.to_wkt(), "area": {"widthM": a["widthM"], "heightM": a["heightM"], "corners": corners,
@@ -259,12 +327,14 @@ def main() -> int:
             "hazard": f"zakaz: nachylenie+2σ > {eva['maxSlopeDeg']}° lub piasek > 0,6 lub głaz (H≥0,5 m); uwaga: nachylenie+2σ > {eva['cautionSlopeDeg']}°, piasek > 0,35, nierówności > 0,5 m, > 1 głaz/100 m²",
             "comms": f"linia widoczności z masztu habitatu {hab['mastM']} m do odbiornika {eva['rxHeightM']} m nad gruntem",
             "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST",
+            **({"minerals": mins["method"]} if mins else {}),
         },
         "checks": {"dtmMinusMolaM": None if mola_off is None else round(mola_off, 1),
                    "hiriseVsCtxCorrelation": None if ctx_corr is None else round(ctx_corr, 3)},
         "stats": {"boulders": len(boulders), "bouldersConfident": sum(b["confidence"] >= 0.5 for b in boulders),
                   "sandFraction": round(float((sand3 > 0.5).mean()), 3), "forbiddenFraction": round(float((hazard == 2).mean()), 3),
-                  "commsCoverage": round(float((comms_cls > 0).mean()), 3), "slopeSigmaMedianDeg": round(float(np.median(slope_sigma)), 2)},
+                  "commsCoverage": round(float((comms_cls > 0).mean()), 3), "slopeSigmaMedianDeg": round(float(np.median(slope_sigma)), 2),
+                  **({"minerals": mins["stats"]} if mins else {})},
         "sun": {"missionDateUtc": CFG["missionDateUtc"], "ls": round(mt.ls, 2), "declDeg": round(mt.decl, 3), "rAu": round(mt.r_au, 4),
                 "sunsetLtst": round(sun.sunset_ltst(lat_c, mt.decl), 2), "hours": sun_table},
     }
@@ -272,19 +342,19 @@ def main() -> int:
         if f.suffix in (".png", ".f32", ".json") and f.name not in ("provenance.json", "mission.json"):
             provenance.setdefault("outputs", {})[f.name] = sha256(f)
     (out / "provenance.json").write_text(json.dumps(provenance, indent=2, ensure_ascii=False), encoding="utf-8")
-    write_mission_json(out, H, W, cell, provenance, lat_c, lon_c, mt, th.shape)
+    write_mission_json(out, H, W, cell, provenance, lat_c, lon_c, mt, th.shape, mins["layer"] if mins else None)
     log(f"Gotowe → {out}")
     print(json.dumps(provenance["stats"], ensure_ascii=False), json.dumps(provenance["checks"]))
     return 0
 
 
-def write_mission_json(out: Path, H: int, W: int, cell: float, prov: dict, lat: float, lon: float, mt, th_shape):
+def write_mission_json(out: Path, H: int, W: int, cell: float, prov: dict, lat: float, lon: float, mt, th_shape, minerals_layer=None):
     a = CFG["aoi"]
     dtm_year = (prov["imaging"]["imageTimeUtc"] or "")[:4]
     mission = {
         "contractVersion": 2,
         "synthetic": False,
-        "mission": {"id": CFG["id"], "title": CFG["title"], "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA",
+        "mission": {"id": CFG["id"], "title": CFG["title"], "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA" + (", CRISM" if minerals_layer else ""),
                     "sol": CFG["sol"], "startClock": CFG["startLtst"], "dateUtc": CFG["missionDateUtc"]},
         "area": {"label": CFG["areaLabel"], "widthM": a["widthM"], "heightM": a["heightM"],
                  "center": {"lat": round(lat, 5), "lon": round(lon, 5)}, "corners": prov["area"]["corners"]},
@@ -342,6 +412,8 @@ def write_mission_json(out: Path, H: int, W: int, cell: float, prov: dict, lat: 
              "alert": {"category": "POGODA KOSMICZNA", "text": "ostrzeżenie SEP · łazik jedzie do załogi"}},
         ],
     }
+    if minerals_layer:
+        mission["layers"] = insert_layer(mission["layers"], minerals_layer)
     (out / "mission.json").write_text(json.dumps(mission, indent=2, ensure_ascii=False), encoding="utf-8")
 
 

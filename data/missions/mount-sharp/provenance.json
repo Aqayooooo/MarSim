@@ -1,5 +1,5 @@
 {
-  "pipelineVersion": "1.0.0",
+  "pipelineVersion": "1.1.0",
   "builtUtc": "2026-11-06T18:50:48+00:00",
   "crs": "PROJCRS[\"EQUIRECTANGULAR MARS\",BASEGEOGCRS[\"GCS_MARS\",DATUM[\"D_MARS\",ELLIPSOID[\"MARS_localRadius\",3396190,0,LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]]],PRIMEM[\"Reference_Meridian\",0,ANGLEUNIT[\"degree\",0.0174532925199433,ID[\"EPSG\",9122]]]],CONVERSION[\"unnamed\",METHOD[\"Equidistant Cylindrical (Spherical)\",ID[\"EPSG\",1029]],PARAMETER[\"Latitude of 1st standard parallel\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Longitude of natural origin\",137.39,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"False easting\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"easting\",east,ORDER[1],LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]],AXIS[\"northing\",north,ORDER[2],LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]]]",
   "area": {
@@ -98,6 +98,15 @@
       "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars_MGS_MOLA_DEM_mosaic_global_463m.tif",
       "sha256": null,
       "access": "zdalny fragment"
+    },
+    {
+      "id": "FRT0000C0EF_07_SU165J_MTR3",
+      "instrument": "MRO CRISM",
+      "description": "Parametry sumaryczne CRISM MTRDR, 18 m/px (Viviano-Beck i in. 2014) — minerały: oliwin, piroksen, uwodnienie, siarczany",
+      "url": "https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2008/2008_230/frt0000c0ef/frt0000c0ef_07_su165j_mtr3.img",
+      "sha256": "bb1f683ba6b868196a3df00c01c12d42d52d071b2ed8f994c9d70c47abbfb396",
+      "bytes": 145162320,
+      "access": "plik lokalny"
     }
   ],
   "imaging": {
@@ -141,7 +150,8 @@
     "boulders": "metoda cieni (próg 2,6σ lokalnego szumu, weryfikacja oświetlonej ściany), wykrywalne ≥1 m",
     "hazard": "zakaz: nachylenie+2σ > 25° lub piasek > 0,6 lub głaz (H≥0,5 m); uwaga: nachylenie+2σ > 18°, piasek > 0,35, nierówności > 0,5 m, > 1 głaz/100 m²",
     "comms": "linia widoczności z masztu habitatu 10 m do odbiornika 1.8 m nad gruntem",
-    "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST"
+    "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST",
+    "minerals": "CRISM MTRDR, parametry Viviano-Beck i in. (2014); klasy: 1: oliwin wyraźny (piasek bazaltowy) (OLINDEX3 > 0,08); 2: oliwin słaby / materiał mieszany (0,05 < OLINDEX3 ≤ 0,08); 3: piroksen (max(LCPINDEX2, HCPINDEX2) > 0,01); 4: uwodnienie / siarczany (słaby sygnał) (BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02); 5: krzemiany warstwowe Fe/Mg (D2300 > 0,01). Warstwa informacyjna — nie zmienia mapy zagrożeń."
   },
   "checks": {
     "dtmMinusMolaM": 11.3,
@@ -153,7 +163,18 @@
     "sandFraction": 0.481,
     "forbiddenFraction": 0.394,
     "commsCoverage": 0.422,
-    "slopeSigmaMedianDeg": 1.54
+    "slopeSigmaMedianDeg": 1.54,
+    "minerals": {
+      "coverage": 1.0,
+      "fractions": {
+        "1": 0.178,
+        "2": 0.541,
+        "3": 0.001,
+        "4": 0.001
+      },
+      "olindex3Median": 0.0591,
+      "pixels": 4240
+    }
   },
   "sun": {
     "missionDateUtc": "2037-01-10T00:00:00Z",
@@ -267,6 +288,8 @@
     "slope.f32": "c8c3435c0af046edc3a3a1df7397c940cd0e1cada73e76c72a16f9e79e089fae",
     "slopeSigma.f32": "79a76ed8b1cc75753023325fa77539bf4a16ef5e61e5dfa8ae4e0c032095ea12",
     "thermal.png": "01642ab71713f0b858e702d8b1c437b8f9aad179d55ce4bc4e64a81cf0301d47",
-    "timeToHabitat.f32": "ac2fcf04e7c176c2617a74d0b3cf963fc3a3b088668e4796a8725f8904f57bc0"
+    "timeToHabitat.f32": "ac2fcf04e7c176c2617a74d0b3cf963fc3a3b088668e4796a8725f8904f57bc0",
+    "minerals.png": "85e621acd064ed37e56b741b0138984175e16491c4a5abf29a55e31d434f8b56",
+    "mineralsConfidence.png": "41c693f80d8dd35444ed1c366152a992eca353d5336d227f0123d48c6f2bc19a"
   }
 }

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAIN_W, MAIN_H } from './map2d.js';
 import { headingDeg } from '../core/path.js';
+import { t as tr } from '../i18n.js';
 
 const EX_ORBIT = 10, EYE = 1.7, FOV = 45;
 const OCHRE = new THREE.Color(1.55, 0.98, 0.66);
@@ -123,7 +124,7 @@ export class View3D {
     }
     this.roverMesh = g;
     this.scene.add(g);
-    this.roverSprite = this.#markerSprite('ŁAZIK', '#FF7B3F');
+    this.roverSprite = this.#markerSprite(tr('map.rover'), '#FF7B3F');
     this.markers.add(this.roverSprite);
   }
 
@@ -372,13 +373,13 @@ export class View3D {
     const d = Math.hypot(dx, dy);
     const rise = t.height(nx, ny) - t.height(h.x, h.y);
     const ang = Math.atan2(rise, d) * 180 / Math.PI;
-    if (rise > 0 && ang > max) return `ZA STROMO · ${Math.round(ang)}°`;
+    if (rise > 0 && ang > max) return tr('hud.steep', { a: Math.round(ang) });
     for (const rk of this.rocks) {
       if (!rk.collide) continue;
       const ex = nx - rk.x, ey = ny - rk.y, dd = Math.hypot(ex, ey), min = rk.r + 0.35;
       if (dd < min) { nx = rk.x + (ex / (dd || 1)) * min; ny = rk.y + (ey / (dd || 1)) * min; }
     }
-    if (Math.hypot(nx - h.x - dx, ny - h.y - dy) > 0.001 && Math.hypot(nx - h.x, ny - h.y) < d * 0.3) return 'GŁAZ NA DRODZE';
+    if (Math.hypot(nx - h.x - dx, ny - h.y - dy) > 0.001 && Math.hypot(nx - h.x, ny - h.y) < d * 0.3) return tr('hud.boulder');
     h.x = nx; h.y = ny;
     return null;
   }

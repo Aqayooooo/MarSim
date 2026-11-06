@@ -1,4 +1,4 @@
-"""Serwer deweloperski STRATA: pliki statyczne bez cache (zmiany widać po odświeżeniu).
+"""Serwer deweloperski MarSim (tryb bez backendu, dane przykładowe): pliki statyczne bez cache (zmiany widać po odświeżeniu).
 Uruchomienie z katalogu projektu:  python tools/serve.py [port]
 """
 import functools
@@ -22,5 +22,5 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
 
 
 handler = functools.partial(NoCache, directory=ROOT)
-print(f'STRATA: http://localhost:{PORT}', flush=True)
+print(f'MarSim (demo): http://localhost:{PORT}', flush=True)
 http.server.ThreadingHTTPServer(('127.0.0.1', PORT), handler).serve_forever()

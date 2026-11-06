@@ -1,6 +1,6 @@
 # Kontrakt danych UI ↔ backend (wersja 1)
 
-UI STRATA nie interpretuje surowych danych NASA. Dostaje gotowe, przetworzone pliki i jeden endpoint do planowania trasy.
+UI MarSim nie interpretuje surowych danych NASA. Dostaje gotowe, przetworzone pliki i jeden endpoint do planowania trasy.
 Backend ma wygenerować dokładnie te pliki; wtedy UI zadziała bez zmian w kodzie.
 
 Dane przykładowe w `data/demo/` są **syntetyczne**: wygenerował je `tools/generate-mock-data.mjs`, który udaje backend.

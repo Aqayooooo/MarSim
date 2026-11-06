@@ -4,7 +4,7 @@
   "mission": {
     "id": "mount-sharp",
     "title": "EVA-1 · trawers przez wydmy Bagnold · krater Gale",
-    "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA",
+    "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA, CRISM",
     "sol": 147,
     "startClock": "09:20",
     "dateUtc": "2037-01-10T00:00:00Z"
@@ -137,6 +137,56 @@
         {
           "color": "#ED5F26",
           "text": "ciepło nocą: lita skała"
+        }
+      ]
+    },
+    {
+      "id": "minerals",
+      "name": "Minerały",
+      "desc": "CRISM 18 m/px",
+      "colorOff": "#2f4a2a",
+      "colorOn": "#7CC36E",
+      "raster": {
+        "file": "minerals.png",
+        "encoding": "png-class8",
+        "width": 80,
+        "height": 53,
+        "cellM": 18,
+        "classes": {
+          "1": {
+            "color": "#7CC36E",
+            "text": "oliwin wyraźny (piasek bazaltowy)"
+          },
+          "2": {
+            "color": "#3E7A4B",
+            "text": "oliwin słaby / materiał mieszany"
+          },
+          "3": {
+            "color": "#C9A3FF",
+            "text": "piroksen"
+          },
+          "4": {
+            "color": "#31D7B6",
+            "text": "uwodnienie / siarczany (słaby sygnał)"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#7CC36E",
+          "text": "oliwin wyraźny (piasek bazaltowy)"
+        },
+        {
+          "color": "#3E7A4B",
+          "text": "oliwin słaby / materiał mieszany"
+        },
+        {
+          "color": "#C9A3FF",
+          "text": "piroksen"
+        },
+        {
+          "color": "#31D7B6",
+          "text": "uwodnienie / siarczany (słaby sygnał)"
         }
       ]
     },

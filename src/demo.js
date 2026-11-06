@@ -1,5 +1,7 @@
 // Reżyser prezentacji: 8 kroków jak w nagraniu. Kroki 04–06 czekają na zdarzenia symulacji,
 // więc scenariusz działa także na innym terenie i innej trasie.
+import { t, tx } from './i18n.js';
+
 const STOP = Symbol('stop');
 
 export class Director {
@@ -33,16 +35,16 @@ export class Director {
       app.autoEvents = false;
       app.setView('map');
       await wait(0.6);
-      app.setCaption('01', 'Sześć warstw danych NASA nałożonych na obszar EVA');
+      app.setCaption('01', t('demo.c1'));
       for (const l of app.m.layers) { alive(); app.toggleLayer(l.id, true); await wait(1.2); }
 
-      app.setCaption('02', 'Planowanie bezpiecznej trasy: nachylenie, piasek, skarpy, wysiłek');
+      app.setCaption('02', t('demo.c2'));
       app.clearFocus('hazards');
       await wait(0.36);
       await app.planInitial({ animate: true });
       await wait(3.64);
 
-      app.setCaption('03', `${app.m.crew.map((c) => c.id).join(' i ')} w drodze: pozycja, zużycie O₂, zapas na powrót`);
+      app.setCaption('03', t('demo.c3', { crew: app.m.crew.map((c) => c.id).join(t('and')) }));
       app.showCrew();
       await wait(0.2);
       app.startEva(470);
@@ -51,14 +53,14 @@ export class Director {
       const rp = await until(() => app.lastReplan || (done() && {}));
       if (app.lastReplan) {
         const d = Math.round(rp.deltaM ?? 0);
-        app.setCaption('04', `Pole głazów na trasie: nowa trasa wyznaczona (${d >= 0 ? '+' : '−'}${Math.abs(d)} m)`);
+        app.setCaption('04', t('demo.c4', { d: `${d >= 0 ? '+' : '−'}${Math.abs(d)}` }));
       }
       await until(() => app.sim.sep || done());
-      if (app.sim.sep) app.setCaption('05', 'Burza słoneczna (DONKI): załoga poza strefą schronu, łazik jedzie do niej');
+      if (app.sim.sep) app.setCaption('05', t('demo.c5'));
 
       await until(done);
       const wp = wps[wps.length - 1];
-      app.setCaption('06', `${wp.id} osiągnięty: widok terenu${wp.target ? ` i ${wp.target}` : ''}`);
+      app.setCaption('06', t('demo.c6', { wp: wp.id, t: wp.target ? t('demo.c6t', { t: tx(wp.target) }) : '' }));
       app.setTimeScale(150);
       await wait(2.0);
       app.endSep();
@@ -66,12 +68,12 @@ export class Director {
       app.setAlert(null);
       await wait(0.48);
 
-      app.setCaption('07', `Ta sama trasa w 3D, rzeźba terenu przewyższona ×${this.view3d()?.exOrbit ?? 10}`);
+      app.setCaption('07', t('demo.c7', { x: this.view3d()?.exOrbit ?? 10 }));
       app.setView('orbit');
       this.view3d()?.flyover(7.5);
       await wait(8.0);
 
-      app.setCaption('08', `Widok z hełmu ${app.m.crew[0].id}: powrót pieszo po trasie`);
+      app.setCaption('08', t('demo.c8', { id: app.m.crew[0].id }));
       const r = app.state.route;
       app.setView('helmet');
       this.view3d()?.autoWalk({ fromS: r.wpS[r.wpS.length - 1], toS: r.wpS[0], timelapse: 15 });

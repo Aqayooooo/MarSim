@@ -3,10 +3,12 @@
 ## Stan na 2026-11-06
 
 - Obszar: wydmy Bagnold u podnóża Mount Sharp (krater Gale), środek 4,6735° S, 137,3762° E, wycinek 1440 × 960 m.
-- Dane: DTM HiRISE DTEEC_040770_1755_039280_1755_U01, ortoobrazy ESP_039280_1755 (0,25 m i 1 m), THEMIS (podczerwień nocna, 100 m), CTX (Gale), MOLA.
-- Wyniki potoku: 649 kandydatów na głazy (155 pewnych), piasek ok. 48% obszaru, niepewność nachylenia (mediana) ±1,5°, DTM−MOLA 11,3 m.
-- Działa: backend (`backend/server.py`), UI w trybie z backendem i bez niego, 7 testów (`python -m pytest backend/tests`).
-- Do zrobienia: CRISM (minerały) — nie podłączone; kalibracja modelu tlenu danymi z prawdziwego skafandra; walidacja głazów z obrazami z łazika.
+- Dane: DTM HiRISE DTEEC_040770_1755_039280_1755_U01, ortoobrazy ESP_039280_1755 (0,25 m i 1 m), THEMIS (podczerwień nocna, 100 m), CTX (Gale), MOLA,
+  CRISM FRT0000C0EF (parametry mineralne, 18 m/px). Pełna lista: [data-sources.json](../data-sources.json).
+- Wyniki potoku: 649 kandydatów na głazy (155 pewnych), piasek ok. 48% obszaru, niepewność nachylenia (mediana) ±1,5°, DTM−MOLA 11,3 m,
+  oliwin wyraźny na 18% obszaru i słaby na 54% (zgodnie z bazaltowym piaskiem wydm Bagnold).
+- Działa: backend, UI z backendem i bez, tryb offline, PL/EN, zapis w SQLite, walidacja API, 35 testów pytest + test planera + test tłumaczeń, CI.
+- Do zrobienia: drugi obszar (etap 10), GitHub Pages (etap 11), kalibracja modelu tlenu danymi z prawdziwego skafandra, walidacja głazów z obrazami z łazika.
 
 Dokument opisuje, **co** budujemy, **w jakiej kolejności** i **po czym poznać, że działa**.
 Każdy etap ma listę plików i test odbioru, więc pracę może podjąć ktokolwiek, na dowolnym komputerze (instrukcja w README).
@@ -113,12 +115,36 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
 
 ## Etap 8 ◐ Testy całości
 
-- Prezentacja 8 kroków na prawdziwych danych.
-- Testy jednostkowe potoku (głazy, piasek, nachylenie, A*, tlen) na małych wycinkach.
-- Sprawdzenie w przeglądarce: każda warstwa, raport, plan wyjść, hełm, zgłoszenia.
+- ☑ Testy jednostkowe potoku (głazy, nachylenie, minerały, Słońce, tlen) i testy API (`backend/tests`).
+- ☑ Test planera (`tools/test-planner.mjs`) i tłumaczeń (`tools/test-i18n.mjs`); CI w `.github/workflows/ci.yml`.
+- ◐ Sprawdzenie w przeglądarce: mapa, warstwy, raport, plan wyjść i kroki 01–03 prezentacji sprawdzone po PL i EN;
+  pełny przebieg prezentacji, widok 3D i hełm — do przejścia ręcznie przed konkursem.
+- ☐ Testy interfejsu w przeglądarce (np. Playwright) — nie zrobione.
+
+## Etap 9 ☑ Gotowość konkursowa
+
+- Nazwa MarSim w całym projekcie, licencja MIT (`LICENSE`) z wykazem komponentów i danych zewnętrznych.
+- Praca bez internetu: three.js i czcionki w `vendor/`; pogoda kosmiczna z pamięci podręcznej.
+- `URUCHOM.bat` (pełna wersja, `demo`, `en`), Docker (`Dockerfile`).
+- Interfejs PL/EN (`src/i18n.js`): przełącznik w nagłówku, teksty z backendu tłumaczone po stronie UI.
+- Walidacja zapytań (pydantic): błędne dane → 422 z opisem, nigdy 500; serwer udostępnia tylko pliki UI.
+- SQLite (`backend/live/store.py`): dziennik zdarzeń (tylko dopisywanie), zgłoszenia z terenu, harmonogram — przetrwają restart.
+  Stan symulacji EVA (pozycja, trasa) po restarcie zaczyna się od nowa.
+- Dostępność: etykiety ARIA, role, komunikaty `aria-live`, widoczny fokus, link „przejdź do mapy”, `prefers-reduced-motion`.
+  Ograniczenie: ekran ma stały układ 1664×744 skalowany do okna (nie przebudowuje się na telefon); pełny audyt WCAG 2.1 nie był robiony.
+- Minerały z CRISM (`backend/pipeline/minerals.py`, `python backend/build.py --only-minerals`): warstwa informacyjna, nie zmienia trasy.
+
+## Etap 10 ☐ Drugi obszar (wiele misji)
+
+- Konfiguracja na misję (`backend/config/missions/<id>.json`, własne `sources.json`), wybór misji w UI i w API.
+- Kandydat: krater Jezero (DTM HiRISE, CTX, THEMIS z innego kwadrantu, CRISM). Pobranie ok. 0,5 GB i przebudowa potoku.
+
+## Etap 11 ☐ Wersja demo pod linkiem
+
+- GitHub Pages z trybem bez backendu (dane przykładowe i gotowe pliki misji).
 
 ## Poza zakresem (świadomie)
 
-- Praca bez internetu: biblioteki z CDN zostają na razie.
 - Cele badawcze i katalog próbek.
+- Logowanie i role (dowódca, załoga, kontrola misji): opisane w [BEZPIECZENSTWO.md](BEZPIECZENSTWO.md) jako droga do wdrożenia.
 - Certyfikacja NASA (NPR 7150.2, NASA-STD-8739.8): opisana w docs jako droga do wdrożenia, nie realizowana.

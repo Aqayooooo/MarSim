@@ -38,7 +38,14 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
   const url = (f) => `${root}/${f}`;
   const API = (p) => `${api}/api/${p}`;
   let ctx = null;
-  const json = async (r) => { if (!r.ok) throw new Error(`${r.url}: ${r.status}`); return r.json(); };
+  const json = async (r) => {
+    if (!r.ok) {
+      let msg = `${r.url}: ${r.status}`;
+      try { const b = await r.json(); msg = b.error || (typeof b.detail === 'string' ? b.detail : msg); } catch { /* treść nie jest JSON */ }
+      throw new Error(msg);
+    }
+    return r.json();
+  };
 
   return {
     mode,
