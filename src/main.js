@@ -30,7 +30,7 @@ let view3d = null;
 const director = new Director(app, () => view3d);
 const device = new DeviceView(app), report = new ReportView(app), schedule = new ScheduleView(app);
 new FieldReports(app, map);
-window.strata = { app, director, get view3d() { return view3d; } };   // do debugowania w konsoli
+window.strata = { app, director, map, panels, device, report, schedule, get view3d() { return view3d; } };   // do debugowania w konsoli
 
 function fit() {
   const s = Math.min(innerWidth / 1664, innerHeight / 744);
@@ -63,7 +63,7 @@ function applyView(v) {
   $('view3d').classList.toggle('on', is3d);
   $('hud').hidden = v !== 'helmet';
   $('view3dLabel').hidden = v !== 'orbit';
-  $('view3dLabel').textContent = 'WIDOK 3D · PRZEWYŻSZENIE ×10';
+  $('view3dLabel').textContent = `WIDOK 3D · PRZEWYŻSZENIE ×${view3d?.exOrbit ?? 10}`;
   $('device').hidden = v !== 'device';
   $('report').hidden = v !== 'report';
   $('schedule').hidden = v !== 'schedule';

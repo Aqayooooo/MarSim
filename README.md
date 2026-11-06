@@ -3,7 +3,15 @@
 Interfejs na NASA Space Apps (wyzwanie o mapie dla astronautów na Marsie). Pokazuje warstwy danych o terenie, wyznacza bezpieczną trasę pieszą,
 śledzi załogę (pozycja, tlen, zapas na powrót), reaguje na zagrożenia (głazy, burza słoneczna) i pozwala przejść trasę w 3D z perspektywy hełmu.
 
-Etap: **sam interfejs**. Dane w `data/demo/` są syntetyczne; backend podłączy się według `docs/KONTRAKT_DANYCH.md`.
+Dwa tryby:
+- **z backendem** (`python backend/server.py`): prawdziwe dane NASA (HiRISE DTM i zdjęcia, THEMIS, CTX, MOLA) dla wydm Bagnold w kraterze Gale,
+  wykrywanie głazów (metoda cieni) i piasku (5 wskaźników, bez AI), nachylenie z marginesem błędu, pochodzenie danych, EVA na żywo
+  (telemetria skafandrów, pozycjonowanie UWB, granica powrotu, trasy awaryjne, łączność, cienie, temperatura, promieniowanie z DONKI/NOAA,
+  łącze z Ziemią w trybie DTN), harmonogram wyjść, raport ryzyka i ekran urządzenia w hełmie;
+- **bez backendu** (`python tools/serve.py`): sam interfejs na syntetycznych danych z `data/demo/`.
+
+Duże pliki NASA trafiają do katalogu danych poza repozytorium: zmienna `MARSIM_DATA` albo `backend/config/paths.local.json`
+(np. `{ "dataDir": "D:/MarSim-data" }`), domyślnie `./data`.
 
 ## Uruchomienie na dowolnym komputerze
 

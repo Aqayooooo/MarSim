@@ -5,12 +5,14 @@
 import { Terrain, Raster } from '../core/terrain.js';
 import { planRoute as mockPlan } from './mockPlanner.js';
 
-async function loadImage(url) {
-  const img = new Image();
-  img.decoding = 'async';
-  img.src = url;
-  await img.decode();
-  return img;
+// onload zamiast img.decode(): decode() potrafi nie zakończyć się w karcie działającej w tle
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Nie można wczytać ${url}`));
+    img.src = url;
+  });
 }
 function grayFromImage(img) {
   const c = document.createElement('canvas');

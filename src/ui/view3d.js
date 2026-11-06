@@ -20,7 +20,9 @@ export class View3D {
     this.t = app.world.terrain;
     this.W = this.t.widthM; this.H = this.t.heightM;
     this.mode = 'orbit';
-    this.ex = EX_ORBIT;
+    // przewyższenie dobrane do rzeźby: ok. 160 m pozornej wysokości (×10 dla płaskiego terenu, mniej dla stromego)
+    this.exOrbit = Math.max(1, Math.min(EX_ORBIT, Math.round(160 / Math.max(1, this.t.maxH - this.t.minH))));
+    this.ex = this.exOrbit;
 
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: true });
     r.outputColorSpace = THREE.SRGBColorSpace;
@@ -250,7 +252,7 @@ export class View3D {
   setMode(mode, { keepCamera = true } = {}) {
     const first = this.mode !== mode || !keepCamera;
     this.mode = mode;
-    this.ex = mode === 'helmet' ? 1 : EX_ORBIT;
+    this.ex = mode === 'helmet' ? 1 : this.exOrbit;
     this.#applyMode();
     if (mode === 'orbit' && first && !this.flight) this.#defaultOrbit();
     if (mode === 'helmet' && first && !this.helmet.auto) this.#placeHelmetAtCrew();
@@ -454,7 +456,7 @@ export class View3D {
     this.camera.aspect = saved.aspect; this.camera.updateProjectionMatrix();
     Object.assign(this.helmet, { x: saved.hx, y: saved.hy, yaw: saved.yaw, pitch: saved.pitch, auto: saved.auto });
     this.flight = saved.flight;
-    this.mode = saved.mode; this.ex = saved.mode === 'helmet' ? 1 : EX_ORBIT; this.#applyMode();
+    this.mode = saved.mode; this.ex = saved.mode === 'helmet' ? 1 : this.exOrbit; this.#applyMode();
     this.camera.position.copy(saved.pos); this.camera.quaternion.copy(saved.quat);
     return url;
   }

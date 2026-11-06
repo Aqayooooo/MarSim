@@ -66,7 +66,7 @@ export class Director {
       app.setAlert(null);
       await wait(0.48);
 
-      app.setCaption('07', 'Ta sama trasa w 3D, rzeźba terenu przewyższona ×10');
+      app.setCaption('07', `Ta sama trasa w 3D, rzeźba terenu przewyższona ×${this.view3d()?.exOrbit ?? 10}`);
       app.setView('orbit');
       this.view3d()?.flyover(7.5);
       await wait(8.0);

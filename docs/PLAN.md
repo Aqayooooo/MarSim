@@ -1,5 +1,13 @@
 # MarSim — plan prac
 
+## Stan na 2026-11-06
+
+- Obszar: wydmy Bagnold u podnóża Mount Sharp (krater Gale), środek 4,6735° S, 137,3762° E, wycinek 1440 × 960 m.
+- Dane: DTM HiRISE DTEEC_040770_1755_039280_1755_U01, ortoobrazy ESP_039280_1755 (0,25 m i 1 m), THEMIS (podczerwień nocna, 100 m), CTX (Gale), MOLA.
+- Wyniki potoku: 649 kandydatów na głazy (155 pewnych), piasek ok. 48% obszaru, niepewność nachylenia (mediana) ±1,5°, DTM−MOLA 11,3 m.
+- Działa: backend (`backend/server.py`), UI w trybie z backendem i bez niego, 7 testów (`python -m pytest backend/tests`).
+- Do zrobienia: CRISM (minerały) — nie podłączone; kalibracja modelu tlenu danymi z prawdziwego skafandra; walidacja głazów z obrazami z łazika.
+
 Dokument opisuje, **co** budujemy, **w jakiej kolejności** i **po czym poznać, że działa**.
 Każdy etap ma listę plików i test odbioru, więc pracę może podjąć ktokolwiek, na dowolnym komputerze (instrukcja w README).
 Status przy każdym etapie: ☐ do zrobienia · ◐ w trakcie · ☑ zrobione.
@@ -24,7 +32,7 @@ UI (index.html)  ←→  /plan /walkback /emergency /telemetry /position /observ
 Zasada: UI nie liczy niczego, co wpływa na bezpieczeństwo. Liczy to backend, a wynik zapisuje razem z pochodzeniem danych.
 Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`).
 
-## Etap 1 ◐ Prawdziwe dane NASA
+## Etap 1 ☑ Prawdziwe dane NASA
 
 - `backend/sources.json`: lista produktów z identyfikatorami PDS, adresem URL, wersją i datą pozyskania.
   - HiRISE DTM (1 m/px, PDS `.IMG`) i ortoobraz (25 cm/px, `.JP2`) dla obszaru Mount Sharp (krater Gale).
@@ -37,7 +45,7 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
   Potok przelicza wszystko do jednego układu metrycznego obszaru i zapisuje narożniki w stopniach (lat/lon).
 - **Test:** `python backend/fetch_data.py --check` wypisuje każdy plik z sumą SHA-256 i statusem OK.
 
-## Etap 2 ☐ Teren, nachylenie z marginesem błędu, pochodzenie
+## Etap 2 ☑ Teren, nachylenie z marginesem błędu, pochodzenie
 
 - `backend/pipeline/terrain.py`: wycięcie obszaru, przeskalowanie DTM, nachylenie, nierówności.
 - **Niepewność nachylenia:** z dokładności pionowej DTM (z etykiety PDS albo z raportu DTM, typowo 0,2–0,5 m)
@@ -45,7 +53,7 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
 - `provenance.json`: dla każdej warstwy identyfikator produktu, wersja, data zdjęcia, rozdzielczość, suma SHA-256, wersja potoku, parametry.
 - **Test:** karta trasy pokazuje np. „nachylenie maks. 12° ±3° · DTM HiRISE 2014”, a raport wymienia źródła z sumami.
 
-## Etap 3 ☐ Wykrywanie głazów i piasku (bez AI)
+## Etap 3 ☑ Wykrywanie głazów i piasku (bez AI)
 
 - `backend/pipeline/boulders.py`: metoda cieni.
   1. Kierunek padania światła i wysokość Słońca z etykiety PDS zdjęcia.
@@ -62,7 +70,7 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
   - Wynik: prawdopodobieństwo piasku oraz pewność (ile wskaźników się zgadza).
 - **Test:** na przykładowym kadrze głazy > 1,5 m są zaznaczone, a pola wydm mają prawdopodobieństwo piasku > 0,6.
 
-## Etap 4 ☐ Środowisko: łączność, światło, temperatura, promieniowanie
+## Etap 4 ☑ Środowisko: łączność, światło, temperatura, promieniowanie
 
 - `comms.py`: mapa zasięgu radiowego z anteny habitatu (linia widoczności po DTM, wysokość masztu z konfiguracji).
 - `illumination.py`: położenie Słońca na Marsie (algorytm Allison & McEwen 2000, jak w Mars24), cienie terenu co godzinę, godzina zmierzchu.
@@ -71,7 +79,7 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
   Dawka skumulowana każdego astronauty i limity NASA-STD-3001 (dawka w karierze 600 mSv; ostrzeżenia przy progach).
 - **Test:** warstwy „Łączność” i „Cień o godzinie” widoczne w UI; karta dawki pokazuje dawkę skumulowaną i % limitu.
 
-## Etap 5 ☐ Backend na żywo
+## Etap 5 ☑ Backend na żywo
 
 - `backend/server.py` (FastAPI):
   - `POST /plan`: A* z kosztem nachylenia (z marginesem: nachylenie + 2σ), piasku, głazów; zwraca trasę, długość, czas, tlen i niepewność.
@@ -88,7 +96,7 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
   przeliczony na zużycie O₂ (≈ 20,1 kJ na litr O₂). Parametry skafandra i ludzi w `backend/config/crew.json`.
 - **Test:** `python -m pytest backend/tests` przechodzi; `/plan` dla trasy przez pole głazów omija wykryte głazy.
 
-## Etap 6 ☐ UI: dane, niepewność, raport, plan wyjść
+## Etap 6 ☑ UI: dane, niepewność, raport, plan wyjść
 
 - Nowe warstwy: Głazy (wykryte), Piasek (prawdopodobieństwo), Łączność, Cień o godzinie (suwak godziny).
 - Karta trasy: „TRASA A bezpieczna” + „nachylenie maks. 12° ±3°” + źródła.
@@ -97,13 +105,13 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
 - Zakładka „Plan wyjść”: harmonogram EVA, zapasy i odpoczynek.
 - Wskaźnik łączności z Ziemią: opóźnienie, kolejka wiadomości.
 
-## Etap 7 ☐ UI: urządzenie w hełmie i zgłoszenia z terenu
+## Etap 7 ☑ UI: urządzenie w hełmie i zgłoszenia z terenu
 
 - Zakładka „Hełm”: minimalistyczny ekran małego urządzenia (np. 480×320) z najważniejszymi danymi:
   O₂, CO₂, bateria, granica powrotu, kierunek i odległość do celu, ostrzeżenie. Duże cyfry, wysoki kontrast, zero zbędnych elementów.
 - Zgłoszenie z terenu: kliknięcie na mapie → typ (głaz, piasek, osuwisko, bezpieczne przejście) → aktualizacja mapy i trasy.
 
-## Etap 8 ☐ Testy całości
+## Etap 8 ◐ Testy całości
 
 - Prezentacja 8 kroków na prawdziwych danych.
 - Testy jednostkowe potoku (głazy, piasek, nachylenie, A*, tlen) na małych wycinkach.

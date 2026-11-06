@@ -90,3 +90,31 @@ W trybie plikowym tę samą odpowiedź daje `src/data/mockPlanner.js` (A* na sia
 - `?data=data/inna-misja`: inny katalog z plikami w tym formacie (np. wynik backendu zapisany na dysk).
 - `?api=http://localhost:8000`: pliki z `{api}/missions/current/…`, trasa z `POST {api}/plan`.
 - `?demo`: automatyczny start prezentacji.
+
+## Wersja 2 (prawdziwe dane, backend)
+
+`contractVersion: 2` dodaje do wersji 1:
+
+- `rasters`: siatki float32 obok DEM: `slope` (°), `slopeSigma` (σ nachylenia, °), `o2ToHabitat` (litry O₂ potrzebne na dojście do habitatu), `timeToHabitat` (s).
+- Nowe warstwy: `sand` (prawdopodobieństwo 0–255 + `confidence`), `boulders` (`vector`: `boulders.json` z polami x, y, diameterM, heightM, confidence),
+  `comms` (klasy 0 brak zasięgu, 1 granica, 2 zasięg), `shadow` (`hourly`: `shadow_HH.png` dla godzin LTST).
+- `habitat`, `sun` (Ls, deklinacja, zmierzch, wysokość Słońca co godzinę), `dem.source`, `dem.year`, `dem.sigmaZM`.
+- `provenance.json` (obok): źródła z URL i SHA-256, geometria zdjęć, dokładność DTM, metody, kontrole spójności, sumy SHA-256 plików wynikowych.
+
+API backendu (`python backend/server.py`, port 8000):
+
+| Metoda i ścieżka | Co robi |
+| --- | --- |
+| `GET /api/health` | wykrycie backendu przez UI |
+| `GET /missions/current/{plik}` | pliki misji |
+| `POST /api/plan` | trasa (A* po koszcie O₂ z nachyleniem + 2σ, piaskiem, głazami, zgłoszeniami) |
+| `GET /api/route` | aktualna trasa i odrzucone odcinki |
+| `GET /api/stream` (SSE) / `GET /api/state` | stan EVA 4×/s: zegar, załoga (pozycja + elipsa błędu, O₂, CO₂, bateria, ciśnienie, tętno, dawka, granica powrotu), łazik, środowisko, alerty, trasy awaryjne, łącze z Ziemią |
+| `POST /api/eva/{start,pause,reset,timescale,inject}` | sterowanie EVA; `inject`: `boulders`, `sep`, `sep-end`, `link-outage` |
+| `POST /api/telemetry` | wejście z prawdziwego skafandra (wyłącza model dla tej osoby) |
+| `GET/POST /api/observations` | zgłoszenia z terenu (załoga, łazik, dron) — zmieniają mapę i trasę |
+| `GET /api/spaceweather` | NASA DONKI + NOAA SWPC (z buforem na brak sieci) |
+| `GET /api/link`, `POST /api/link/send` | kolejka DTN do Ziemi z opóźnieniem z położeń planet |
+| `GET/POST/DELETE /api/schedule` | harmonogram wyjść, zapasy, odpoczynek, światło dzienne |
+| `GET /api/report` | analiza zagrożeń, ryzyka i skuteczności + skrót danych źródłowych |
+| `GET /api/provenance` | pełne pochodzenie danych |

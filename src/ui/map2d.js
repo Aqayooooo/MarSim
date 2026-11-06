@@ -134,9 +134,11 @@ export class Map2D {
     const [c, g] = this.wbCanvas && this.wbCanvas.width === R.width ? [this.wbCanvas, this.wbCanvas.getContext('2d')] : this.#canvas(R.width, R.height);
     const im = g.createImageData(R.width, R.height), W = R.width, d = R.data;
     for (let j = 1; j < R.height - 1; j++) for (let i = 1; i < W - 1; i++) {
-      const k = j * W + i, inside = d[k] <= budgetL;
-      if (!inside) { im.data.set([0, 0, 0, 70], k * 4); continue; }
-      if (d[k - 1] > budgetL || d[k + 1] > budgetL || d[k - W] > budgetL || d[k + W] > budgetL) im.data.set([120, 230, 255, 255], k * 4);
+      const k = j * W + i, v = d[k];
+      if (v >= 9000) continue;                                   // strefa zakazana — osobna warstwa
+      if (v > budgetL) { im.data.set([0, 0, 0, 90], k * 4); continue; }
+      const out = (n) => d[n] > budgetL && d[n] < 9000;          // granica tylko tam, gdzie kończy się tlen
+      if (out(k - 1) || out(k + 1) || out(k - W) || out(k + W)) im.data.set([120, 230, 255, 255], k * 4);
     }
     g.putImageData(im, 0, 0);
     this.wbKey = key; this.wbCanvas = c;
@@ -400,7 +402,8 @@ export class Map2D {
       const x = this.sx(hab.x), y = this.sy(hab.y);
       ctx.fillStyle = '#e8e2d8'; ctx.fillRect(x - 9, y - 9, 18, 18);
       ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x - 9, y - 9, 18, 18);
-      this.#label('HABITAT', x + 14, y + 2);
+      ctx.font = MONO;
+      this.#label('HABITAT', x - 14 - ctx.measureText('HABITAT').width - 10, y + 2);
     }
     // elipsy błędu pozycji (UWB / odometria)
     if (st.crewVisible && app.sim.snap) for (const c of app.sim.snap.crew) {
