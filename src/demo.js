@@ -43,6 +43,12 @@ export class Director {
       await wait(0.36);
       await app.planInitial({ animate: true });
       await wait(3.64);
+      if (app.state.route?.alternatives) {           // „dlaczego ta trasa”: porównanie wariantów przez chwilę
+        app.setCaption('02', t('demo.c2b'));
+        app.emit('compare', true);
+        await wait(5.5);
+        app.emit('compare', false);
+      }
 
       app.setCaption('03', t('demo.c3', { crew: app.m.crew.map((c) => c.id).join(t('and')) }));
       app.showCrew();

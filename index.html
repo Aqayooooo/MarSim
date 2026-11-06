@@ -69,6 +69,7 @@
     <div id="device" class="pane" hidden></div>
     <div id="report" class="pane doc" hidden></div>
     <div id="schedule" class="pane doc" hidden></div>
+    <button id="altBtn" class="btn mapbtn alt" data-i18n-title="alt.btnTitle" data-i18n="alt.btn" aria-expanded="false" hidden>⇄ Porównaj trasy</button>
     <button id="reportBtn" class="btn mapbtn" data-i18n-title="obs.btnTitle" data-i18n="obs.btn">＋ Zgłoś z terenu</button>
     <div id="obsForm" role="dialog" data-i18n-aria="obs.title" hidden>
       <div class="of-title" data-i18n="obs.title">Zgłoszenie z terenu</div>
@@ -86,6 +87,7 @@
   </main>
 
   <aside id="right" class="panel">
+    <div id="altPanel" role="region" data-i18n-aria="alt.title" hidden></div>
     <div class="ph clock" id="clock" aria-live="off">SOL — · --:--</div>
     <div class="cards">
       <div class="card big" id="cDose"><div class="cl" data-i18n-html="card.dose">Dawka<br>μSv/h</div><div class="cv">--</div><div class="csub" id="cDoseSub"></div></div>

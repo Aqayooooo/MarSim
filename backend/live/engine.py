@@ -192,6 +192,7 @@ class EvaEngine:
             r = planning.plan(self.model, start, waypoints, self.obstacles, self.layers)
             if not r["ok"]:
                 return r
+            r["alternatives"] = planning.alternatives(self.model, start, waypoints, self.obstacles, self.layers, self.comms, r)
             self._set_route({**r, "letter": letter})
             self.add_log("trasa", f"Trasa {letter}: {r['lengthM']:.0f} m, {r['durationH'] * 60:.0f} min, {r['o2L']:.0f} L O₂, {r['rating']}")
             return self.route

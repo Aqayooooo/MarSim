@@ -1,8 +1,9 @@
 // Widoki dodatkowe: urządzenie w hełmie (mały ekran), raport ryzyka, plan wyjść, zgłoszenia z terenu.
 import { num, int, hm, clock } from '../core/format.js';
 import { headingDeg } from '../core/path.js';
-import { MAIN_W, MAIN_H } from './map2d.js';
+import { MAIN_W, MAIN_H, ALT_COLORS } from './map2d.js';
 import { t, tx } from '../i18n.js';
+import { km as kmFmt } from '../core/format.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -206,6 +207,71 @@ export class FieldReports {
       try { res = await app.reportObservation(obs); } catch (e) { app.setAlert({ category: t('obs.alert'), text: t('err.api', { e: e.message }) }); return; }
       app.setAlert({ category: t('obs.alert'), text: `${$('obsSrc').selectedOptions[0].text}: ${$('obsKind').selectedOptions[0].text}, r = ${obs.radiusM} m${res?.replanned ? t('obs.newRoute') : ''}` });
       app.state.reportMode = false; btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false'); main.classList.remove('reporting');
+    });
+  }
+}
+
+// ---------------- porównanie tras: „dlaczego ta trasa” ----------------
+export function reasonText(r) {
+  if (r.code === 'forbidden') {
+    const parts = ['steep', 'sand', 'boulders'].filter((k) => r[k] > 0).map((k) => t(`why.part.${k}`, { m: int(r[k]) }));
+    return t('why.forbidden', { m: int(r.m), parts: parts.join(', ') });
+  }
+  const p = {};
+  for (const [k, v] of Object.entries(r)) p[k] = typeof v === 'number' ? (Number.isInteger(v) ? int(v) : num(v, 1)) : v;
+  return t(`why.${r.code}`, p);
+}
+
+export class RouteCompare {
+  constructor(app) {
+    this.app = app;
+    this.btn = $('altBtn');
+    this.el = $('altPanel');
+    this.btn.addEventListener('click', () => this.toggle());
+    app.on('route', () => { this.sync(); if (app.state.altOpen) this.render(); });
+    app.on('view', () => this.sync());
+    app.on('reset', () => { app.state.altOpen = false; this.sync(); });
+    this.el.addEventListener('keydown', (e) => { if (e.key === 'Escape') this.toggle(false); });
+    app.on('compare', (on) => this.toggle(on));
+  }
+
+  get alts() { return this.app.state.route?.alternatives || null; }
+
+  sync() {
+    const st = this.app.state, ok = !!this.alts && st.view === 'map';
+    this.btn.hidden = !ok;
+    if (!ok) st.altOpen = false;
+    this.el.hidden = !st.altOpen;
+    this.btn.classList.toggle('on', st.altOpen);
+    this.btn.setAttribute('aria-expanded', String(st.altOpen));
+  }
+
+  toggle(on = !this.app.state.altOpen) {
+    this.app.state.altOpen = on && !!this.alts;
+    this.app.state.altHi = null;
+    if (this.app.state.altOpen) this.render();
+    this.sync();
+  }
+
+  render() {
+    const alts = this.alts;
+    if (!alts) return;
+    const deg = this.app.m.eva.maxSlopeDeg;
+    const order = ['chosen', 'shortest', 'straight', 'strict'];
+    const rows = [...alts].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)).map((a) => {
+      const nums = a.ok ? t('alt.nums', { len: kmFmt(a.lengthM), time: hm(a.durationH), o2: int(a.o2L) }) : '—';
+      return `<div class="row" tabindex="0" role="button" data-id="${a.id}" aria-label="${esc(t(`alt.v.${a.id}`))}">
+        <i class="sw" style="background:${ALT_COLORS[a.id]}"></i>
+        <div><span class="nm">${esc(t(`alt.v.${a.id}`))}</span>${a.verdict === 'chosen' ? '' : `<span class="badge ${a.verdict}">${esc(t(`alt.b.${a.verdict}`))}</span>`}</div>
+        <div class="nums">${nums}</div>
+        <div class="rs">${a.reasons.map((r) => esc(reasonText(r))).join(' · ')}</div></div>`;
+    }).join('');
+    this.el.innerHTML = `<h3>${t('alt.title')}</h3><p class="why">${t('alt.intro', { deg })}</p>${rows}<div class="foot">${t('alt.foot')}</div>`;
+    this.el.querySelectorAll('.row').forEach((r) => {
+      const pick = () => { this.app.state.altHi = this.app.state.altHi === r.dataset.id ? null : r.dataset.id;
+        this.el.querySelectorAll('.row').forEach((x) => x.classList.toggle('hi', x.dataset.id === this.app.state.altHi)); };
+      r.addEventListener('click', pick);
+      r.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
     });
   }
 }

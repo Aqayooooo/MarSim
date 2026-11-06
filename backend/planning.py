@@ -39,10 +39,13 @@ class CostModel:
         self.time_per_m = (1.0 / speed) * mult              # s/m
         self.o2_per_m = o2_per_m * mult
         self.blocked = layers["hazard"] == 2
+        self.caution = layers["hazard"] == 1
         self.metabolic = met
 
     def cost_array(self, kind: str = "o2", extra_blocked: np.ndarray | None = None) -> np.ndarray:
-        base = (self.o2_per_m if kind == "o2" else self.time_per_m) * self.cell
+        """kind: "o2" (litry tlenu), "time" (sekundy), "dist" (metry — najkrótsza droga bez względu na wysiłek)."""
+        per_m = {"o2": self.o2_per_m, "time": self.time_per_m, "dist": np.ones_like(self.time_per_m)}[kind]
+        base = per_m * self.cell
         c = base.astype(np.float64).copy()
         blk = self.blocked if extra_blocked is None else (self.blocked | extra_blocked)
         c[blk] = np.inf
@@ -73,8 +76,11 @@ def _unblock(cost: np.ndarray, rc, model: CostModel):
 
 
 def plan(model: CostModel, start: dict, waypoints: list[dict], obstacles: list[dict] | None = None,
-         layers: dict | None = None, kind: str = "o2") -> dict:
+         layers: dict | None = None, kind: str = "o2", strict: bool = False) -> dict:
+    """strict=True: strefy „uwaga” też są nieprzekraczalne (wariant najostrożniejszy)."""
     extra = obstacle_mask(model.blocked.shape, model.cell, obstacles or [])
+    if strict:
+        extra = extra | model.caution
     cost = model.cost_array(kind, extra)
     path_rc, wp_idx, expanded = [], [], []
     prev = model.to_rc(start)
@@ -101,7 +107,7 @@ def plan(model: CostModel, start: dict, waypoints: list[dict], obstacles: list[d
     pts[0] = {"x": start["x"], "y": start["y"]}
     for i, wp in zip(wp_idx, waypoints):
         pts[i] = {"x": wp["x"], "y": wp["y"]}
-    pts, wp_idx = _simplify(pts, wp_idx)
+    pts, wp_idx = _simplify(pts, wp_idx, model=model, blocked=np.isinf(cost))
     stats = path_stats(model, pts, layers)
     stops = len(waypoints)
     stop_min = sum(w.get("stopMin", 0) for w in waypoints)
@@ -110,8 +116,20 @@ def plan(model: CostModel, start: dict, waypoints: list[dict], obstacles: list[d
             "rating": stats["rating"], "uncertainty": stats["uncertainty"], "expanded": expanded[:600]}
 
 
-def _simplify(pts, wp_idx, tol=1.5):
-    """Usuwa punkty współliniowe (siatka daje schodki), zachowując punkty WP."""
+def _segment_clear(model: "CostModel", a: dict, b: dict, blocked: np.ndarray) -> bool:
+    """Czy prosty odcinek a→b omija komórki zakazane (próbkowanie co ¼ komórki)."""
+    d = math.hypot(b["x"] - a["x"], b["y"] - a["y"])
+    n = max(1, int(d / (model.cell / 4)))
+    for k in range(n + 1):
+        t = k / n
+        if blocked[model.to_rc({"x": a["x"] + (b["x"] - a["x"]) * t, "y": a["y"] + (b["y"] - a["y"]) * t})]:
+            return False
+    return True
+
+
+def _simplify(pts, wp_idx, tol=1.5, model: "CostModel | None" = None, blocked: np.ndarray | None = None):
+    """Usuwa punkty współliniowe (siatka daje schodki), zachowując punkty WP.
+    Punkt wolno usunąć tylko wtedy, gdy skrót między sąsiadami nie wchodzi w strefę zakazaną."""
     keep = set(wp_idx) | {0, len(pts) - 1}
     out, new_idx, last = [], {}, None
     for i, p in enumerate(pts):
@@ -120,7 +138,8 @@ def _simplify(pts, wp_idx, tol=1.5):
         a, b = pts[last], pts[i + 1] if i + 1 < len(pts) else p
         ax, ay, bx, by = a["x"], a["y"], b["x"], b["y"]
         d = abs((bx - ax) * (ay - p["y"]) - (ax - p["x"]) * (by - ay)) / (math.hypot(bx - ax, by - ay) + 1e-9)
-        if d > tol:
+        shortcut_unsafe = model is not None and blocked is not None and not _segment_clear(model, a, b, blocked)
+        if d > tol or shortcut_unsafe:
             new_idx[i] = len(out); out.append(p); last = i
     return out, [new_idx[i] for i in wp_idx]
 
@@ -158,3 +177,109 @@ def cost_field(model: CostModel, origin: dict, kind: str = "o2") -> np.ndarray:
     mcp = MCP_Geometric(cost, fully_connected=True)
     cum, _ = mcp.find_costs([rc])
     return cum.astype(np.float32)
+
+
+# ---------------- porównanie wariantów trasy („dlaczego ta trasa”) ----------------
+def forbidden_reasons(layers: dict, eva: dict) -> dict:
+    """Dlaczego komórka jest zakazana: stromo (nachylenie+2σ > maks.), luźny piasek (> 0,6) albo głazy."""
+    forb = layers["hazard"] == 2
+    steep = (layers["slope"] + 2 * layers["slopeSigma"]) > eva["maxSlopeDeg"]
+    sand = layers["sand"] > 0.6
+    return {"steep": forb & steep, "sand": forb & sand & ~steep, "boulders": forb & ~steep & ~sand}
+
+
+def evaluate(model: CostModel, pts: list, layers: dict, comms=None) -> dict:
+    """Ocena dowolnej linii: długość, czas, tlen, metry w strefach „uwaga”/„zakaz” (z przyczyną), bez zasięgu radiowego."""
+    reasons = forbidden_reasons(layers, model.eva)
+    acc = {"lengthM": 0.0, "walkS": 0.0, "o2L": 0.0, "cautionM": 0.0, "forbiddenM": 0.0, "noCommsM": 0.0,
+           "steep": 0.0, "sand": 0.0, "boulders": 0.0, "maxSlopeUpDeg": 0.0, "maxSand": 0.0}
+    for a, b in zip(pts[:-1], pts[1:]):
+        d = math.hypot(b["x"] - a["x"], b["y"] - a["y"])
+        n = max(1, int(d // model.cell))
+        for k in range(n):
+            t = (k + 0.5) / n
+            rc = model.to_rc({"x": a["x"] + (b["x"] - a["x"]) * t, "y": a["y"] + (b["y"] - a["y"]) * t})
+            seg = d / n
+            acc["lengthM"] += seg
+            acc["walkS"] += model.time_per_m[rc] * seg
+            acc["o2L"] += model.o2_per_m[rc] * seg
+            acc["maxSlopeUpDeg"] = max(acc["maxSlopeUpDeg"], float(model.slope_up[rc]))
+            acc["maxSand"] = max(acc["maxSand"], float(layers["sand"][rc]))
+            if model.blocked[rc]:
+                acc["forbiddenM"] += seg
+                for key in ("steep", "sand", "boulders"):
+                    if reasons[key][rc]:
+                        acc[key] += seg
+            elif model.caution[rc]:
+                acc["cautionM"] += seg
+            if comms is not None and comms[rc] == 0:
+                acc["noCommsM"] += seg
+    return acc
+
+
+def _summary(variant_id: str, acc: dict, stop_h: float, path, ok: bool = True) -> dict:
+    return {"id": variant_id, "ok": ok, "path": path or [],
+            "lengthM": round(acc["lengthM"]), "durationH": round(acc["walkS"] / 3600 + stop_h, 3), "o2L": round(acc["o2L"], 1),
+            "cautionM": round(acc["cautionM"]), "forbiddenM": round(acc["forbiddenM"]),
+            "forbidden": {k: round(acc[k]) for k in ("steep", "sand", "boulders")},
+            "maxSlopeUpDeg": round(acc["maxSlopeUpDeg"], 1), "maxSand": round(acc["maxSand"], 2), "noCommsM": round(acc["noCommsM"])}
+
+
+def alternatives(model: CostModel, start: dict, waypoints: list, obstacles, layers: dict, comms, chosen: dict) -> list:
+    """Warianty obok wybranej trasy (najmniej O₂) i powody, dla których przegrywają.
+    Powody to kody z liczbami — zdania składa interfejs (PL/EN)."""
+    stop_h = sum(w.get("stopMin", 0) for w in waypoints) / 60
+    best = _summary("chosen", evaluate(model, chosen["path"], layers, comms), stop_h, chosen["path"])
+    best["verdict"] = "chosen"
+    best["reasons"] = [{"code": "minO2", "o2": best["o2L"]}, {"code": "noForbidden"}, {"code": "margin2s", "deg": model.eva["maxSlopeDeg"]}]
+    if best["cautionM"]:
+        best["reasons"].append({"code": "cautionShare", "m": best["cautionM"], "pct": round(100 * best["cautionM"] / max(best["lengthM"], 1))})
+    out = [best]
+
+    straight = [{"x": start["x"], "y": start["y"]}] + [{"x": w["x"], "y": w["y"]} for w in waypoints]
+    variants = [("straight", straight, True)]
+    r = plan(model, start, waypoints, obstacles, layers, kind="dist")
+    variants.append(("shortest", r["path"] if r["ok"] else None, r["ok"]))
+    r = plan(model, start, waypoints, obstacles, layers, kind="o2", strict=True)
+    variants.append(("strict", r["path"] if r["ok"] else None, r["ok"]))
+
+    for vid, path, ok in variants:
+        if not ok:
+            v = _summary(vid, evaluate(model, straight, layers, comms), stop_h, None, ok=False)
+            v.update(verdict="impossible", reasons=[{"code": "noPath"}])
+            out.append(v)
+            continue
+        v = _summary(vid, evaluate(model, path, layers, comms), stop_h, path)
+        same = abs(v["lengthM"] - best["lengthM"]) <= 0.01 * best["lengthM"] and abs(v["o2L"] - best["o2L"]) <= 0.01 * best["o2L"]
+        reasons = []
+        if v["forbiddenM"] > 0:
+            verdict = "unsafe"
+            reasons.append({"code": "forbidden", "m": v["forbiddenM"], **v["forbidden"]})
+            if v["maxSlopeUpDeg"] > model.eva["maxSlopeDeg"]:
+                reasons.append({"code": "tooSteep", "deg": v["maxSlopeUpDeg"], "max": model.eva["maxSlopeDeg"]})
+        elif same:
+            verdict = "same"
+            reasons.append({"code": "sameAsChosen"})
+        else:
+            verdict = "worse"
+        d_len = v["lengthM"] - best["lengthM"]
+        d_o2 = round(v["o2L"] - best["o2L"], 1)
+        d_min = round((v["durationH"] - best["durationH"]) * 60)
+        if verdict != "same":
+            if d_len < 0:
+                reasons.append({"code": "shorter", "m": -d_len})
+            elif d_len > 0:
+                reasons.append({"code": "longer", "m": d_len})
+            if d_o2 > 0:
+                reasons.append({"code": "moreO2", "l": d_o2})
+            if d_min > 0:
+                reasons.append({"code": "slower", "min": d_min})
+            elif d_min < 0 and verdict == "unsafe":
+                reasons.append({"code": "fasterButUnsafe", "min": -d_min})
+            if v["cautionM"] - best["cautionM"] > 10:
+                reasons.append({"code": "moreCaution", "m": v["cautionM"] - best["cautionM"]})
+            if v["noCommsM"] - best["noCommsM"] > 10:
+                reasons.append({"code": "lessComms", "m": v["noCommsM"] - best["noCommsM"]})
+        v.update(verdict=verdict, reasons=reasons)
+        out.append(v)
+    return out

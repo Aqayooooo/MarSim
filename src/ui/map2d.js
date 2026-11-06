@@ -4,6 +4,7 @@ import { t as tr } from '../i18n.js';
 export const MAIN_W = 972, MAIN_H = 648;
 const MONO = "700 15px 'JetBrains Mono', Consolas, monospace";
 const ROUTE = '#FFDC52', TRAIL = '#FC8151', ACCENT = '#FF7B3F';
+export const ALT_COLORS = { chosen: ROUTE, straight: '#FF5A4A', shortest: '#FFA94D', strict: '#7FB2FF' };
 // krycie warstwy, gdy nie jest bieżąca (wyróżniona): zgodnie z obrazem końcowym z nagrania
 const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -177,6 +178,7 @@ export class Map2D {
     this.#shelter(now);
     this.#search(now);
     for (const d of st.discarded) this.#line(d, { color: 'rgba(228,226,220,.85)', width: 2.2, dash: [10, 7] });
+    this.#alternatives();
     this.#route(now);
     for (const o of st.obstacles) this.#obstacle(o, now);
     this.#trail();
@@ -294,6 +296,16 @@ export class Map2D {
     ctx.setLineDash(dash);
     ctx.strokeStyle = color; ctx.lineWidth = width; ctx.stroke();
     ctx.setLineDash([]);
+  }
+
+  #alternatives() {
+    const st = this.app.state, alts = st.route?.alternatives;
+    if (!st.altOpen || !alts || st.view !== 'map') return;
+    for (const a of alts) {
+      if (a.id === 'chosen' || !a.path?.length) continue;
+      const hi = st.altHi === a.id;
+      this.#line(a.path, { color: ALT_COLORS[a.id], width: hi ? 4 : 2.4, dash: a.verdict === 'unsafe' ? [9, 6] : [3, 5], outline: hi ? 'rgba(0,0,0,.7)' : null });
+    }
   }
 
   #route(now) {

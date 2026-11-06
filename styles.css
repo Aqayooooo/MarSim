@@ -138,7 +138,7 @@ button { font: inherit; color: inherit; }
 .hourpick { display: flex; flex-direction: column; gap: 6px; font-size: 15px; color: var(--text2); margin-bottom: 8px; }
 .hourpick b { color: var(--text); font-family: var(--mono); }
 .hourpick input { accent-color: var(--accent); width: 100%; }
-.csub { position: absolute; right: 8px; bottom: 9px; font: 11px var(--mono); color: var(--text2); }
+.csub { position: absolute; right: 8px; top: 9px; font: 11px var(--mono); color: var(--text2); }
 .o2 { display: block; height: 42px; }
 .o2 .o2top { display: flex; align-items: center; height: 24px; }
 .o2 .tele { font: 11px var(--mono); color: var(--text2); white-space: nowrap; }
@@ -222,3 +222,23 @@ h1.title { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis;
 .controls { flex: none; }
 .controls button, .seg button { white-space: nowrap; }
 .src { flex: 0 1 auto; min-width: 0; max-width: 190px; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+
+/* porównanie tras */
+.mapbtn.alt { top: 268px; }
+#altPanel { position: absolute; inset: 0; z-index: 4; overflow: auto; background: var(--panel); border-radius: 11px; padding: 12px 12px; font-size: 12.5px; }
+#altPanel h3 { margin: 0 0 4px; font: 700 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--alertTitle); }
+#altPanel .why { color: var(--text2); margin: 0 0 6px; line-height: 1.4; font-size: 11.5px; }
+#altPanel .why b { color: var(--text); }
+#altPanel .row { display: grid; grid-template-columns: 14px 1fr; gap: 2px 8px; padding: 6px 6px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; }
+#altPanel .row:hover, #altPanel .row.hi { background: #1a130b; border-color: #3a2c1d; }
+#altPanel .row:focus-visible { outline: 2px solid var(--accent); }
+#altPanel .sw { width: 14px; height: 4px; margin-top: 8px; border-radius: 2px; }
+#altPanel .nm { font-weight: 600; }
+#altPanel .nums { grid-column: 2; font: 12px var(--mono); color: var(--text); white-space: nowrap; }
+#altPanel .rs { grid-column: 2; color: var(--text2); line-height: 1.4; }
+#altPanel .badge { font: 700 10px var(--mono); letter-spacing: .08em; padding: 1px 6px; border-radius: 4px; margin-left: 6px; text-transform: uppercase; }
+#altPanel .badge.chosen { background: #3d3410; color: var(--route); }
+#altPanel .badge.unsafe { background: #4a1208; color: #ff8a70; }
+#altPanel .badge.worse { background: #2e2414; color: #f2c779; }
+#altPanel .badge.impossible, #altPanel .badge.same { background: #222; color: #bbb; }
+#altPanel .foot { margin-top: 6px; font-size: 11px; color: var(--textOff); }

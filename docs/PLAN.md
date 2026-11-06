@@ -149,6 +149,14 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
   pamięć podręczna kroków osobno dla każdej misji. Mount Sharp po zmianach daje identyczne warstwy.
 - Nie sprawdzone w tej sesji: widok 3D i hełm dla Jezero, pełna prezentacja na Jezero.
 
+## Etap 12 ☑ „Dlaczego ta trasa?” i przegląd całości
+
+- `planning.alternatives`: wybrana (najmniej O₂), najkrótsza bezpieczna, bez stref „uwaga”, linia prosta. Każda z metrami w strefach
+  zakazanych (z przyczyną: stromo, piasek, głazy), w strefach „uwaga”, bez łączności, z czasem i tlenem. Powody jako kody, tekst w UI (PL/EN).
+- UI: przycisk „⇄ Porównaj trasy”, panel po prawej, warianty na mapie; krok 02 prezentacji pokazuje porównanie.
+- Naprawiony błąd bezpieczeństwa: wygładzanie trasy nie może ścinać przez strefy zakazane (test regresyjny na obu obszarach).
+- Lista ulepszeń: [ROADMAPA.md](ROADMAPA.md).
+
 ## Etap 11 ☐ Wersja demo pod linkiem
 
 - GitHub Pages z trybem bez backendu (dane przykładowe i gotowe pliki misji).

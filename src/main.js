@@ -1,7 +1,7 @@
 // Start aplikacji: wczytanie danych, złożenie widoków, pętla klatek.
 // Parametry adresu: ?data=ścieżka/do/katalogu (domyślnie data/demo), ?api=http://backend (tryb backendu), ?demo (autostart prezentacji).
 import { createDataSource, detectBackend } from './data/source.js';
-import { DeviceView, ReportView, ScheduleView, FieldReports } from './ui/views.js';
+import { DeviceView, ReportView, ScheduleView, FieldReports, RouteCompare } from './ui/views.js';
 import { App } from './app.js';
 import { Panels } from './ui/panels.js';
 import { Map2D } from './ui/map2d.js';
@@ -38,7 +38,8 @@ let view3d = null;
 const director = new Director(app, () => view3d);
 const device = new DeviceView(app), report = new ReportView(app), schedule = new ScheduleView(app);
 new FieldReports(app, map);
-window.marsim = { app, director, map, panels, device, report, schedule, get view3d() { return view3d; } };   // do debugowania w konsoli
+const compare = new RouteCompare(app);
+window.marsim = { app, director, map, panels, device, report, schedule, compare, get view3d() { return view3d; } };   // do debugowania w konsoli
 
 function fit() {
   const s = Math.min(innerWidth / 1664, innerHeight / 744);

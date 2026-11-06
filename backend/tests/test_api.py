@@ -120,3 +120,22 @@ def test_missions_list_and_switch(api):
 @pytest.mark.parametrize("body,code", [({"id": "olympus"}, 404), ({"id": "../x"}, 422), ({}, 422)])
 def test_mission_select_rejects_bad_ids(api, body, code):
     assert api.post("/api/missions/select", json=body).status_code == code
+
+
+@pytest.mark.parametrize("mission", ["mount-sharp", "jezero"])
+def test_route_never_enters_forbidden_and_explains_alternatives(api, mission):
+    api.post("/api/missions/select", json={"id": mission})
+    r = api.post("/api/plan", json={}).json()
+    alts = {a["id"]: a for a in r["alternatives"]}
+    assert set(alts) == {"chosen", "straight", "shortest", "strict"}
+    assert alts["chosen"]["forbiddenM"] == 0                  # wygładzanie trasy nie może ścinać przez zakaz
+    assert alts["chosen"]["maxSlopeUpDeg"] <= 25
+    for a in alts.values():
+        if a["verdict"] in ("worse", "same"):
+            assert a["forbiddenM"] == 0 and a["o2L"] >= alts["chosen"]["o2L"] - 0.5   # wybrana = najmniej O₂ wśród bezpiecznych
+        assert a["reasons"], a["id"]
+    assert alts["straight"]["verdict"] == "unsafe" and alts["straight"]["forbiddenM"] > 0
+
+
+def test_ui_files_revalidated(api):
+    assert api.get("/src/main.js").headers["cache-control"] == "no-cache"

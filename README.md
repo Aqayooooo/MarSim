@@ -57,6 +57,7 @@ python tools/make_data_sources.py                # odświeża data-sources.json
 - **Warstwy**: kliknięcie albo spacja na wierszu w lewym panelu.
 - **Mapa 2D / 3D / Hełm EV1 / Urządzenie / Raport / Plan wyjść**: zakładki w nagłówku.
 - **Hełm**: klawisze W A S D lub strzałki to chodzenie, mysz to rozglądanie, Shift przyspiesza. Kolizje z terenem powyżej 25° i z głazami.
+- **⇄ Porównaj trasy** (na mapie, z backendem): dlaczego wybrano tę trasę. Planer porównuje ją z linią prostą, najkrótszą bezpieczną i wariantem bez stref „uwaga” i podaje liczbowe powody (metry w strefach zakazanych, nachylenie, tlen, czas).
 - **Start EVA**: wyznacza trasę i rusza z załogą. **▶ Prezentacja** odtwarza scenariusz w 8 krokach.
 - **＋ Zgłoś z terenu**: kliknięcie na mapie dodaje przeszkodę albo bezpieczne przejście. Trasa przelicza się, jeśli trzeba.
 
@@ -85,7 +86,7 @@ docs/                      plan, kontrakt danych, bezpieczeństwo
 **Zapis stanu.** Dziennik zdarzeń, zgłoszenia z terenu i harmonogram trafiają do bazy SQLite `marsim-<misja>.db` w katalogu danych i przetrwają restart. Przebieg symulacji EVA po restarcie zaczyna się od nowa, a historia zostaje w dzienniku (`GET /api/log`).
 
 **Testy.**
-- `python -m pytest backend/tests` (39 testów: potok, API, walidacja, zapis po restarcie, przełączanie misji);
+- `python -m pytest backend/tests` (42 testy: potok, API, walidacja, zapis po restarcie, przełączanie misji, bezpieczeństwo trasy);
 - `node tools/test-planner.mjs`;
 - `node tools/test-i18n.mjs`.
 
@@ -108,6 +109,7 @@ Uruchamia je też CI (`.github/workflows/ci.yml`).
 - [docs/PLAN.md](docs/PLAN.md): etapy i stan prac;
 - [docs/KONTRAKT_DANYCH.md](docs/KONTRAKT_DANYCH.md): format danych między backendem a UI;
 - [docs/BEZPIECZENSTWO.md](docs/BEZPIECZENSTWO.md): bezpieczeństwo i droga do wdrożenia;
+- [docs/ROADMAPA.md](docs/ROADMAPA.md): przegląd i lista ulepszeń do poziomu profesjonalnego.
 
 ## Licencja i podziękowania
 

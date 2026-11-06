@@ -172,6 +172,14 @@ def create_app(store: Store | None = None, start_loop: bool = True, live_feeds: 
                 last = now
         threading.Thread(target=_loop, daemon=True).start()
 
+    @app.middleware("http")
+    async def _revalidate_ui(request: Request, call_next):
+        """Pliki interfejsu zawsze sprawdzane u serwera (ETag) — po aktualizacji nikt nie zostaje ze starym kodem."""
+        resp = await call_next(request)
+        if request.url.path.startswith(("/src/", "/vendor/fonts/")) or request.url.path in ("/", "/styles.css"):
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
     @app.exception_handler(RequestValidationError)
     async def _bad_request(_req: Request, exc: RequestValidationError):
         return _err(422, _validation_text(exc))

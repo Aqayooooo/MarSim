@@ -59,6 +59,8 @@ export class App {
       sepEndAt: null,
       fadeOut: false,
       reportMode: false,
+      altOpen: false,
+      altHi: null,
     };
     this.emit('reset');
   }
@@ -101,7 +103,7 @@ export class App {
     return {
       letter, poly, wpS: wpIndex.map((i) => poly.cum[i]),
       lengthM: stats.lengthM, durationH: stats.durationH, stops: stats.stops, rating: stats.rating || 'bezpieczna',
-      o2L: stats.o2L, uncertainty: stats.uncertainty || null, draw,
+      o2L: stats.o2L, uncertainty: stats.uncertainty || null, alternatives: stats.alternatives || null, draw,
     };
   }
 
