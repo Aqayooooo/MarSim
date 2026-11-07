@@ -10,7 +10,7 @@
 - Wyniki potoku: 649 kandydatów na głazy (155 pewnych), piasek ok. 48% obszaru, niepewność nachylenia (mediana) ±1,5°, DTM−MOLA 11,3 m,
   oliwin wyraźny na 18% obszaru i słaby na 54% (zgodnie z bazaltowym piaskiem wydm Bagnold).
 - Działa: backend, UI z backendem i bez, tryb offline, PL/EN, zapis w SQLite, walidacja API, 35 testów pytest + test planera + test tłumaczeń, CI.
-- Do zrobienia: GitHub Pages (etap 11), kalibracja modelu tlenu danymi z prawdziwego skafandra, walidacja głazów z obrazami z łazika.
+- Do zrobienia: kalibracja modelu tlenu danymi z prawdziwego skafandra, walidacja głazów z obrazami z łazika.
 
 Dokument opisuje, **co** budujemy, **w jakiej kolejności** i **po czym poznać, że działa**.
 Każdy etap ma listę plików i test odbioru, więc pracę może podjąć ktokolwiek, na dowolnym komputerze (instrukcja w README).
@@ -157,9 +157,12 @@ Bez backendu UI dalej działa na danych przykładowych (`python tools/serve.py`)
 - Naprawiony błąd bezpieczeństwa: wygładzanie trasy nie może ścinać przez strefy zakazane (test regresyjny na obu obszarach).
 - Lista ulepszeń: [ROADMAPA.md](ROADMAPA.md).
 
-## Etap 11 ☐ Wersja demo pod linkiem
+## Etap 11 ☑ Wersja demo pod linkiem
 
 - GitHub Pages z trybem bez backendu (dane przykładowe i gotowe pliki misji).
+- Pliki: `tools/export_backend_sample.py` (zapis odpowiedzi backendu do `data/missions/<id>/backend/`, lista misji w `data/missions/index.json`),
+  `src/data/source.js` (odczyt zapisu w trybie plikowym), `src/ui/views.js` (raport i plan wyjść tylko do odczytu), `src/main.js` (wybór misji bez serwera).
+- Test odbioru: https://aqayooooo.github.io/MarSim/ bez serwera pokazuje misję z danymi NASA, wybór obszaru, raport, plan wyjść i porównanie wariantów pierwszej trasy.
 
 ## Poza zakresem (świadomie)
 

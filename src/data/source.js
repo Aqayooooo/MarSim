@@ -2,6 +2,8 @@
 // Tryb "files": pliki z katalogu (dane przykładowe albo wynik potoku zapisany na dysk) + planer zastępczy w przeglądarce.
 // Tryb "http":  backend MarSim (python backend/server.py) — pliki misji, planowanie, strumień stanu EVA, raport, harmonogram.
 // Wykrywanie: ?api=… albo, gdy strona jest serwowana przez backend, odpowiedź na /api/health.
+// Bez backendu (np. GitHub Pages) tryb "files" czyta też przykładowe odpowiedzi backendu zapisane obok danych misji
+// w <katalog>/backend/*.json (tools/export_backend_sample.py): raport, plan wyjść, pogoda kosmiczna, dziennik, trasa A.
 import { Terrain, Raster } from '../core/terrain.js';
 import { planRoute as mockPlan } from './mockPlanner.js';
 
@@ -47,9 +49,25 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
     return r.json();
   };
 
+  // przykładowe odpowiedzi backendu (tylko tryb plikowy); meta.json mówi, które pliki istnieją — bez zbędnych 404
+  let meta = null;
+  const samples = new Map();
+  const getJson = (f) => fetch(url(f), { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const sample = (name) => {
+    if (mode === 'http') return Promise.resolve(null);
+    meta ||= getJson('backend/meta.json');
+    if (name === 'meta') return meta;
+    if (!samples.has(name)) samples.set(name, meta.then((m) => (m?.files?.includes(name) ? getJson(`backend/${name}.json`) : null)));
+    return samples.get(name);
+  };
+  const near = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 0.5;
+  const samePlan = (req, start, waypoints, obstacles) => !!req && !obstacles.length && near(req.start, start)
+    && req.waypoints.length === waypoints.length && req.waypoints.every((w, i) => w.id === waypoints[i].id && near(w, waypoints[i]));
+
   return {
     mode,
     api: API,
+    sample,
     async loadMission() {
       const mission = await json(await fetch(url('mission.json'), { cache: 'no-store' }));
       if (![1, 2].includes(mission.contractVersion)) throw new Error(`Nieobsługiwana wersja kontraktu danych: ${mission.contractVersion}`);
@@ -94,6 +112,9 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start, waypoints, obstacles }),
         }));
       }
+      // to samo zapytanie co przy eksporcie: trasa policzona przez backend (Dijkstra na koszcie O₂) razem z wariantami
+      const s = await sample('plan');
+      if (s && samePlan(s.request, start, waypoints, obstacles)) return structuredClone(s.response);
       return mockPlan({ terrain: ctx.terrain, hazards: ctx.rasters.hazards, start, waypoints, obstacles, eva: ctx.mission.eva });
     },
 

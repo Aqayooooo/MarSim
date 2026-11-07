@@ -1,5 +1,6 @@
 // Start aplikacji: wczytanie danych, złożenie widoków, pętla klatek.
-// Parametry adresu: ?data=ścieżka/do/katalogu (domyślnie data/demo), ?api=http://backend (tryb backendu), ?demo (autostart prezentacji).
+// Parametry adresu: ?data=ścieżka/do/katalogu, ?api=http://backend (tryb backendu), ?demo (autostart prezentacji).
+// Bez ?data= i bez backendu: domyślna misja z data/missions/index.json (dane NASA + przykładowe dane backendu), inaczej data/demo.
 import { createDataSource, detectBackend } from './data/source.js';
 import { DeviceView, ReportView, ScheduleView, FieldReports, RouteCompare } from './ui/views.js';
 import { App } from './app.js';
@@ -20,7 +21,11 @@ document.querySelectorAll('#langSeg button').forEach((b) => {
 const q = new URLSearchParams(location.search);
 const api = q.has('data') ? null : await detectBackend(q.get('api'));
 if (api !== null) setupMissions(api);
-const ds = createDataSource({ mode: api !== null ? 'http' : 'files', base: q.get('data') || 'data/demo', api: api ?? '' });
+// bez backendu: lista misji z przykładowymi danymi backendu (tools/export_backend_sample.py)
+const missionIndex = api === null ? await fetch('data/missions/index.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
+const base = (q.get('data') || (missionIndex?.default ? `data/missions/${missionIndex.default}` : 'data/demo')).replace(/\/$/, '');
+if (missionIndex) setupStaticMissions(missionIndex, base);
+const ds = createDataSource({ mode: api !== null ? 'http' : 'files', base, api: api ?? '' });
 
 let world;
 try {
@@ -58,6 +63,27 @@ import('./ui/view3d.js').then(({ View3D }) => {
   document.querySelectorAll('#viewSeg button').forEach((b) => (b.disabled = false));
   if (['orbit', 'helmet'].includes(app.state.view)) view3d.setMode(app.state.view);
 }).catch((e) => console.error('3D view unavailable / widok 3D niedostępny:', e));
+
+// ---------- wybór misji bez backendu: przeładowanie z ?data=<katalog> ----------
+function setupStaticMissions(index, current) {
+  const opts = (index.missions || []).map((m) => ({ v: `data/missions/${m.id}`, label: m.label?.[lang] || m.id }));
+  if (!opts.length) return;
+  opts.push({ v: 'data/demo', label: t('mission.demo') });
+  if (!opts.some((o) => o.v === current)) opts.push({ v: current, label: current });   // własny ?data=
+  const sel = $('missionSel');
+  sel.innerHTML = '';
+  for (const o of opts) {
+    const el = document.createElement('option');
+    el.value = o.v; el.textContent = o.label; el.selected = o.v === current;
+    sel.appendChild(el);
+  }
+  sel.hidden = false;
+  sel.addEventListener('change', () => {
+    const p = new URLSearchParams(location.search);
+    p.set('data', sel.value);
+    location.search = [...p].map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v).replace(/%2F/g, '/')}`).join('&');
+  });
+}
 
 // ---------- wybór misji (tylko z backendem) ----------
 async function setupMissions(base) {

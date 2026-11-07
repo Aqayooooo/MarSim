@@ -57,7 +57,7 @@ python tools/make_data_sources.py                # odświeża data-sources.json
 - **Warstwy**: kliknięcie albo spacja na wierszu w lewym panelu.
 - **Mapa 2D / 3D / Hełm EV1 / Urządzenie / Raport / Plan wyjść**: zakładki w nagłówku.
 - **Hełm**: klawisze W A S D lub strzałki to chodzenie, mysz to rozglądanie, Shift przyspiesza. Kolizje z terenem powyżej 25° i z głazami.
-- **⇄ Porównaj trasy** (na mapie, z backendem): dlaczego wybrano tę trasę. Planer porównuje ją z linią prostą, najkrótszą bezpieczną i wariantem bez stref „uwaga” i podaje liczbowe powody (metry w strefach zakazanych, nachylenie, tlen, czas).
+- **⇄ Porównaj trasy** (na mapie; bez serwera — dla pierwszej trasy z zapisanych danych backendu): dlaczego wybrano tę trasę. Planer porównuje ją z linią prostą, najkrótszą bezpieczną i wariantem bez stref „uwaga” i podaje liczbowe powody (metry w strefach zakazanych, nachylenie, tlen, czas).
 - **Start EVA**: wyznacza trasę i rusza z załogą. **▶ Prezentacja** odtwarza scenariusz w 8 krokach.
 - **＋ Zgłoś z terenu**: kliknięcie na mapie dodaje przeszkodę albo bezpieczne przejście. Trasa przelicza się, jeśli trzeba.
 
@@ -78,6 +78,8 @@ backend/
   pipeline/                teren, głazy, piasek, minerały (CRISM), środowisko
   build.py, fetch_data.py  potok danych NASA
 data/missions/<id>/        gotowe warstwy misji + provenance.json (pochodzenie i sumy kontrolne)
+  backend/                 przykładowe odpowiedzi backendu dla wersji bez serwera (tools/export_backend_sample.py)
+data/missions/index.json   lista misji dla wersji bez serwera (wybór obszaru, domyślna misja)
 data/demo/                 dane syntetyczne (tryb bez backendu)
 data-sources.json          wykaz użytych danych
 docs/                      plan, kontrakt danych, bezpieczeństwo
@@ -101,7 +103,7 @@ Uruchamia je też CI (`.github/workflows/ci.yml`).
 - Wykrywanie głazów widzi obiekty od ok. 1 m. Mniejsze kamienie nie są widoczne z orbity.
 - Brak logowania i ról. Serwer domyślnie słucha tylko lokalnie. Szczegóły: [docs/BEZPIECZENSTWO.md](docs/BEZPIECZENSTWO.md).
 - Układ ekranu jest stały (skalowany), nie przebudowuje się na telefon. Dostępność poprawiona, ale bez pełnego audytu WCAG.
-- Wersja pod linkiem (GitHub Pages) jest w planie: [docs/PLAN.md](docs/PLAN.md).
+- Wersja pod linkiem (GitHub Pages: https://aqayooooo.github.io/MarSim/) działa bez serwera. Raport, plan wyjść, pogoda kosmiczna, dziennik i pierwsza trasa (z wariantami „dlaczego ta trasa”) pochodzą z zapisanych odpowiedzi prawdziwego backendu i są tylko do odczytu; symulacja EVA i nowe trasy liczą się w przeglądarce (planer zastępczy A*). Odświeżenie zapisu: `.venv/Scripts/python.exe tools/export_backend_sample.py`.
 - Mapa piasku i zagrożeń jest względna dla wycinka (wskaźniki porównują miejsca w obrębie obszaru), więc procent „piasku” w różnych obszarach nie jest bezpośrednio porównywalny.
 
 ## Dokumenty

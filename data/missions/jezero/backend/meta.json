@@ -1,0 +1,1 @@
+{"generatedUtc":"2026-11-07T21:50:00+00:00","backendVersion":"1.2","mission":"jezero","files":["plan","report","spaceweather","log","state","schedule"],"eva":{"route":"B","reachedMin":77,"events":["boulders","sep"],"spaceweather":"sieć"},"note":"Zapis odpowiedzi API z prawdziwego backendu (tools/export_backend_sample.py). Interfejs bez serwera pokazuje je tylko do odczytu."}

@@ -27,7 +27,8 @@ export function setLang(l) {
 const UI = {
   pl: {
     'doc.title': 'MarSim · planowanie EVA na Marsie', 'skip': 'Przejdź do mapy', 'map.aria': 'Mapa obszaru EVA z warstwami danych i trasą',
-    'lang.label': 'Język', 'mission.label': 'Obszar misji', 'mission.error': 'Nie udało się przełączyć misji.',
+    'lang.label': 'Język', 'mission.label': 'Obszar misji', 'mission.error': 'Nie udało się przełączyć misji.', 'mission.demo': 'Demo · dane syntetyczne',
+    'sample.note': 'Przykładowe dane z backendu, zapisane {d}. Ta wersja działa bez serwera, więc widok jest tylko do odczytu — pełną wersję uruchamia <code>URUCHOM.bat</code>.',
     'view.aria': 'Widok',
     'view.map': 'Mapa 2D', 'view.orbit': '3D', 'view.helmet': 'Hełm EV1', 'view.device': 'Urządzenie', 'view.report': 'Raport', 'view.schedule': 'Plan wyjść',
     'eva.title': 'Wyznacz trasę i rozpocznij wyjście', 'eva.start': 'Start EVA', 'eva.pause': 'Pauza EVA', 'eva.resume': 'Wznów EVA',
@@ -115,7 +116,8 @@ const UI = {
   },
   en: {
     'doc.title': 'MarSim · Mars EVA planning', 'skip': 'Skip to map', 'map.aria': 'Map of the EVA area with data layers and route',
-    'lang.label': 'Language', 'mission.label': 'Mission area', 'mission.error': 'Could not switch the mission.',
+    'lang.label': 'Language', 'mission.label': 'Mission area', 'mission.error': 'Could not switch the mission.', 'mission.demo': 'Demo · synthetic data',
+    'sample.note': 'Sample backend data, recorded {d}. This version runs without a server, so the view is read-only — <code>URUCHOM.bat</code> starts the full version.',
     'view.aria': 'View',
     'view.map': '2D map', 'view.orbit': '3D', 'view.helmet': 'EV1 helmet', 'view.device': 'Device', 'view.report': 'Report', 'view.schedule': 'EVA plan',
     'eva.title': 'Plan the route and start the EVA', 'eva.start': 'Start EVA', 'eva.pause': 'Pause EVA', 'eva.resume': 'Resume EVA',

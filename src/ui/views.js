@@ -8,6 +8,8 @@ import { km as kmFmt } from '../core/format.js';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const NEED_BACKEND = () => `<h2>${t('need.title')}</h2><p class="muted">${t('need.text')}</p>`;
+// bez serwera: zapisane odpowiedzi backendu (tools/export_backend_sample.py), tylko do odczytu
+const SAMPLE_NOTE = (meta) => `<p class="sampleNote">${t('sample.note', { d: esc(String(meta?.generatedUtc ?? '').slice(0, 10) || '—') })}</p>`;
 
 // ---------------- urządzenie w hełmie ----------------
 export class DeviceView {
@@ -71,7 +73,12 @@ export class ReportView {
   constructor(app) { this.app = app; this.el = $('report'); }
 
   async open() {
-    if (!this.app.remote) { this.el.innerHTML = NEED_BACKEND(); return; }
+    if (!this.app.remote) {
+      const [rep, sw, log, state, meta] = await Promise.all(['report', 'spaceweather', 'log', 'state', 'meta'].map((n) => this.app.ds.sample(n)));
+      if (!rep) { this.el.innerHTML = NEED_BACKEND(); return; }
+      this.render(rep, sw || { summary: '—' }, log || { events: [] }, { sample: meta, snap: state });
+      return;
+    }
     this.el.innerHTML = `<p class="muted">${t('rep.loading')}</p>`;
     try {
       const [rep, sw, log] = await Promise.all([this.app.ds.get('report'), this.app.ds.get('spaceweather'), this.app.ds.get('log?limit=12').catch(() => ({ events: [] }))]);
@@ -79,9 +86,9 @@ export class ReportView {
     } catch (e) { this.el.innerHTML = `<p class="warn">${esc(t('rep.error', { e: e.message }))}</p>`; }
   }
 
-  render(r, sw, log) {
+  render(r, sw, log, { sample = null, snap: sampleSnap = null } = {}) {
     if (!r.ok) { this.el.innerHTML = `<h2>${t('rep.title')}</h2><p class="muted">${esc(tx(r.error))}</p>`; return; }
-    const e = r.effectiveness, snap = this.app.sim.snap;
+    const e = r.effectiveness, snap = sampleSnap || this.app.sim.snap;
     const color = (l, s) => { const v = l * s; return v >= 15 ? '#5a1408' : v >= 8 ? '#4d3608' : '#12301d'; };
     const P = t('rep.matrixP'), S = t('rep.matrixS');
     let matrix = '<div class="matrix" role="table"><div class="ax"></div>' + [1, 2, 3, 4, 5].map((s) => `<div class="ax" style="justify-content:center">${S}${s}</div>`).join('');
@@ -92,7 +99,7 @@ export class ReportView {
     matrix += `</div><p class="muted" style="font-size:11px">${t('rep.matrixNote')}</p>`;
     const link = snap?.link, pv = r.provenance;
     const events = log?.events || [];
-    this.el.innerHTML = `
+    this.el.innerHTML = `${sample ? SAMPLE_NOTE(sample) : ''}
       <h2>${t('rep.summary')}</h2>
       <ul class="summary">${r.summary.map((s) => `<li>${esc(tx(s))}</li>`).join('')}</ul>
       <h2>${t('rep.eff')}</h2>
@@ -120,7 +127,7 @@ export class ReportView {
       ${link ? `<p>${t('rep.linkLine', { d: num(link.oneWayMin, 1), km: num(link.distanceMkm, 0), state: link.up ? `<span class="ok">${t('rep.linkUp')}</span>` : `<span class="warn">${t('rep.linkDown')}</span>`, out: link.pendingOut, inn: link.pendingIn })}</p>
         <table><tr><th>${t('rep.thDir')}</th><th>${t('rep.thKind')}</th><th>${t('rep.thText')}</th><th>${t('rep.thState')}</th></tr>${link.recent.map((b) => `<tr><td>${esc(tx(b.direction))}</td><td>${esc(tx(b.kind))}</td><td>${esc(tx(b.text))}</td>
         <td>${b.delivered ? `<span class="ok">${t('rep.delivered')}</span>` : `<span class="muted">${t('rep.inMin', { m: num(Math.max(0, (b.deliver_s - snap.t) / 60), 1) })}</span>`}</td></tr>`).join('')}</table>
-        <div class="row"><button class="btn" id="rpOutage">${t('rep.outage')}</button><button class="btn" id="rpRefresh">${t('rep.refresh')}</button></div>` : ''}
+        ${sample ? '' : `<div class="row"><button class="btn" id="rpOutage">${t('rep.outage')}</button><button class="btn" id="rpRefresh">${t('rep.refresh')}</button></div>`}` : ''}
       <h2>${t('rep.audit')}</h2>
       ${events.length ? `<table><tr><th>${t('rep.thUtc')}</th><th>${t('rep.thKind')}</th><th>${t('rep.thText')}</th></tr>${events.map((ev) => `<tr><td class="muted">${esc(ev.utc)}</td><td>${esc(tx(ev.kind))}</td><td>${esc(tx(ev.text))}</td></tr>`).join('')}</table>`
         : `<p class="muted">${t('rep.auditEmpty')}</p>`}`;
@@ -134,19 +141,24 @@ export class ScheduleView {
   constructor(app) { this.app = app; this.el = $('schedule'); }
 
   async open() {
-    if (!this.app.remote) { this.el.innerHTML = NEED_BACKEND(); return; }
+    if (!this.app.remote) {
+      const [d, meta] = await Promise.all([this.app.ds.sample('schedule'), this.app.ds.sample('meta')]);
+      if (!d) { this.el.innerHTML = NEED_BACKEND(); return; }
+      this.render(d, null, meta);
+      return;
+    }
     this.render(await this.app.ds.get('schedule'));
   }
 
-  render(d, error) {
+  render(d, error, sample = null) {
     const crew = this.app.m.crew.map((c) => c.id);
-    this.el.innerHTML = `
+    this.el.innerHTML = `${sample ? SAMPLE_NOTE(sample) : ''}
       <h2>${t('sc.title')}</h2>
-      <table><tr><th>EVA</th><th>Sol</th><th>${t('sc.thStart')}</th><th>${t('sc.thCrew')}</th><th>${t('sc.thPurpose')}</th><th>O₂</th><th>${t('sc.thEnergy')}</th><th>${t('sc.thNotes')}</th><th></th></tr>
+      <table><tr><th>EVA</th><th>Sol</th><th>${t('sc.thStart')}</th><th>${t('sc.thCrew')}</th><th>${t('sc.thPurpose')}</th><th>O₂</th><th>${t('sc.thEnergy')}</th><th>${t('sc.thNotes')}</th>${sample ? '' : '<th></th>'}</tr>
         ${d.items.map((i) => `<tr><td><b>${esc(i.id)}</b></td><td>${i.sol}</td><td>${esc(i.startLtst)}–${esc(i.endLtst)}</td><td>${esc(i.crew.join(', '))}</td>
           <td class="muted">${esc(tx(i.purpose))}</td><td>${int(i.o2L)} L</td><td>${int(i.batteryWh)} Wh</td>
           <td>${i.issues.length ? `<span class="warn">${esc(i.issues.map(tx).join('; '))}</span>` : '<span class="ok">OK</span>'}</td>
-          <td><button class="btn" data-del="${esc(i.id)}" aria-label="${t('sc.delete')} ${esc(i.id)}">${t('sc.delete')}</button></td></tr>`).join('')}</table>
+          ${sample ? '' : `<td><button class="btn" data-del="${esc(i.id)}" aria-label="${t('sc.delete')} ${esc(i.id)}">${t('sc.delete')}</button></td>`}</tr>`).join('')}</table>
       <h2>${t('sc.stores')}</h2>
       <div class="kpis">
         <div class="kpi"><b>${int(d.consumables.o2NeededL)} / ${int(d.consumables.o2AvailableL)} L</b><span>${t('sc.kO2')}</span></div>
@@ -157,14 +169,15 @@ export class ScheduleView {
       <h2>${t('sc.rules')}</h2>
       ${d.issues.length ? `<ul>${d.issues.map((x) => `<li class="warn">${esc(tx(x))}</li>`).join('')}</ul>` : `<p class="ok">${t('sc.allOk')}</p>`}
       <p class="muted" style="font-size:12px">${esc(t('sc.rulesLine', { r: d.rules.map(tx).join(' · ') }))}</p>
-      <h2>${t('sc.add')}</h2>
+      ${sample ? '' : `<h2>${t('sc.add')}</h2>
       ${error ? `<p class="warn" role="alert">${esc(t('sc.error', { e: error }))}</p>` : ''}
       <div class="row">
         <input id="scId" placeholder="EVA-5" size="7" aria-label="EVA ID"> sol <input id="scSol" type="number" value="${(d.items.at(-1)?.sol ?? 147) + 1}" style="width:70px" aria-label="sol">
         ${t('sc.start')} <input id="scStart" value="09:30" size="5" aria-label="${t('sc.start')} (LTST)"> ${t('sc.dur')} <input id="scDur" type="number" step="0.5" value="3" style="width:60px" aria-label="${t('sc.dur')}">
         ${crew.map((c) => `<label><input type="checkbox" class="scCrew" value="${c}" checked> ${c}</label>`).join(' ')}
         <input id="scPurpose" placeholder="${t('sc.purpose')}" size="22" aria-label="${t('sc.purpose')}"> <button class="btn accent" id="scAdd">${t('sc.save')}</button>
-      </div>`;
+      </div>`}`;
+    if (sample) return;
     this.el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => this.render(await this.app.ds.del(`schedule/${encodeURIComponent(b.dataset.del)}`))));
     $('scAdd').addEventListener('click', async () => {
       const item = { id: $('scId').value || `EVA-${d.items.length + 1}`, sol: +$('scSol').value, startLtst: $('scStart').value, durationH: +$('scDur').value,
