@@ -6,13 +6,13 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAIN_W, MAIN_H } from './map2d.js';
 import { headingDeg } from '../core/path.js';
 import { t as tr } from '../i18n.js';
+import { makeRocks, mulberry } from '../core/rocks.js';
 
 const EX_ORBIT = 10, EYE = 1.7, FOV = 45;
 const OCHRE = new THREE.Color(1.55, 0.98, 0.66);
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
-function mulberry(a) { return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
 export class View3D {
   constructor(el, app) {
@@ -53,9 +53,11 @@ export class View3D {
     this.controls.maxDistance = 3000;
 
     this.helmet = { x: app.m.rover.x, y: app.m.rover.y, yaw: 45, pitch: -4, keys: new Set(), auto: null, warn: null, speed: 0 };
+    this.chase = { yawOff: 0, pitch: 20, dist: 22, cabin: false };    // kamera jazdy łazikiem (mysz: obrót, kółko: odległość, C: kabina)
     this.#input();
 
     app.on('route', () => this.#buildRoute());
+    app.on('drive', () => this.#buildDriveRoute());
     app.on('obstacle', (ob) => this.#addBoulderField(ob));
     app.on('reset', () => this.reset());
     this.reset();
@@ -156,18 +158,9 @@ export class View3D {
   }
 
   #scatterRocks() {
-    const rnd = mulberry(7);
-    for (let n = 0; n < 1400; n++) {
-      const x = rnd() * this.W, y = rnd() * this.H;
-      const haz = this.app.world.rasters.hazards.sample(x, y);
-      if (haz === 2 && rnd() < 0.9) continue;            // mało kamieni na piasku
-      const r = 0.12 + rnd() ** 3 * 0.55;
-      this.rocks.push({ x, y, r, rot: rnd() * 6.28, collide: r > 0.35 });
-    }
-    // prawdziwe głazy wykryte metodą cieni (średnica i wysokość z pomiaru); pewne — z kolizją
-    for (const b of this.app.world.rasters.boulders?.boulders || []) {
-      this.rocks.push({ x: b.x, y: b.y, r: b.diameterM / 2, h: Math.max(0.3, b.heightM), rot: rnd() * 6.28, collide: b.confidence >= 0.5, real: true });
-    }
+    // ta sama lista co w planerze jazdy łazikiem (core/rocks.js) — trasa omija dokładnie to, co widać
+    const w = this.app.world;
+    this.rocks = makeRocks({ W: this.W, H: this.H, hazards: w.rasters.hazards, boulders: w.rasters.boulders });
     this.#rebuildRocks();
   }
 
@@ -199,7 +192,7 @@ export class View3D {
       m.setMatrixAt(i, o.matrix);
     });
     m.instanceMatrix.needsUpdate = true;
-    m.visible = this.mode === 'helmet';
+    m.visible = this.mode === 'helmet' || this.mode === 'drive';
   }
 
   #ribbon(pts, width, lift, color, opacity) {
@@ -239,12 +232,28 @@ export class View3D {
     this.#applyMode();
   }
 
+  // trasa A→B jazdy łazikiem (turkusowa, jak na mapie 2D)
+  #buildDriveRoute() {
+    for (const m of this.driveMeshes || []) { this.world.remove(m); m.geometry.dispose(); }
+    this.driveMeshes = []; this.driveOrbit = []; this.driveNear = [];
+    const d = this.app.drive;
+    if (d && d.poly.pts.length > 1) {
+      const pts = d.poly.pts;
+      this.driveOrbit = [this.#ribbon(pts, 9, 0.8, 0x04201c, 0.7), this.#ribbon(pts, 5, 1.0, 0x5ee6d0, 1)];
+      this.driveNear = [this.#ribbon(pts, 2.4, 0.06, 0x5ee6d0, 0.55)];
+      this.driveMeshes = [...this.driveOrbit, ...this.driveNear];
+      this.world.add(...this.driveMeshes);
+    }
+    this.#applyMode();
+  }
+
   // ---------- tryby ----------
   reset() {
     this.flight = null;
     this.helmet.auto = null;
     this.terrainMat.color.copy(OCHRE);
     this.#buildRoute();
+    this.#buildDriveRoute();
     this.rocks = this.rocks.filter((r) => !r.field);
     if (this.rockMesh) this.#rebuildRocks();
     this.setMode('orbit', { keepCamera: false });
@@ -253,21 +262,24 @@ export class View3D {
   setMode(mode, { keepCamera = true } = {}) {
     const first = this.mode !== mode || !keepCamera;
     this.mode = mode;
-    this.ex = mode === 'helmet' ? 1 : this.exOrbit;
+    this.ex = mode === 'helmet' || mode === 'drive' ? 1 : this.exOrbit;
+    if (mode === 'drive') this.camYaw = undefined;
     this.#applyMode();
     if (mode === 'orbit' && first && !this.flight) this.#defaultOrbit();
     if (mode === 'helmet' && first && !this.helmet.auto) this.#placeHelmetAtCrew();
   }
 
   #applyMode() {
-    const helmet = this.mode === 'helmet';
+    const ground = this.mode === 'helmet' || this.mode === 'drive';   // widok z poziomu gruntu, skala 1:1
     this.world.scale.y = this.ex;
-    this.scene.background = helmet ? this.skyTex : this.orbitBg;
-    this.scene.fog = helmet ? new THREE.Fog(0x8a5c3c, 250, 1700) : null;
-    (this.routeOrbit || []).forEach((m) => (m.visible = !helmet));
-    (this.routeHelmet || []).forEach((m) => (m.visible = helmet));
-    this.controls.enabled = !helmet && !this.flight;
-    this.camera.near = helmet ? 0.1 : 2;
+    this.scene.background = ground ? this.skyTex : this.orbitBg;
+    this.scene.fog = ground ? new THREE.Fog(0x8a5c3c, 250, 1700) : null;
+    (this.routeOrbit || []).forEach((m) => (m.visible = !ground));
+    (this.routeHelmet || []).forEach((m) => (m.visible = ground));
+    (this.driveOrbit || []).forEach((m) => (m.visible = !ground));
+    (this.driveNear || []).forEach((m) => (m.visible = ground));
+    this.controls.enabled = !ground && !this.flight;
+    this.camera.near = ground ? 0.1 : 2;
     this.camera.updateProjectionMatrix();
     if (this.rockMesh) this.#placeRocks();
     this.#placeMarkers();
@@ -282,10 +294,13 @@ export class View3D {
       o.pole.position.set(this.X(o.wp.x), h + 1.3, this.Z(o.wp.y));
       o.sprite.position.set(this.X(o.wp.x), h + (helmet ? 2.7 : 4), this.Z(o.wp.y));
     }
-    const rp = this.app.sim.roverPos();
+    const drive = this.mode === 'drive';
+    const rp = this.app.roverPos();
     const rh = this.t.height(rp.x, rp.y) * this.ex;
     this.roverMesh.position.set(this.X(rp.x), rh, this.Z(rp.y));
-    this.roverMesh.visible = helmet;
+    this.roverMesh.visible = helmet || drive;
+    if (this.app.drive) this.roverMesh.rotation.y = Math.PI / 2 - (drive && this.camYaw !== undefined ? this.camYaw : this.app.drive.heading()) * Math.PI / 180;
+    this.roverSprite.visible = !drive;
     this.roverSprite.position.set(this.X(rp.x), rh + (helmet ? 3 : 4), this.Z(rp.y));
   }
 
@@ -359,6 +374,19 @@ export class View3D {
       h.auto = null;
     });
     el.addEventListener('pointerup', () => { drag = null; });
+    // jazda łazikiem: przeciąganie obraca kamerę wokół łazika, kółko zmienia odległość, C = kamera z kabiny
+    let cdrag = null;
+    const c = this.chase;
+    el.addEventListener('pointerdown', (e) => { if (this.mode === 'drive') { cdrag = { x: e.clientX, y: e.clientY }; el.setPointerCapture(e.pointerId); } });
+    el.addEventListener('pointermove', (e) => {
+      if (!cdrag) return;
+      c.yawOff = (c.yawOff - (e.clientX - cdrag.x) * 0.3) % 360;
+      c.pitch = Math.max(3, Math.min(75, c.pitch + (e.clientY - cdrag.y) * 0.2));
+      cdrag = { x: e.clientX, y: e.clientY };
+    });
+    el.addEventListener('pointerup', () => { cdrag = null; });
+    el.addEventListener('wheel', (e) => { if (this.mode !== 'drive') return; e.preventDefault(); c.dist = Math.max(7, Math.min(150, c.dist * (e.deltaY > 0 ? 1.12 : 1 / 1.12))); }, { passive: false });
+    addEventListener('keydown', (e) => { if (this.mode === 'drive' && e.code === 'KeyC' && !e.target.closest?.('input,select,textarea')) this.toggleCabin(); });
     const keys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'];
     addEventListener('keydown', (e) => { if (this.mode === 'helmet' && keys.includes(e.code)) { h.keys.add(e.code); h.auto = null; e.preventDefault(); } });
     addEventListener('keyup', (e) => h.keys.delete(e.code));
@@ -421,6 +449,32 @@ export class View3D {
     this.camera.lookAt(this.X(h.x) + Math.sin(y) * Math.cos(p), ground + EYE + Math.sin(p), this.Z(h.y) - Math.cos(y) * Math.cos(p));
   }
 
+  toggleCabin() { this.chase.cabin = !this.chase.cabin; this.chase.yawOff = 0; this.app.emit('drive-cam', this.chase.cabin); }
+  resetChase() { Object.assign(this.chase, { yawOff: 0, pitch: 20, dist: 22 }); }
+
+  /** Kamera jazdy: za łazikiem (pościg) albo z kabiny; kurs wygładzony, kamera nigdy pod gruntem. */
+  #driveStep(dt) {
+    const d = this.app.drive, c = this.chase, t = this.t;
+    const p = this.app.roverPos();
+    const yaw = d ? d.heading() : (this.camYaw ?? 0);
+    this.camYaw = this.camYaw === undefined ? yaw : (this.camYaw + ((((yaw - this.camYaw) % 360) + 540) % 360 - 180) * Math.min(1, dt * 2.5) + 360) % 360;
+    const g = t.height(p.x, p.y);
+    this.camera.up.set(0, 1, 0);
+    if (c.cabin) {
+      const y = (this.camYaw + c.yawOff) * Math.PI / 180, fx = Math.sin(y), fy = -Math.cos(y);
+      const ax = p.x + fx * 40, ay = p.y + fy * 40;
+      this.camera.position.set(this.X(p.x + fx * 1.2), g + 2.3, this.Z(p.y + fy * 1.2));
+      this.camera.lookAt(this.X(ax), (t.inside(ax, ay) ? t.height(ax, ay) : g) + 1.4, this.Z(ay));
+      return;
+    }
+    const y = (this.camYaw + c.yawOff) * Math.PI / 180, ph = c.pitch * Math.PI / 180;
+    const back = c.dist * Math.cos(ph), up = c.dist * Math.sin(ph);
+    let cx = p.x - Math.sin(y) * back, cy = p.y + Math.cos(y) * back;
+    cx = Math.max(1, Math.min(this.W - 1, cx)); cy = Math.max(1, Math.min(this.H - 1, cy));
+    this.camera.position.set(this.X(cx), Math.max(t.height(cx, cy) + 1.5, g + up), this.Z(cy));
+    this.camera.lookAt(this.X(p.x), g + 1.5, this.Z(p.y));
+  }
+
   /** Dane dla HUD hełmu. */
   hudInfo() {
     const h = this.helmet, app = this.app, wps = app.m.waypoints;
@@ -473,6 +527,7 @@ export class View3D {
   render(dt) {
     this.#placeMarkers();
     if (this.mode === 'helmet') this.#helmetStep(dt);
+    else if (this.mode === 'drive') this.#driveStep(dt);
     else if (this.flight) this.#flightStep(dt);
     else this.controls.update();
     this.renderer.render(this.scene, this.camera);

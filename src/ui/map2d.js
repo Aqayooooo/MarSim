@@ -183,15 +183,23 @@ export class Map2D {
     this.#route(now);
     for (const o of st.obstacles) this.#obstacle(o, now);
     this.#trail();
-    this.#markers(now);
     this.#pick();
+    this.#markers(now);
   }
 
   // własna trasa (◎ Wyznacz trasę): start, cel i ścieżka z algorytmu Dijkstry
   #pick() {
-    const p = this.app.state.pick, ctx = this.ctx;
+    const p = this.app.state.pick, ctx = this.ctx, d = this.app.drive;
+    if (d) {                                   // jazda łazikiem: przed nim trasa, za nim przejechany odcinek
+      this.#line(d.poly.slice(d.s, d.length), { color: PICK, width: 3.5, outline: 'rgba(0,0,0,.7)' });
+      this.#line(d.poly.slice(0, d.s), { color: 'rgba(255,255,255,.75)', width: 2.5, dash: [6, 5] });
+      const e = d.poly.at(d.length);
+      ctx.beginPath(); ctx.arc(this.sx(e.x), this.sy(e.y), 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#000'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = PICK; ctx.stroke();
+      if (!p?.start) this.#label(tr('pick.endLbl'), this.sx(e.x) + 12, this.sy(e.y) - 18);
+    }
     if (!p?.start) return;
-    if (p.path) this.#line(p.path, { color: PICK, width: 3.5, outline: 'rgba(0,0,0,.7)' });
+    if (p.path && !d) this.#line(p.path, { color: PICK, width: 3.5, outline: 'rgba(0,0,0,.7)' });
     for (const [pt, lbl] of [[p.start, tr('pick.startLbl')], [p.end, tr('pick.endLbl')]]) {
       if (!pt) continue;
       const x = this.sx(pt.x), y = this.sy(pt.y);
@@ -443,8 +451,8 @@ export class Map2D {
       ctx.setLineDash([]); ctx.restore();
     }
     // łazik
-    if (optOn || st.route) {
-      const p = sim.roverPos(), x = this.sx(p.x), y = this.sy(p.y);
+    if (optOn || st.route || app.drive || app.roverAt) {
+      const p = app.roverPos(), x = this.sx(p.x), y = this.sy(p.y);
       ctx.fillStyle = ACCENT; ctx.fillRect(x - 8, y - 7, 16, 14);
       const w = (ctx.font = MONO, ctx.measureText(tr('map.rover')).width + 10);
       this.#label(tr('map.rover'), x - w / 2, y + 26);

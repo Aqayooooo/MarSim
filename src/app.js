@@ -4,6 +4,7 @@ import { Polyline } from './core/path.js';
 import { Sim } from './core/sim.js';
 import { RemoteSim } from './core/remoteSim.js';
 import { routeStats } from './core/routeStats.js';
+import { Drive } from './core/drive.js';
 import { t, tx } from './i18n.js';
 
 export class App {
@@ -36,6 +37,8 @@ export class App {
   reset() {
     if (this.remote) { this.pendingReset = this.ds.post('eva/reset').catch(() => {}); this.sim.reset(); }
     else this.sim.reset();
+    this.drive = null;       // jazda łazikiem po trasie A→B (core/drive.js)
+    this.roverAt = null;     // gdzie łazik stanął po jeździe (null = pozycja z misji / z symulacji EVA)
     this.windNext = 0;
     this.lastReplan = null;
     this.state = {
@@ -177,10 +180,27 @@ export class App {
     }
   }
 
+  // ---------- jazda łazikiem ----------
+  /** Pozycja łazika do rysowania: w trakcie jazdy z trasy A→B, po jeździe tam, gdzie stanął, inaczej z symulacji EVA. */
+  roverPos() { return this.drive ? this.drive.pos() : this.roverAt ? { ...this.roverAt } : this.sim.roverPos(); }
+  startDrive(path) {
+    if (this.sim.running) this.pauseEva(true);              // EVA i jazda łazikiem nie idą naraz
+    this.drive = new Drive(path, { terrain: this.world.terrain, hazards: this.world.rasters.hazards, speedKmh: this.m.rover.speedKmh });
+    this.drive.running = true;
+    this.emit('drive');
+  }
+  stopDrive() {
+    if (!this.drive) return;
+    this.roverAt = this.drive.pos();
+    this.drive = null;
+    this.emit('drive');
+  }
+
   // ---------- EVA ----------
   showCrew() { this.state.crewVisible = true; this.emit('crew'); }
   startEva(timeScale = 470) {
     if (!this.state.route) return;
+    if (this.drive || this.roverAt) { this.drive = null; this.roverAt = null; this.emit('drive'); }   // EVA zaczyna od łazika przy habitacie
     this.state.crewVisible = true;
     if (this.remote) this.ds.post('eva/start', { timeScale, scenario: !this.autoEvents });
     else { this.sim.timeScale = timeScale; this.sim.running = true; }
@@ -252,6 +272,11 @@ export class App {
   update(dt) {
     this.now += dt;
     this.sim.step(dt);
+    if (this.drive) {
+      const was = this.drive.done;
+      this.drive.step(dt);
+      if (!was && this.drive.done) this.emit('drive-done');
+    }
     if (this.now >= this.windNext) {
       const w = this.m.environment.wind;
       this.state.wind = this.sim.snap?.env?.windMs ?? Math.round((w.meanMs + (Math.random() * 2 - 1) * w.spreadMs) * 10) / 10;

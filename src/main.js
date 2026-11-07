@@ -2,7 +2,7 @@
 // Parametry adresu: ?data=ścieżka/do/katalogu, ?api=http://backend (tryb backendu), ?demo (autostart prezentacji).
 // Bez ?data= i bez backendu: domyślna misja z data/missions/index.json (dane NASA + przykładowe dane backendu), inaczej data/demo.
 import { createDataSource, detectBackend } from './data/source.js';
-import { DeviceView, ReportView, ScheduleView, FieldReports, RouteCompare, PathPicker } from './ui/views.js';
+import { DeviceView, ReportView, ScheduleView, FieldReports, RouteCompare, PathPicker, DriveHud } from './ui/views.js';
 import { App } from './app.js';
 import { Panels } from './ui/panels.js';
 import { Map2D } from './ui/map2d.js';
@@ -45,7 +45,8 @@ const device = new DeviceView(app), report = new ReportView(app), schedule = new
 new FieldReports(app, map);
 const compare = new RouteCompare(app);
 const picker = new PathPicker(app, map);
-window.marsim = { app, director, map, panels, device, report, schedule, compare, picker, get view3d() { return view3d; } };   // do debugowania w konsoli
+const driveHud = new DriveHud(app, () => view3d);
+window.marsim = { app, director, map, panels, device, report, schedule, compare, picker, driveHud, get view3d() { return view3d; } };   // do debugowania w konsoli
 
 function fit() {
   const s = Math.min(innerWidth / 1664, innerHeight / 744);
@@ -62,7 +63,7 @@ import('./ui/view3d.js').then(({ View3D }) => {
   view3d = new View3D($('view3d'), app);
   fit();
   document.querySelectorAll('#viewSeg button').forEach((b) => (b.disabled = false));
-  if (['orbit', 'helmet'].includes(app.state.view)) view3d.setMode(app.state.view);
+  if (['orbit', 'helmet', 'drive'].includes(app.state.view)) view3d.setMode(app.state.view);
 }).catch((e) => console.error('3D view unavailable / widok 3D niedostępny:', e));
 
 // ---------- wybór misji bez backendu: przeładowanie z ?data=<katalog> ----------
@@ -115,8 +116,8 @@ $('viewSeg').addEventListener('click', (e) => {
   app.setView(b.dataset.view);
 });
 function applyView(v) {
-  document.querySelectorAll('#viewSeg button').forEach((b) => { b.classList.toggle('on', b.dataset.view === v); b.setAttribute('aria-selected', String(b.dataset.view === v)); });
-  const is3d = v === 'orbit' || v === 'helmet';
+  document.querySelectorAll('#viewSeg button').forEach((b) => { const on = b.dataset.view === v || (v === 'drive' && b.dataset.view === 'orbit'); b.classList.toggle('on', on); b.setAttribute('aria-selected', String(on)); });
+  const is3d = v === 'orbit' || v === 'helmet' || v === 'drive';
   $('view3d').classList.toggle('on', is3d);
   $('hud').hidden = v !== 'helmet';
   $('view3dLabel').hidden = v !== 'orbit';
@@ -182,7 +183,8 @@ function frame(t) {
   app.update(dt);
   const v = app.state.view;
   if (v === 'map') map.render(dt);
-  else if ((v === 'orbit' || v === 'helmet') && view3d) { view3d.render(dt); if (v === 'helmet') updateHud(); }
+  else if ((v === 'orbit' || v === 'helmet' || v === 'drive') && view3d) { view3d.render(dt); if (v === 'helmet') updateHud(); }
+  if (app.drive) driveHud.update();
   else if (v === 'device') device.update();
   panels.update();
   requestAnimationFrame(frame);

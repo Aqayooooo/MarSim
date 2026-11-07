@@ -155,6 +155,18 @@ button { font: inherit; color: inherit; }
 #pickCard b { color: var(--text); font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: 4px; }
 #pickCard .big { color: var(--text); font: 700 18px var(--mono); }
 #pickCard .warn { color: #ffb48a; }
+#pickCard .muted { color: var(--textOff); }
+#pickCard .pc-row, #driveHud .dh-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+#driveHud { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 3; width: 620px; background: rgba(8,5,4,.9); border: 1px solid var(--accentDim); border-left: 3px solid #5EE6D0; border-radius: 10px; padding: 8px 12px; font-size: 13px; color: var(--text2); }
+#driveHud .dh-top { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+#driveHud .dh-top b { color: var(--text); font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+#driveHud #dhLine { font: 13px var(--mono); color: var(--text); }
+#driveHud .dh-row { margin-top: 6px; }
+#driveHud .dh-speed { display: inline-flex; align-items: center; gap: 4px; }
+#driveHud .dh-x { min-width: 46px; text-align: center; font: 700 14px var(--mono); color: #5EE6D0; }
+#driveHud .dh-help { margin-top: 6px; font-size: 11.5px; color: var(--textOff); }
+#driveHud .warn { color: #FFC24D; }
+#driveHud .muted { color: var(--textOff); }
 #obsForm { position: absolute; z-index: 5; width: 250px; background: #0b0805; border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; font-size: 14px; display: flex; flex-direction: column; gap: 7px; }
 #obsForm .of-title { font: 700 13px var(--mono); letter-spacing: .12em; color: var(--alertTitle); text-transform: uppercase; }
 #obsForm label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--text2); }

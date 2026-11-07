@@ -36,9 +36,11 @@ class Heap {
  * @param {{id:string,x:number,y:number,stopMin?:number}[]} req.waypoints
  * @param {{x:number,y:number,radiusM:number}[]} [req.obstacles]
  * @param {{walkKmh:number,maxSlopeDeg:number}} req.eva
+ * @param {{x:number,y:number,r:number}[]} [req.rocks]  kamienie do ominięcia (jazda łazikiem): blokują oczka, które dotyka kamień powiększony o clearanceM
+ * @param {number} [req.clearanceM]  zapas od kamienia (połowa łazika + margines)
  * @param {boolean} [req.heuristic]  true: A* (odległość w linii prostej), false: czysty Dijkstra — ta sama trasa, więcej sprawdzonych komórek
  */
-export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], eva, heuristic = true }) {
+export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], eva, heuristic = true, rocks = null, clearanceM = 0 }) {
   const W = hazards.width, H = hazards.height, C = hazards.cellM;
   const N = W * H;
   const blocked = new Uint8Array(N);
@@ -52,7 +54,25 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
     mult[k] = (1 + (sl / 12) ** 2) * (hz === 1 ? 1.8 : 1);
   }
   const cellOf = (p) => [Math.min(W - 1, Math.max(0, Math.floor(p.x / C))), Math.min(H - 1, Math.max(0, Math.floor(p.y / C)))];
-  const free = (p) => { const [i, j] = cellOf(p); blocked[j * W + i] = 0; };
+  const exact = !!rocks;                       // tryb łazika: bez ścinania rogów i bez zaokrąglania (trasa ma omijać kamienie)
+  if (exact) {
+    for (const rk of rocks) {
+      const R = rk.r + clearanceM;
+      const i0 = Math.max(0, Math.floor((rk.x - R) / C)), i1 = Math.min(W - 1, Math.floor((rk.x + R) / C));
+      const j0 = Math.max(0, Math.floor((rk.y - R) / C)), j1 = Math.min(H - 1, Math.floor((rk.y + R) / C));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+        const nx = Math.max(i * C, Math.min(rk.x, (i + 1) * C)), ny = Math.max(j * C, Math.min(rk.y, (j + 1) * C));   // najbliższy punkt oczka
+        if (Math.hypot(nx - rk.x, ny - rk.y) < R) blocked[j * W + i] = 1;
+      }
+    }
+  }
+  const free = (p) => {
+    const [i, j] = cellOf(p), r = exact ? 1 : 0;              // łazik: start/cel z sąsiednimi oczkami (kliknięcie tuż przy kamieniu)
+    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++) {
+      const a = i + di, b = j + dj;
+      if (a >= 0 && b >= 0 && a < W && b < H) blocked[b * W + a] = 0;
+    }
+  };
   free(start); waypoints.forEach(free);
 
   const expanded = [];
@@ -78,6 +98,7 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
         if (ni < 0 || nj < 0 || ni >= W || nj >= H) continue;
         const nk = nj * W + ni;
         if (blocked[nk] || closed[nk]) continue;
+        if (exact && di && dj && (blocked[j * W + ni] || blocked[nj * W + i])) continue;   // bez ścinania rogu po skosie
         const ng = g[k] + d * C * 0.5 * (mult[k] + mult[nk]);
         if (ng < g[nk]) { g[nk] = ng; from[nk] = k; heap.push(ng + Math.hypot(ni - bi, nj - bj) * hw, nk); }
       }
@@ -92,7 +113,7 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
 
   // koszt odcinka prostego; Infinity, gdy przecina strefę zablokowaną
   function lineCost(p, q) {
-    const L = Math.hypot(q.x - p.x, q.y - p.y), n = Math.max(1, Math.ceil(L / (C * 0.5)));
+    const L = Math.hypot(q.x - p.x, q.y - p.y), n = Math.max(1, Math.ceil(L / (C * (exact ? 0.15 : 0.5))));
     let c = 0;
     for (let s = 0; s <= n; s++) {
       const x = p.x + (q.x - p.x) * s / n, y = p.y + (q.y - p.y) * s / n;
@@ -113,8 +134,9 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
       }
       out.push(pts[best]); a = best;
     }
-    // zaokrąglenie załamań (Chaikin), końce bez zmian
+    // zaokrąglenie załamań (Chaikin), końce bez zmian; łazik: bez zaokrąglania (mogłoby zahaczyć o kamień)
     let r = out;
+    if (exact) return out;
     for (let it = 0; it < 2; it++) {
       const n = [r[0]];
       for (let i = 0; i < r.length - 1; i++) {

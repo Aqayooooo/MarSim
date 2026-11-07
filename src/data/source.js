@@ -6,6 +6,9 @@
 // w <katalog>/backend/*.json (tools/export_backend_sample.py): raport, plan wyjść, pogoda kosmiczna, dziennik, trasa A.
 import { Terrain, Raster } from '../core/terrain.js';
 import { planRoute as mockPlan } from './mockPlanner.js';
+import { makeRocks } from '../core/rocks.js';
+
+export const ROVER_CLEARANCE_M = 1.8;   // połowa długości łazika (1,6 m) + margines
 
 // onload zamiast img.decode(): decode() potrafi nie zakończyć się w karcie działającej w tle
 function loadImage(url) {
@@ -121,8 +124,9 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
     /** Trasa z dowolnego startu do dowolnego celu: czysty Dijkstra w przeglądarce (działa też bez serwera; nie zmienia stanu EVA). */
     planDijkstra({ start, end, obstacles = [] }) {
       const t0 = performance.now();
+      ctx.rocks ||= makeRocks({ W: ctx.terrain.widthM, H: ctx.terrain.heightM, hazards: ctx.rasters.hazards, boulders: ctx.rasters.boulders });
       const r = mockPlan({ terrain: ctx.terrain, hazards: ctx.rasters.hazards, start, waypoints: [{ id: 'CEL', x: end.x, y: end.y }],
-        obstacles, eva: ctx.mission.eva, heuristic: false });
+        obstacles, eva: ctx.mission.eva, heuristic: false, rocks: ctx.rocks, clearanceM: ROVER_CLEARANCE_M });
       return { ...r, ms: performance.now() - t0 };
     },
 

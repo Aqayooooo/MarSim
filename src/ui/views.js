@@ -4,6 +4,7 @@ import { headingDeg } from '../core/path.js';
 import { MAIN_W, MAIN_H, ALT_COLORS } from './map2d.js';
 import { t, tx } from '../i18n.js';
 import { km as kmFmt } from '../core/format.js';
+import { Drive } from '../core/drive.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -296,6 +297,7 @@ export class PathPicker {
     this.btn = $('pickBtn'); this.card = $('pickCard');
     this.on = false;
     this.btn.addEventListener('click', () => this.toggle());
+    this.card.addEventListener('click', (e) => { const b = e.target.closest('button[data-a]'); if (b) this.#act(b.dataset.a); });
     $('reportBtn').addEventListener('click', () => { if (this.on) this.toggle(false); });
     $('map').addEventListener('click', (e) => this.#click(e));
     addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.on) this.toggle(false); });
@@ -312,7 +314,22 @@ export class PathPicker {
     if (!on) { this.app.state.pick = null; this.card.hidden = true; return; }
     this.app.state.pick = { start: null, end: null, path: null };
     if (this.app.state.layers.hazards) this.app.toggleLayer('hazards', true);   // widać strefy zakazu, przez które trasa nie przejdzie
-    this.#card(`<b>${t('pick.title')}</b>${t('pick.start')}`);
+    this.#card(`<b>${t('pick.title')}</b>${t('pick.start')}<div class="pc-row"><button class="btn" data-a="fromRover">${t('pick.fromRover')}</button></div>`);
+  }
+
+  #act(a) {
+    const st = this.app.state;
+    if (a === 'fromRover') {                     // start = tam, gdzie stoi łazik (także po poprzedniej jeździe)
+      st.pick = { start: this.app.roverPos(), end: null, path: null };
+      this.#card(`<b>${t('pick.title')}</b>${t('pick.end')}`);
+      return;
+    }
+    if ((a === 'drive3d' || a === 'drive2d') && st.pick?.path) {
+      const path = st.pick.path;
+      this.toggle(false);
+      this.app.startDrive(path);
+      if (a === 'drive3d') this.app.setView('drive');
+    }
   }
 
   // czy punkt leży w strefie zakazu (ta sama reguła co w planerze: klasa 2 albo stok ponad limit)
@@ -344,7 +361,71 @@ export class PathPicker {
       return;
     }
     st.pick.path = res.path;
-    this.#card(`<b>${t('pick.title')}</b><span class="big">${t('pick.result', { len: kmFmt(res.lengthM), time: hm(res.durationH) })}</span><br>
-      ${t('pick.stats', { n: int(res.visited), ms: int(res.ms), deg: this.app.m.eva.maxSlopeDeg })}<br><span class="muted">${t('pick.again')}</span>`);
+    this.#card(`<b>${t('pick.title')}</b><span class="big">${t('pick.result', { len: kmFmt(res.lengthM), time: hm(res.durationH), rover: fmtS(new Drive(res.path, { terrain: this.app.world.terrain, hazards: this.app.world.rasters.hazards, speedKmh: this.app.m.rover.speedKmh }).etaS()) })}</span><br>
+      ${t('pick.stats', { n: int(res.visited), ms: int(res.ms), deg: this.app.m.eva.maxSlopeDeg })}<br><span class="muted">${t('pick.again')}</span>
+      <div class="pc-row"><button class="btn accent" data-a="drive3d">${t('pick.drive3d')}</button><button class="btn" data-a="drive2d">${t('pick.drive2d')}</button></div>`);
+  }
+}
+
+// ---------------- jazda łazikiem po trasie A→B: panel sterowania ----------------
+const fmtS = (s) => { s = Math.max(0, Math.round(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${x}` : `${m}:${x}`; };
+
+export class DriveHud {
+  constructor(app, getView3d) {
+    this.app = app; this.v3 = getView3d; this.el = $('driveHud');
+    this.el.addEventListener('click', (e) => { const b = e.target.closest('button[data-a]'); if (b) this.act(b.dataset.a); });
+    addEventListener('keydown', (e) => {
+      if (!app.drive || this.el.hidden || e.target.closest?.('input,select,textarea')) return;
+      const a = { Space: 'pause', Equal: 'faster', NumpadAdd: 'faster', BracketRight: 'faster', Minus: 'slower', NumpadSubtract: 'slower', BracketLeft: 'slower' }[e.code];
+      if (a) { e.preventDefault(); this.act(a); }
+    });
+    for (const ev of ['drive', 'drive-done', 'drive-cam', 'view']) app.on(ev, () => this.build());
+    app.on('reset', () => this.build());
+    this.build();
+  }
+
+  act(a) {
+    const app = this.app, d = app.drive;
+    if (!d) return;
+    if (a === 'pause') { if (d.done) d.restart(); else d.running = !d.running; }
+    else if (a === 'faster') d.faster(1);
+    else if (a === 'slower') d.faster(-1);
+    else if (a === 'restart') d.restart();
+    else if (a === 'view') { app.setView(app.state.view === 'drive' ? 'map' : 'drive'); return; }
+    else if (a === 'cam') { this.v3()?.toggleCabin(); return; }
+    else if (a === 'stop') { app.stopDrive(); if (app.state.view === 'drive') app.setView('map'); return; }
+    this.build();
+  }
+
+  build() {
+    const app = this.app, d = app.drive, v = app.state.view;
+    this.el.hidden = !d || !['map', 'drive', 'orbit'].includes(v);
+    if (this.el.hidden) return;
+    const cabin = this.v3()?.chase.cabin;
+    this.el.innerHTML = `
+      <div class="dh-top"><b>${t('drive.title')}</b><span id="dhLine"></span></div>
+      <div class="dh-row">
+        <button class="btn accent" data-a="pause">${d.done ? t('drive.again') : d.running ? t('drive.pause') : t('drive.play')}</button>
+        <span class="dh-speed"><button class="btn" data-a="slower" aria-label="${t('drive.slower')}">−</button><span class="dh-x" title="${t('drive.speedTitle')}">×${d.timeScale}</span><button class="btn" data-a="faster" aria-label="${t('drive.faster')}">+</button></span>
+        <button class="btn" data-a="restart">${t('drive.restart')}</button>
+        <button class="btn" data-a="view">${v === 'drive' ? t('drive.toMap') : t('drive.to3d')}</button>
+        ${v === 'drive' ? `<button class="btn" data-a="cam">${cabin ? t('drive.camChase') : t('drive.camCabin')}</button>` : ''}
+        <button class="btn" data-a="stop">${t('drive.stop')}</button>
+      </div>
+      <div class="dh-help">${v === 'drive' ? t('drive.help3d') : t('drive.help')}</div>`;
+    this.update();
+  }
+
+  /** Co klatkę: liczby (bez przebudowy przycisków). */
+  update() {
+    const d = this.app.drive, el = $('dhLine');
+    if (!d || !el || this.el.hidden) return;
+    if (this.wasRunning !== d.running) { this.wasRunning = d.running; this.build(); return; }
+    const p = d.pos(), zone = this.app.world.rasters.hazards.sample(p.x, p.y), slope = this.app.world.terrain.slope(p.x, p.y);
+    const txt = d.done
+      ? t('drive.done', { m: int(d.length), time: fmtS(d.t) })
+      : t('drive.line', { v: num(d.speedMs * 3.6, 1), s: int(d.s), L: int(d.length), eta: fmtS(d.etaS()), real: fmtS(d.etaS() / d.timeScale), deg: Math.round(slope) })
+        + (zone === 1 ? ` · <span class="warn">${t('drive.caution')}</span>` : '') + (d.running ? '' : ` · <span class="muted">${t('drive.paused')}</span>`);
+    if (el.innerHTML !== txt) el.innerHTML = txt;
   }
 }
