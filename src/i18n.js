@@ -388,7 +388,8 @@ export function tx(s) {
 export function applyStatic(root = document) {
   document.documentElement.lang = lang;
   document.title = t('doc.title');
-  root.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  // brak klucza (np. stary plik z pamięci podręcznej przeglądarki po aktualizacji strony) → zostaje tekst z index.html
+  root.querySelectorAll('[data-i18n]').forEach((el) => { const s = t(el.dataset.i18n); if (s !== el.dataset.i18n) el.textContent = s; });
   root.querySelectorAll('[data-i18n-html]').forEach((el) => { el.innerHTML = t(el.dataset.i18nHtml); });
   root.querySelectorAll('[data-i18n-title]').forEach((el) => { el.title = t(el.dataset.i18nTitle); });
   root.querySelectorAll('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
