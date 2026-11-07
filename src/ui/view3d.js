@@ -115,7 +115,7 @@ export class View3D {
     const g = new THREE.Group();
     const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 2.2), new THREE.MeshLambertMaterial({ color: 0xe8e2d8 }));
     body.position.y = 1.1;
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(3.25, 0.25, 2.25), new THREE.MeshLambertMaterial({ color: 0xff7b3f }));
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(3.25, 0.25, 2.25), new THREE.MeshLambertMaterial({ color: 0xf17778 }));
     stripe.position.y = 1.5;
     g.add(body, stripe);
     for (const [x, z] of [[-1.1, -1.2], [1.1, -1.2], [-1.1, 1.2], [1.1, 1.2]]) {
@@ -124,7 +124,7 @@ export class View3D {
     }
     this.roverMesh = g;
     this.scene.add(g);
-    this.roverSprite = this.#markerSprite(tr('map.rover'), '#FF7B3F');
+    this.roverSprite = this.#markerSprite(tr('map.rover'), '#F17778');
     this.markers.add(this.roverSprite);
   }
 

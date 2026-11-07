@@ -3,7 +3,7 @@
 import { t as tr } from '../i18n.js';
 export const MAIN_W = 972, MAIN_H = 648;
 const MONO = "700 15px 'JetBrains Mono', Consolas, monospace";
-const ROUTE = '#FFDC52', TRAIL = '#FC8151', ACCENT = '#FF7B3F';
+const ROUTE = '#FFDC52', TRAIL = '#F28586', ACCENT = '#F17778';   // ACCENT/TRAIL = --accent/--trail w styles.css
 export const ALT_COLORS = { chosen: ROUTE, straight: '#FF5A4A', shortest: '#FFA94D', strict: '#7FB2FF' };
 // krycie warstwy, gdy nie jest bieżąca (wyróżniona): zgodnie z obrazem końcowym z nagrania
 const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };

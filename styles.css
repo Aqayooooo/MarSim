@@ -2,7 +2,7 @@
 :root {
   --bg: #020000; --panel: #060200; --card: #0F0B05; --cardBorder: #18140E; --rowHi: #1D170F;
   --panelBorder: #17110b;
-  --accent: #FF7B3F; --route: #FFDC52; --capNum: #FFD64B; --trail: #FC8151;
+  --accent: #F17778; --accentDim: #5A2C2D; --route: #FFDC52; --capNum: #FFD64B; --trail: #F28586;
   --alertTitle: #FAB137; --alertBorder: #EBBC98; --hiBorder: #E0C2A5; --hiLabel: #FBBE55;
   --text: #FFFFFF; --text2: #A5A6A2; --textOff: #726E68; --descOff: #4C4842; --toggleOff: #3C362E;
   --sans: 'Inter', system-ui, 'Segoe UI', sans-serif;
@@ -27,7 +27,7 @@ button { font: inherit; color: inherit; }
 .seg button + button { border-left: 1px solid #2a2117; }
 .seg button.on { background: #22190f; color: var(--text); }
 .btn { border: 1px solid #2a2117; border-radius: 7px; }
-.btn.accent { color: var(--accent); border-color: #5a2f18; }
+.btn.accent { color: var(--accent); border-color: var(--accentDim); }
 .seg button:hover, .btn:hover { color: var(--text); }
 .btn:disabled { opacity: .45; cursor: default; }
 
@@ -148,7 +148,7 @@ button { font: inherit; color: inherit; }
 .wpview { top: 476px; height: 154px; }
 #routeCard .u { color: var(--text2); font-size: 13px; }
 .mapbtn { position: absolute; right: 12px; top: 230px; z-index: 2; }
-.mapbtn.on { background: #3a1d0e; color: var(--text); border-color: var(--accent); }
+.mapbtn.on { background: #3a1c1d; color: var(--text); border-color: var(--accent); }
 #main.reporting #map { cursor: crosshair; }
 #obsForm { position: absolute; z-index: 5; width: 250px; background: #0b0805; border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; font-size: 14px; display: flex; flex-direction: column; gap: 7px; }
 #obsForm .of-title { font: 700 13px var(--mono); letter-spacing: .12em; color: var(--alertTitle); text-transform: uppercase; }
@@ -183,6 +183,7 @@ button { font: inherit; color: inherit; }
 .doc input, .doc select { background: #18120b; color: var(--text); border: 1px solid #3a2c1d; border-radius: 4px; padding: 3px 5px; font: 13px var(--sans); }
 .doc .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
 .doc code { font: 12px var(--mono); color: var(--text2); }
+.doc .sampleNote { margin: 0 0 16px; padding: 8px 12px; border: 1px solid var(--accentDim); border-left: 3px solid var(--accent); border-radius: 6px; background: #120a0a; color: var(--text2); font-size: 13px; }
 /* urządzenie w hełmie: mały ekran 480×320 */
 #device { display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 40%, #1a120b, #050200 70%); }
 .dev { width: 480px; height: 320px; background: #000; border: 3px solid #2a2117; border-radius: 14px; box-shadow: 0 0 0 8px #0d0905, 0 20px 60px #000;
