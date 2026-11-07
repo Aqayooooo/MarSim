@@ -288,3 +288,63 @@ export class RouteCompare {
     });
   }
 }
+
+// ---------------- własna trasa: start i cel klikane na mapie, algorytm Dijkstry ----------------
+export class PathPicker {
+  constructor(app, map) {
+    this.app = app; this.map = map;
+    this.btn = $('pickBtn'); this.card = $('pickCard');
+    this.on = false;
+    this.btn.addEventListener('click', () => this.toggle());
+    $('reportBtn').addEventListener('click', () => { if (this.on) this.toggle(false); });
+    $('map').addEventListener('click', (e) => this.#click(e));
+    addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.on) this.toggle(false); });
+    app.on('reset', () => this.toggle(false));
+    app.on('view', (v) => { if (v !== 'map' && this.on) this.toggle(false); this.btn.hidden = v !== 'map'; });
+  }
+
+  toggle(on = !this.on) {
+    this.on = on;
+    if (on && this.app.state.reportMode) $('reportBtn').click();       // tylko jeden tryb klikania naraz
+    this.btn.classList.toggle('on', on);
+    this.btn.setAttribute('aria-pressed', String(on));
+    $('main').classList.toggle('picking', on);
+    if (!on) { this.app.state.pick = null; this.card.hidden = true; return; }
+    this.app.state.pick = { start: null, end: null, path: null };
+    if (this.app.state.layers.hazards) this.app.toggleLayer('hazards', true);   // widać strefy zakazu, przez które trasa nie przejdzie
+    this.#card(`<b>${t('pick.title')}</b>${t('pick.start')}`);
+  }
+
+  // czy punkt leży w strefie zakazu (ta sama reguła co w planerze: klasa 2 albo stok ponad limit)
+  #nogo(p) {
+    const hz = this.app.world.rasters.hazards, C = hz.cellM;
+    const i = Math.min(hz.width - 1, Math.floor(p.x / C)), j = Math.min(hz.height - 1, Math.floor(p.y / C));
+    return hz.data[j * hz.width + i] === 2 || this.app.world.terrain.slope(p.x, p.y) > this.app.m.eva.maxSlopeDeg;
+  }
+
+  #card(html) { this.card.innerHTML = html; this.card.hidden = false; }
+
+  #click(e) {
+    if (!this.on || this.app.state.reportMode) return;
+    const r = $('map').getBoundingClientRect(), m = this.map, area = this.app.m.area;
+    const px = (e.clientX - r.left) / r.width * MAIN_W, py = (e.clientY - r.top) / r.height * MAIN_H;
+    const p = { x: Math.min(area.widthM - 1, Math.max(1, (px - m.ox) / m.ps)), y: Math.min(area.heightM - 1, Math.max(1, (py - m.oy) / m.ps)) };
+    const st = this.app.state;
+    if (!st.pick.start || st.pick.end) {                                 // pierwszy klik (albo trzeci): nowy start
+      st.pick = { start: p, end: null, path: null };
+      this.#card(`<b>${t('pick.title')}</b>${t('pick.end')}`);
+      return;
+    }
+    st.pick.end = p;
+    const res = this.app.ds.planDijkstra({ start: st.pick.start, end: p, obstacles: st.obstacles });
+    if (!res.ok) {
+      const why = [this.#nogo(st.pick.start) && t('pick.startLbl'), this.#nogo(p) && t('pick.endLbl')].filter(Boolean);
+      const msg = why.length ? t('pick.inNogo', { p: why.join(' + ') }) : t('pick.none');
+      this.#card(`<b>${t('pick.title')}</b><span class="warn">${msg}</span><br>${t('pick.again')}`);
+      return;
+    }
+    st.pick.path = res.path;
+    this.#card(`<b>${t('pick.title')}</b><span class="big">${t('pick.result', { len: kmFmt(res.lengthM), time: hm(res.durationH) })}</span><br>
+      ${t('pick.stats', { n: int(res.visited), ms: int(res.ms), deg: this.app.m.eva.maxSlopeDeg })}<br><span class="muted">${t('pick.again')}</span>`);
+  }
+}

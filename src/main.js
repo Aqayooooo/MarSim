@@ -2,7 +2,7 @@
 // Parametry adresu: ?data=ścieżka/do/katalogu, ?api=http://backend (tryb backendu), ?demo (autostart prezentacji).
 // Bez ?data= i bez backendu: domyślna misja z data/missions/index.json (dane NASA + przykładowe dane backendu), inaczej data/demo.
 import { createDataSource, detectBackend } from './data/source.js';
-import { DeviceView, ReportView, ScheduleView, FieldReports, RouteCompare } from './ui/views.js';
+import { DeviceView, ReportView, ScheduleView, FieldReports, RouteCompare, PathPicker } from './ui/views.js';
 import { App } from './app.js';
 import { Panels } from './ui/panels.js';
 import { Map2D } from './ui/map2d.js';
@@ -44,7 +44,8 @@ const director = new Director(app, () => view3d);
 const device = new DeviceView(app), report = new ReportView(app), schedule = new ScheduleView(app);
 new FieldReports(app, map);
 const compare = new RouteCompare(app);
-window.marsim = { app, director, map, panels, device, report, schedule, compare, get view3d() { return view3d; } };   // do debugowania w konsoli
+const picker = new PathPicker(app, map);
+window.marsim = { app, director, map, panels, device, report, schedule, compare, picker, get view3d() { return view3d; } };   // do debugowania w konsoli
 
 function fit() {
   const s = Math.min(innerWidth / 1664, innerHeight / 744);

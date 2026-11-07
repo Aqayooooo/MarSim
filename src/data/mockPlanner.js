@@ -36,8 +36,9 @@ class Heap {
  * @param {{id:string,x:number,y:number,stopMin?:number}[]} req.waypoints
  * @param {{x:number,y:number,radiusM:number}[]} [req.obstacles]
  * @param {{walkKmh:number,maxSlopeDeg:number}} req.eva
+ * @param {boolean} [req.heuristic]  true: A* (odległość w linii prostej), false: czysty Dijkstra — ta sama trasa, więcej sprawdzonych komórek
  */
-export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], eva }) {
+export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], eva, heuristic = true }) {
   const W = hazards.width, H = hazards.height, C = hazards.cellM;
   const N = W * H;
   const blocked = new Uint8Array(N);
@@ -55,6 +56,8 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
   free(start); waypoints.forEach(free);
 
   const expanded = [];
+  let visited = 0;
+  const hw = heuristic ? C : 0;
   const g = new Float32Array(N), from = new Int32Array(N), closed = new Uint8Array(N);
   const DIRS = [[1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1], [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2]];
 
@@ -66,6 +69,7 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
       const k = heap.pop();
       if (closed[k]) continue;
       closed[k] = 1;
+      visited++;
       const i = k % W, j = (k / W) | 0;
       if (i % 10 === 0 && j % 10 === 0) expanded.push({ x: (i + 0.5) * C, y: (j + 0.5) * C });
       if (k === t) break;
@@ -75,7 +79,7 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
         const nk = nj * W + ni;
         if (blocked[nk] || closed[nk]) continue;
         const ng = g[k] + d * C * 0.5 * (mult[k] + mult[nk]);
-        if (ng < g[nk]) { g[nk] = ng; from[nk] = k; heap.push(ng + Math.hypot(ni - bi, nj - bj) * C, nk); }
+        if (ng < g[nk]) { g[nk] = ng; from[nk] = k; heap.push(ng + Math.hypot(ni - bi, nj - bj) * hw, nk); }
       }
     }
     if (from[t] === -1 && s !== t) return null;
@@ -148,5 +152,6 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
     stops: waypoints.length,
     rating: 'bezpieczna',
     expanded,
+    visited,
   };
 }

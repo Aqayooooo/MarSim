@@ -149,7 +149,12 @@ button { font: inherit; color: inherit; }
 #routeCard .u { color: var(--text2); font-size: 13px; }
 .mapbtn { position: absolute; right: 12px; top: 230px; z-index: 2; }
 .mapbtn.on { background: #3a1c1d; color: var(--text); border-color: var(--accent); }
-#main.reporting #map { cursor: crosshair; }
+#main.reporting #map, #main.picking #map { cursor: crosshair; }
+.mapbtn.pick { top: 192px; }
+#pickCard { position: absolute; right: 12px; top: 306px; z-index: 3; width: 270px; background: #0b0805; border: 1px solid var(--accentDim); border-left: 3px solid #5EE6D0; border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text2); }
+#pickCard b { color: var(--text); font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: 4px; }
+#pickCard .big { color: var(--text); font: 700 18px var(--mono); }
+#pickCard .warn { color: #ffb48a; }
 #obsForm { position: absolute; z-index: 5; width: 250px; background: #0b0805; border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; font-size: 14px; display: flex; flex-direction: column; gap: 7px; }
 #obsForm .of-title { font: 700 13px var(--mono); letter-spacing: .12em; color: var(--alertTitle); text-transform: uppercase; }
 #obsForm label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--text2); }

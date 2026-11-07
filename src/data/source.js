@@ -118,6 +118,14 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
       return mockPlan({ terrain: ctx.terrain, hazards: ctx.rasters.hazards, start, waypoints, obstacles, eva: ctx.mission.eva });
     },
 
+    /** Trasa z dowolnego startu do dowolnego celu: czysty Dijkstra w przeglądarce (działa też bez serwera; nie zmienia stanu EVA). */
+    planDijkstra({ start, end, obstacles = [] }) {
+      const t0 = performance.now();
+      const r = mockPlan({ terrain: ctx.terrain, hazards: ctx.rasters.hazards, start, waypoints: [{ id: 'CEL', x: end.x, y: end.y }],
+        obstacles, eva: ctx.mission.eva, heuristic: false });
+      return { ...r, ms: performance.now() - t0 };
+    },
+
     // ---- tylko z backendem ----
     async post(path, body = {}) {
       return json(await fetch(API(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));

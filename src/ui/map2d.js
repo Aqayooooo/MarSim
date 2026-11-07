@@ -4,6 +4,7 @@ import { t as tr } from '../i18n.js';
 export const MAIN_W = 972, MAIN_H = 648;
 const MONO = "700 15px 'JetBrains Mono', Consolas, monospace";
 const ROUTE = '#FFDC52', TRAIL = '#F28586', ACCENT = '#F17778';   // ACCENT/TRAIL = --accent/--trail w styles.css
+const PICK = '#5EE6D0';                                            // własna trasa (Dijkstra)
 export const ALT_COLORS = { chosen: ROUTE, straight: '#FF5A4A', shortest: '#FFA94D', strict: '#7FB2FF' };
 // krycie warstwy, gdy nie jest bieżąca (wyróżniona): zgodnie z obrazem końcowym z nagrania
 const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
@@ -183,6 +184,21 @@ export class Map2D {
     for (const o of st.obstacles) this.#obstacle(o, now);
     this.#trail();
     this.#markers(now);
+    this.#pick();
+  }
+
+  // własna trasa (◎ Wyznacz trasę): start, cel i ścieżka z algorytmu Dijkstry
+  #pick() {
+    const p = this.app.state.pick, ctx = this.ctx;
+    if (!p?.start) return;
+    if (p.path) this.#line(p.path, { color: PICK, width: 3.5, outline: 'rgba(0,0,0,.7)' });
+    for (const [pt, lbl] of [[p.start, tr('pick.startLbl')], [p.end, tr('pick.endLbl')]]) {
+      if (!pt) continue;
+      const x = this.sx(pt.x), y = this.sy(pt.y);
+      ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = '#000'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = PICK; ctx.stroke();
+      this.#label(lbl, x + 12, y - 18);
+    }
   }
 
   #optical(now) {
@@ -263,7 +279,7 @@ export class Map2D {
     const e = this.app.sim.snap?.emergency;
     if (!e || !this.app.state.crewVisible || !this.app.sim.running) return;
     if (e.habitat) this.#line(e.habitat.path, { color: 'rgba(120,230,255,.95)', width: 2, dash: [4, 5] });
-    if (e.rover) this.#line(e.rover.path, { color: 'rgba(255,123,63,.9)', width: 2, dash: [2, 5] });
+    if (e.rover) this.#line(e.rover.path, { color: 'rgba(241,119,120,.9)', width: 2, dash: [2, 5] });
   }
 
   #wind(dt, a) {
