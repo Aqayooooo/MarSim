@@ -7,6 +7,7 @@
 import { Terrain, Raster } from '../core/terrain.js';
 import { planRoute as mockPlan } from './mockPlanner.js';
 import { makeRocks } from '../core/rocks.js';
+import { decodePngGray } from '../core/png.js';
 
 export const ROVER_CLEARANCE_M = 1.8;   // połowa długości łazika (1,6 m) + margines
 
@@ -18,6 +19,16 @@ function loadImage(url) {
     img.onerror = () => reject(new Error(`Nie można wczytać ${url}`));
     img.src = url;
   });
+}
+// Warstwa danych z PNG: dekodowanie bajtów pliku (core/png.js), bo odczyt z canvasa bywa zaszumiony
+// przez ochronę przed fingerprintingiem (tarcze Brave i in.). Canvas tylko awaryjnie (brak DecompressionStream).
+async function grayRaster(u) {
+  if (typeof DecompressionStream !== 'undefined') {
+    const r = await fetch(u);
+    if (!r.ok) throw new Error(`Nie można wczytać ${u}`);
+    return (await decodePngGray(await r.arrayBuffer())).data;
+  }
+  return grayFromImage(await loadImage(u));
 }
 function grayFromImage(img) {
   const c = document.createElement('canvas');
@@ -80,21 +91,18 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
       const jobs = [];
       for (const l of mission.layers) {
         if (l.raster) jobs.push((async () => {
-          const img = await loadImage(url(l.raster.file));
-          rasters[l.id] = l.id === 'optical'
-            ? { image: img, ...l.raster }
-            : Object.assign(new Raster({ data: grayFromImage(img), width: l.raster.width, height: l.raster.height, cellM: l.raster.cellM }), { meta: l.raster });
+          rasters[l.id] = l.id === 'optical'           // zdjęcie tylko do wyświetlania — zwykły obraz
+            ? { image: await loadImage(url(l.raster.file)), ...l.raster }
+            : Object.assign(new Raster({ data: await grayRaster(url(l.raster.file)), width: l.raster.width, height: l.raster.height, cellM: l.raster.cellM }), { meta: l.raster });
           if (l.confidence) {
-            const ci = await loadImage(url(l.confidence.file));
-            rasters[`${l.id}Confidence`] = new Raster({ data: grayFromImage(ci), width: l.confidence.width, height: l.confidence.height, cellM: l.confidence.cellM });
+            rasters[`${l.id}Confidence`] = new Raster({ data: await grayRaster(url(l.confidence.file)), width: l.confidence.width, height: l.confidence.height, cellM: l.confidence.cellM });
           }
         })());
         if (l.vector) jobs.push((async () => { rasters[l.id] = await json(await fetch(url(l.vector.file))); })());
         if (l.hourly) jobs.push((async () => {
           const h = l.hourly, byHour = {};
           await Promise.all(h.hours.map(async (hr) => {
-            const img = await loadImage(url(h.pattern.replace('{HH}', String(hr).padStart(2, '0'))));
-            byHour[hr] = new Raster({ data: grayFromImage(img), width: h.width, height: h.height, cellM: h.cellM });
+            byHour[hr] = new Raster({ data: await grayRaster(url(h.pattern.replace('{HH}', String(hr).padStart(2, '0')))), width: h.width, height: h.height, cellM: h.cellM });
           }));
           rasters[l.id] = { hourly: byHour, hours: h.hours };
         })());

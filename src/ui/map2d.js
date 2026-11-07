@@ -83,7 +83,7 @@ export class Map2D {
       const col = { 1: hexToRgb(cls[1].color), 2: hexToRgb(cls[2].color) };
       for (let k = 0; k < R.data.length; k++) {
         const v = R.data[k];
-        if (v) im.data.set([...col[v], v === 2 ? 105 : 80], k * 4);
+        if (col[v]) im.data.set([...col[v], v === 2 ? 105 : 80], k * 4);      // nieznana wartość (uszkodzone dane) — pomijamy
       }
       g.putImageData(im, 0, 0);
       this.hazCanvas = c;
