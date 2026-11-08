@@ -7,6 +7,8 @@ import re
 
 import numpy as np
 
+from backend.models.sun import fmt_ltst
+
 LIKELIHOOD = {1: "rzadkie", 2: "mało prawdopodobne", 3: "możliwe", 4: "prawdopodobne", 5: "prawie pewne"}
 SEVERITY = {1: "pomijalny", 2: "mały", 3: "umiarkowany", 4: "poważny", 5: "krytyczny"}
 P_FAIL = {1: 0.002, 2: 0.01, 3: 0.04, 4: 0.12, 5: 0.3}   # wpływ na ukończenie misji (założenie)
@@ -76,7 +78,7 @@ def build(e) -> dict:
         f"potrzeba {o2_need:.0f} L, dostępne {cap - reserve:.0f} L ponad rezerwę")
     add("H6", "Zmrok przed powrotem", 4 if end_h > sunset - 0.5 else 2 if end_h > sunset - 2 else 1, 4,
         "położenie Słońca (Allison & McEwen 2000) i cienie z DTM", "planowany powrót ≥30 min przed zmierzchem",
-        f"koniec ok. {int(end_h):02d}:{int(end_h % 1 * 60):02d} LTST, zmierzch {int(sunset):02d}:{int(sunset % 1 * 60):02d}")
+        f"koniec ok. {fmt_ltst(end_h)} LTST, zmierzch {fmt_ltst(sunset)}")
     add("H7", "Promieniowanie (GCR i burza słoneczna)", 3 if sw.get("pfu", 0) >= 10 else 2, 4 if sw.get("pfu", 0) >= 100 else 3,
         "RAD (Curiosity) 0,64 mSv/sol; DONKI i NOAA SWPC", "schron ≤15 min; przerwanie EVA przy S2+",
         f"dawka EVA ok. {dose_eva:.0f} μSv; {sw.get('summary', 'brak danych pogody kosmicznej')}")
@@ -89,13 +91,14 @@ def build(e) -> dict:
     H.sort(key=lambda h: -h["risk"])
 
     p_success = float(np.prod([1 - P_FAIL[h["likelihood"]] * h["severity"] / 5 for h in H]))
-    straight = sum(math.hypot(b["x"] - a["x"], b["y"] - a["y"]) for a, b in zip([e.cfg["rover"]] + e.cfg["waypoints"][:-1], e.cfg["waypoints"]))
+    stops = [r["path"][0]] + e.waypoints                    # start trasy i jej punkty (POST /api/plan może podać własne)
+    straight = sum(math.hypot(b["x"] - a["x"], b["y"] - a["y"]) for a, b in zip(stops[:-1], stops[1:]))
     effectiveness = {
         "probabilityComplete": round(p_success, 3),
         "routeEfficiency": round(straight / max(r["lengthM"], 1), 2),
         "o2MarginL": round(margin),
         "durationH": round(r["durationH"], 2),
-        "waypointsPlanned": len(e.cfg["waypoints"]),
+        "waypointsPlanned": len(e.waypoints),
         "note": "Prawdopodobieństwo z macierzy ryzyka (założone wartości), do kalibracji danymi z misji analogowych.",
     }
     matrix = [[sum(1 for h in H if h["likelihood"] == l and h["severity"] == s) for s in range(1, 6)] for l in range(5, 0, -1)]

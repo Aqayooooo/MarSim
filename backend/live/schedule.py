@@ -73,8 +73,7 @@ class Scheduler:
                 notes.append(f"powrót po zmierzchu−30 min (zmierzch {sunset:.2f} LTST)")
             for c in it["crew"]:
                 by_crew.setdefault(c, []).append(it)
-            per_item.append({**it, "o2L": round(o2), "batteryWh": round(wh), "endLtst": f"{int(start + dur):02d}:{int((start + dur) % 1 * 60):02d}",
-                             "issues": notes})
+            per_item.append({**it, "o2L": round(o2), "batteryWh": round(wh), "endLtst": sun.fmt_ltst(start + dur), "issues": notes})
         for c, its in by_crew.items():
             sols = sorted(i["sol"] for i in its)
             if len(sols) != len(set(sols)):
@@ -90,13 +89,17 @@ class Scheduler:
                     issues.append(f"{c}: {hrs:.1f} h EVA w 7 solach od sola {s0} (limit 24 h)")
                     break
         o2_avail = self.stores["o2TanksL"] * 0.8
-        wh_avail = self.stores["batteriesWh"] * 0.8 * max(1, len({i['sol'] for i in self.items}))
+        n_sols = max(1, len({i['sol'] for i in self.items}))
+        wh_avail = self.stores["batteriesWh"] * 0.8 * n_sols          # baterie ładowane co sol
         if o2_total > o2_avail:
             issues.append(f"Tlen: plan wymaga {o2_total:.0f} L, dostępne {o2_avail:.0f} L (80% zapasów)")
+        if wh_total > wh_avail:
+            issues.append(f"Energia: plan wymaga {wh_total:.0f} Wh, dostępne {wh_avail:.0f} Wh (80% baterii × {n_sols} sol)")
         for it in per_item:
             issues += [f"{it['id']}: {n}" for n in it["issues"]]
         return {"items": per_item, "issues": sorted(set(issues)),
                 "consumables": {"o2NeededL": round(o2_total), "o2AvailableL": round(o2_avail), "batteryWh": round(wh_total),
+                                "batteryAvailableWh": round(wh_avail),
                                 "waterL": round(sum(i["durationH"] * len(i["crew"]) for i in self.items) * 0.6, 1)},
                 "daylight": {"sunriseLtst": round(sunrise, 2), "sunsetLtst": round(sunset, 2)},
                 "rules": [l.strip("- ").strip() for l in (__doc__ or "").splitlines() if l.strip().startswith("-")]}

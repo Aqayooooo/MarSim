@@ -6,6 +6,7 @@ Odpowiedzi Ziemi wracają po kolejnym opóźnieniu. Czas: zegar misji (sekundy),
 """
 from __future__ import annotations
 
+import heapq
 import itertools
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
@@ -28,9 +29,12 @@ class Bundle:
 
 
 class DtnLink:
+    HISTORY = 200       # tyle ostatnich paczek trzymamy do podglądu; niedostarczone są zawsze w self.pending
+
     def __init__(self, mission_date: datetime):
         self.date = mission_date
-        self.queue: list[Bundle] = []
+        self.queue: list[Bundle] = []      # historia w kolejności nadania
+        self.pending: list[Bundle] = []    # jeszcze niedostarczone
         self.outage_until_s = -1.0
 
     def geometry(self, t_s: float) -> dict:
@@ -39,27 +43,32 @@ class DtnLink:
     def status(self, t_s: float) -> dict:
         g = self.geometry(t_s)
         up = not g["conjunction"] and t_s >= self.outage_until_s
-        pending = [b for b in self.queue if not b.delivered]
         return {"up": up, "oneWayMin": round(g["oneWayMin"], 1), "distanceMkm": round(g["distanceKm"] / 1e6, 1),
-                "conjunction": g["conjunction"], "pendingOut": sum(b.direction == "do Ziemi" for b in pending),
-                "pendingIn": sum(b.direction == "z Ziemi" for b in pending),
-                "recent": [asdict(b) for b in sorted(self.queue, key=lambda b: -b.created_s)[:12]]}
+                "conjunction": g["conjunction"], "pendingOut": sum(b.direction == "do Ziemi" for b in self.pending),
+                "pendingIn": sum(b.direction == "z Ziemi" for b in self.pending),
+                "recent": [asdict(b) for b in heapq.nlargest(12, self.queue, key=lambda b: b.created_s)]}
+
+    def _add(self, b: Bundle):
+        self.queue.append(b)
+        self.pending.append(b)
+        if len(self.queue) > self.HISTORY:
+            del self.queue[:len(self.queue) - self.HISTORY]
 
     def send(self, t_s: float, kind: str, text: str, meta: dict | None = None, reply: str | None = None) -> Bundle:
         delay = self.geometry(t_s)["oneWayMin"] * 60
         b = Bundle(next(_ids), "do Ziemi", kind, text, t_s, t_s + delay, meta=meta or {})
-        self.queue.append(b)
+        self._add(b)
         if reply:  # automatyczne potwierdzenie z kontroli misji po pełnej drodze tam i z powrotem (+2 min na decyzję)
-            self.queue.append(Bundle(next(_ids), "z Ziemi", "potwierdzenie", reply, t_s, t_s + 2 * delay + 120, meta={"re": b.id}))
+            self._add(Bundle(next(_ids), "z Ziemi", "potwierdzenie", reply, t_s, t_s + 2 * delay + 120, meta={"re": b.id}))
         return b
 
     def step(self, t_s: float) -> list[Bundle]:
         """Dostarcza paczki, których czas minął (gdy łącze działa). Zwraca nowo dostarczone."""
-        if t_s < self.outage_until_s or self.geometry(t_s)["conjunction"]:
+        if not self.pending or t_s < self.outage_until_s or self.geometry(t_s)["conjunction"]:
             return []
-        done = []
-        for b in self.queue:
-            if not b.delivered and t_s >= b.deliver_s:
+        done = [b for b in self.pending if t_s >= b.deliver_s]
+        if done:
+            for b in done:
                 b.delivered = True
-                done.append(b)
+            self.pending = [b for b in self.pending if not b.delivered]
         return done

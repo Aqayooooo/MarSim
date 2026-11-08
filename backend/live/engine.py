@@ -80,12 +80,14 @@ class EvaEngine:
         }
         self.comms = _png(mission_dir / "comms.png")
         self.o2_home = _f32(mission_dir / "o2ToHabitat.f32", H, W)
+        self._hazard0 = self.layers["hazard"].copy()   # mapa z potoku; zgłoszenia „bezpieczne” zmieniają tylko bieżącą sesję
         self.boulders = json.loads((mission_dir / "boulders.json").read_text(encoding="utf-8"))["boulders"]
         self.lat, self.lon = self.mission["area"]["center"]["lat"], self.mission["area"]["center"]["lon"]
         self.date = datetime.fromisoformat(cfg["missionDateUtc"].replace("Z", "+00:00"))
         self.mt = sun.mars_time(self.date)
         c0 = cfg["crew"][0]
-        self.model = planning.CostModel(self.layers, self.cell, cfg["eva"], Person(c0["id"], c0["bodyKg"], c0["loadKg"], c0["o2CapacityL"], c0["o2CapacityL"]))
+        self._ref_mass_kg = c0["bodyKg"] + c0["loadKg"]   # pole o2ToHabitat policzono dla tej osoby
+        self.model = self._cost_model()
         self.positioner = Positioner(cfg["uwbBeacons"], self.dem, self.cell)
         self.scheduler = Scheduler(self.store, cfg["crew"], cfg["habitatStores"], self.lat, self.mt.decl,
                                    o2_rate_lh=float(o2_l_per_min(metabolic_w(self.model_person(c0), 0.6, 3)) * 60 + 1.2))
@@ -100,6 +102,9 @@ class EvaEngine:
     def model_person(self, c: dict) -> Person:
         return Person(c["id"], c["bodyKg"], c["loadKg"], c["o2CapacityL"], c["o2CapacityL"], battery_wh=c["batteryWh"],
                       battery_left_wh=c["batteryWh"], co2_capacity_l=c["co2CapacityL"], dose_msv=c["priorDoseMsv"])
+
+    def _cost_model(self) -> planning.CostModel:
+        return planning.CostModel(self.layers, self.cell, self.cfg["eva"], self.model_person(self.cfg["crew"][0]))
 
     def rc(self, p) -> tuple[int, int]:
         H, W = self.dem.shape
@@ -136,6 +141,9 @@ class EvaEngine:
     # ---------- stan ----------
     def reset(self):
         with self.lock:
+            if not np.array_equal(self.layers["hazard"], self._hazard0):   # nowa sesja: mapa zagrożeń bez zgłoszeń z poprzedniej
+                self.layers["hazard"] = self._hazard0.copy()
+                self.model = self._cost_model()
             self.start_min = int(self.cfg["startLtst"][:2]) * 60 + int(self.cfg["startLtst"][3:])
             self.t = 0.0                    # sekundy misji od startu
             self.running = False
@@ -144,6 +152,7 @@ class EvaEngine:
             self.route_version = 0
             self.poly = None
             self.wp_s = []
+            self.waypoints = list(self.cfg["waypoints"])   # punkty bieżącej trasy (POST /api/plan może podać własne)
             self.crew_s = 0.0
             self.gap = 14.0
             self.next_wp = 0
@@ -193,13 +202,14 @@ class EvaEngine:
             if not r["ok"]:
                 return r
             r["alternatives"] = planning.alternatives(self.model, start, waypoints, self.obstacles, self.layers, self.comms, r)
-            self._set_route({**r, "letter": letter})
+            self._set_route({**r, "letter": letter}, waypoints)
             self.add_log("trasa", f"Trasa {letter}: {r['lengthM']:.0f} m, {r['durationH'] * 60:.0f} min, {r['o2L']:.0f} L O₂, {r['rating']}")
             return self.route
 
-    def _set_route(self, r):
+    def _set_route(self, r, waypoints):
         self.route = r
         self.route_version += 1
+        self.waypoints = list(waypoints)
         self.poly = Polyline(r["path"])
         self.wp_s = [self.poly.cum[i] for i in r["waypointIndex"]]
 
@@ -208,7 +218,7 @@ class EvaEngine:
         if not old:
             return None
         pos = self.poly.at(self.crew_s)
-        remaining = self.cfg["waypoints"][self.next_wp:]
+        remaining = self.waypoints[self.next_wp:]
         if not remaining:
             return None
         r = planning.plan(self.model, pos, remaining, self.obstacles, self.layers)
@@ -219,15 +229,15 @@ class EvaEngine:
         self.discarded.append(self.poly.slice(self.crew_s, self.poly.length))
         path = walked + r["path"][1:]
         off = len(walked) - 1
-        idx = [min(range(len(walked)), key=lambda k: math.hypot(walked[k]["x"] - w["x"], walked[k]["y"] - w["y"])) for w in self.cfg["waypoints"][:self.next_wp]]
+        idx = [min(range(len(walked)), key=lambda k: math.hypot(walked[k]["x"] - w["x"], walked[k]["y"] - w["y"])) for w in self.waypoints[:self.next_wp]]
         idx += [i + off for i in r["waypointIndex"]]
         stats = planning.path_stats(self.model, path, self.layers)
         letter = chr(ord(old["letter"]) + 1)
-        stop_min = sum(w.get("stopMin", 0) for w in self.cfg["waypoints"])
+        stop_min = sum(w.get("stopMin", 0) for w in self.waypoints)
         new = {**r, "path": path, "waypointIndex": idx, "lengthM": stats["lengthM"], "durationH": stats["walkH"] + stop_min / 60,
                "o2L": stats["o2L"], "rating": stats["rating"], "uncertainty": stats["uncertainty"], "letter": letter,
                "replanFrom": self.crew_s, "deltaM": stats["lengthM"] - old["lengthM"]}
-        self._set_route(new)
+        self._set_route(new, self.waypoints)
         self.add_log("trasa", f"Nowa trasa {letter} ({reason}): {new['deltaM']:+.0f} m")
         return new
 
@@ -253,7 +263,7 @@ class EvaEngine:
                 yy, xx = (np.mgrid[0:H, 0:W] + 0.5) * self.cell
                 m = np.hypot(xx - obs["x"], yy - obs["y"]) < r
                 self.layers["hazard"][m & (self.layers["hazard"] == 1)] = 0
-                self.model = planning.CostModel(self.layers, self.cell, self.cfg["eva"], self.model_person(self.cfg["crew"][0]))
+                self.model = self._cost_model()
             self.add_log("zgłoszenie", f"{obs.get('source', 'załoga')}: {kind} ({obs['x']:.0f}, {obs['y']:.0f}) r={r:.0f} m", obs)
             res = None
             if self.route and kind != "bezpieczne" and self._route_hits(obs["x"], obs["y"], r):
@@ -314,7 +324,7 @@ class EvaEngine:
                 for c in self.crew:
                     c["moved"] += adv
                 if self.crew_s >= target - 0.01:
-                    wp = self.cfg["waypoints"][self.next_wp]
+                    wp = self.waypoints[self.next_wp]
                     self.reached.append(wp["id"])
                     self.stop_until = self.t / 60 + wp.get("stopMin", 0)
                     self.next_wp += 1
@@ -365,7 +375,7 @@ class EvaEngine:
             t = ev["trigger"]
             go = False
             if "afterWaypoint" in t and t["afterWaypoint"] in self.reached:
-                i = [w["id"] for w in self.cfg["waypoints"]].index(t["afterWaypoint"])
+                i = [w["id"] for w in self.waypoints].index(t["afterWaypoint"])
                 go = self.crew_s >= self.wp_s[i] + t.get("afterM", 0)
             if "afterEvent" in t and t["afterEvent"] in self.fired:
                 go = self.t / 60 >= self.fired_at[t["afterEvent"]] + t.get("afterMin", 0)
@@ -402,7 +412,7 @@ class EvaEngine:
                 i = self.rc(pos)
                 if int(self.t) % 2 == 0 or c["est"] is None:
                     c["est"] = self.positioner.estimate(c["cfg"]["id"], pos, c["moved"])
-                need = float(self.o2_home[i]) * (pers.body_kg + pers.load_kg) / (self.model_person(self.cfg["crew"][0]).body_kg + self.model_person(self.cfg["crew"][0]).load_kg)
+                need = float(self.o2_home[i]) * (pers.body_kg + pers.load_kg) / self._ref_mass_kg
                 avail = pers.o2_l - self.cfg["eva"]["o2ReservePct"] / 100 * pers.o2_capacity_l
                 rate_lh = (o2_l_per_min(c["metabolic"]) + pers.leak_l_min) * 60
                 margin_h = (avail - need) / max(rate_lh, 1e-6)

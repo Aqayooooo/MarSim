@@ -259,10 +259,13 @@ export class View3D {
     this.setMode('orbit', { keepCamera: false });
   }
 
+  /** Przewyższenie dla trybu: z poziomu gruntu (hełm, jazda) skala 1:1, z orbity — przewyższone. */
+  #exFor(mode) { return mode === 'helmet' || mode === 'drive' ? 1 : this.exOrbit; }
+
   setMode(mode, { keepCamera = true } = {}) {
     const first = this.mode !== mode || !keepCamera;
     this.mode = mode;
-    this.ex = mode === 'helmet' || mode === 'drive' ? 1 : this.exOrbit;
+    this.ex = this.#exFor(mode);
     if (mode === 'drive') this.camYaw = undefined;
     this.#applyMode();
     if (mode === 'orbit' && first && !this.flight) this.#defaultOrbit();
@@ -397,7 +400,7 @@ export class View3D {
   #tryMove(dx, dy) {
     const h = this.helmet, t = this.t, max = this.app.m.eva.maxSlopeDeg;
     let nx = h.x + dx, ny = h.y + dy;
-    if (!t.inside(nx, ny, 3)) return 'KONIEC OBSZARU MAPY';
+    if (!t.inside(nx, ny, 3)) return tr('hud.edge');
     const d = Math.hypot(dx, dy);
     const rise = t.height(nx, ny) - t.height(h.x, h.y);
     const ang = Math.atan2(rise, d) * 180 / Math.PI;
@@ -511,7 +514,7 @@ export class View3D {
     this.camera.aspect = saved.aspect; this.camera.updateProjectionMatrix();
     Object.assign(this.helmet, { x: saved.hx, y: saved.hy, yaw: saved.yaw, pitch: saved.pitch, auto: saved.auto });
     this.flight = saved.flight;
-    this.mode = saved.mode; this.ex = saved.mode === 'helmet' ? 1 : this.exOrbit; this.#applyMode();
+    this.mode = saved.mode; this.ex = this.#exFor(saved.mode); this.#applyMode();
     this.camera.position.copy(saved.pos); this.camera.quaternion.copy(saved.quat);
     return url;
   }

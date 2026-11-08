@@ -59,6 +59,12 @@ def ltst(t: datetime, lon_east: float) -> float:
     return (lmst + m.eot / 15.0) % 24.0
 
 
+def fmt_ltst(hours: float) -> str:
+    """Godzina LTST jako „GG:MM” (zaokrąglenie do minuty — int(h % 1 * 60) gubi minutę przez błąd zmiennoprzecinkowy)."""
+    m = round(hours * 60)
+    return f"{m // 60 % 24:02d}:{m % 60:02d}"
+
+
 def sun_position(lat: float, decl: float, ltst_h: float) -> tuple[float, float]:
     """(wysokość °, azymut ° od północy zgodnie z ruchem wskazówek) dla danego LTST."""
     H = math.radians((ltst_h - 12.0) * 15.0)

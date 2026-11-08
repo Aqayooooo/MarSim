@@ -100,3 +100,44 @@ def test_crism_mineral_classes():
     cls, conf = mnr.classify(p)
     assert cls.tolist() == [[0, 2, 1], [0, 5, 3]]
     assert conf[0, 2] == pytest.approx(1.0) and 0 < conf[0, 1] < 1
+
+
+@pytest.mark.parametrize("hours,text", [(10 + 10 / 60, "10:10"), (11 + 40 / 60, "11:40"), (11 + 10 / 60, "11:10"), (24.5, "00:30")])
+def test_fmt_ltst_rounds_to_minute(hours, text):
+    assert sun.fmt_ltst(hours) == text          # int(h % 1 * 60) dawało np. 10:09
+
+
+class _MemStore:
+    def schedule_load(self):
+        return None
+
+    def schedule_save(self, items):
+        pass
+
+
+def test_schedule_end_time_and_energy_rule():
+    from backend.live.schedule import Scheduler
+    crew = [{"id": "EV1"}, {"id": "EV2"}]
+    s = Scheduler(_MemStore(), crew, {"o2TanksL": 1e6, "batteriesWh": 12000}, -4.7, 0.0)
+    s.items = [{"id": "EVA-1", "sol": 1, "startLtst": "09:10", "durationH": 1.0, "crew": ["EV1"], "purpose": "test"}]
+    ev = s.evaluate()
+    assert ev["items"][0]["endLtst"] == "10:10"
+    assert not any(i.startswith("Energia") for i in ev["issues"])
+    s.stores = {"o2TanksL": 1e6, "batteriesWh": 100}                    # 95 Wh/h × 1 h > 80% z 100 Wh
+    ev = s.evaluate()
+    assert any(i.startswith("Energia: plan wymaga 95 Wh, dostępne 80 Wh") for i in ev["issues"]), ev["issues"]
+    assert ev["consumables"]["batteryAvailableWh"] == 80
+
+
+def test_dtn_keeps_pending_and_trims_history():
+    from backend.live.dtn import DtnLink
+    link = DtnLink(datetime(2037, 1, 10, tzinfo=timezone.utc))
+    for k in range(300):
+        link.send(float(k), "test", f"m{k}", reply="ok")
+    assert len(link.queue) == DtnLink.HISTORY and len(link.pending) == 600
+    st = link.status(0.0)
+    assert [b["text"] for b in st["recent"][:2]] == ["m299", "ok"]          # najnowsze najpierw, nadana przed odpowiedzią
+    assert not link.status(1e4)["conjunction"]
+    done = link.step(1e4)                                                 # najpóźniejsza odpowiedź: 299 s + 2 × ≤22 min + 2 min
+    assert len(done) == 600 and not link.pending
+    assert link.status(1e4)["pendingOut"] == 0 and all(b["delivered"] for b in link.status(1e4)["recent"])

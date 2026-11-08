@@ -21,7 +21,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
-      - name: Route planner test
-        run: node tools/test-planner.mjs
+      - name: Route planner test (demo + NASA mission data, PNG decoder from src/core/png.js)
+        run: |
+          node tools/test-planner.mjs
+          node tools/test-planner.mjs data/missions/mount-sharp
+          node tools/test-planner.mjs data/missions/jezero
       - name: Translation test (PL/EN)
         run: node tools/test-i18n.mjs

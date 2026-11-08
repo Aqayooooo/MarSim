@@ -148,7 +148,7 @@ export class ScheduleView {
       this.render(d, null, meta);
       return;
     }
-    this.render(await this.app.ds.get('schedule'));
+    try { this.render(await this.app.ds.get('schedule')); } catch (e) { this.el.innerHTML = `<p class="warn" role="alert">${esc(t('err.api', { e: e.message }))}</p>`; }
   }
 
   render(d, error, sample = null) {
@@ -163,7 +163,7 @@ export class ScheduleView {
       <h2>${t('sc.stores')}</h2>
       <div class="kpis">
         <div class="kpi"><b>${int(d.consumables.o2NeededL)} / ${int(d.consumables.o2AvailableL)} L</b><span>${t('sc.kO2')}</span></div>
-        <div class="kpi"><b>${int(d.consumables.batteryWh)} Wh</b><span>${t('sc.kWh')}</span></div>
+        <div class="kpi"><b>${int(d.consumables.batteryWh)}${d.consumables.batteryAvailableWh != null ? ` / ${int(d.consumables.batteryAvailableWh)}` : ''} Wh</b><span>${t('sc.kWh')}</span></div>
         <div class="kpi"><b>${num(d.consumables.waterL, 1)} L</b><span>${t('sc.kWater')}</span></div>
         <div class="kpi"><b>${clock(d.daylight.sunriseLtst * 60)}–${clock(d.daylight.sunsetLtst * 60)}</b><span>${t('sc.kDay')}</span></div>
       </div>
@@ -179,7 +179,9 @@ export class ScheduleView {
         <input id="scPurpose" placeholder="${t('sc.purpose')}" size="22" aria-label="${t('sc.purpose')}"> <button class="btn accent" id="scAdd">${t('sc.save')}</button>
       </div>`}`;
     if (sample) return;
-    this.el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => this.render(await this.app.ds.del(`schedule/${encodeURIComponent(b.dataset.del)}`))));
+    this.el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
+      try { this.render(await this.app.ds.del(`schedule/${encodeURIComponent(b.dataset.del)}`)); } catch (e) { this.render(d, e.message); }
+    }));
     $('scAdd').addEventListener('click', async () => {
       const item = { id: $('scId').value || `EVA-${d.items.length + 1}`, sol: +$('scSol').value, startLtst: $('scStart').value, durationH: +$('scDur').value,
         crew: [...this.el.querySelectorAll('.scCrew:checked')].map((x) => x.value), purpose: $('scPurpose').value || t('sc.defaultPurpose') };

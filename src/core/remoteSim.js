@@ -59,7 +59,7 @@ export class RemoteSim {
     this.reached = [...s.reached];
     if (!first) for (const id of newly) {
       const wp = this.m.waypoints.find((w) => w.id === id);
-      this.hooks.onWaypoint?.(wp, this.m.waypoints.indexOf(wp) === this.m.waypoints.length - 1);
+      if (wp) this.hooks.onWaypoint?.(wp, this.m.waypoints.indexOf(wp) === this.m.waypoints.length - 1);   // punkt spoza mission.json (własny /api/plan) — pomijamy
     }
     if (s.routeVersion !== this.routeVersion) { this.routeVersion = s.routeVersion; this.hooks.onRouteVersion?.(s.routeVersion); }
     const a = s.alerts[s.alerts.length - 1];

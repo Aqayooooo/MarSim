@@ -54,27 +54,41 @@ def download(url: str, dest: Path) -> None:
 def download_urllib(url: str, dest: Path) -> None:
     total = remote_size(url)
     tmp = dest.with_suffix(dest.suffix + ".part")
+    complete = False
     for attempt in range(20):
         have = tmp.stat().st_size if tmp.exists() else 0
-        if total and have >= total:
+        if total and have > total:            # .part dłuższy niż plik (sklejony wcześniej) — pobieramy od nowa
+            tmp.unlink()
+            have = 0
+        if total and have == total:
+            complete = True
             break
         req = urllib.request.Request(url, headers={"Range": f"bytes={have}-"} if have else {})
         try:
-            with urllib.request.urlopen(req, timeout=120) as r, tmp.open("ab") as f:
-                last = time.time()
-                while True:
-                    chunk = r.read(1 << 20)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-                    have += len(chunk)
-                    if time.time() - last > 5:
-                        pct = f"{have / total * 100:5.1f}%" if total else f"{have >> 20} MB"
-                        print(f"  {dest.name}: {pct}", flush=True)
-                        last = time.time()
+            with urllib.request.urlopen(req, timeout=120) as r:
+                if have and r.status != 206:      # serwer zignorował Range i wysyła cały plik — zaczynamy od zera, bez sklejania
+                    have = 0
+                with tmp.open("ab" if have else "wb") as f:
+                    last = time.time()
+                    while True:
+                        chunk = r.read(1 << 20)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        have += len(chunk)
+                        if time.time() - last > 5:
+                            pct = f"{have / total * 100:5.1f}%" if total else f"{have >> 20} MB"
+                            print(f"  {dest.name}: {pct}", flush=True)
+                            last = time.time()
+            if not total or have >= total:
+                complete = not total or have == total
+                break
         except Exception as e:  # przerwane połączenie: wznów od miejsca przerwania
             print(f"  przerwano ({e}); ponawiam {attempt + 1}/20", flush=True)
             time.sleep(3)
+    if not complete:   # niepełny plik zostaje jako .part (do wznowienia), nigdy jako gotowy produkt z sumą kontrolną
+        size = tmp.stat().st_size if tmp.exists() else 0
+        raise RuntimeError(f"Nie udało się pobrać {dest.name}: {size} z {total or '?'} B — uruchom ponownie, pobieranie zostanie wznowione")
     tmp.replace(dest)
 
 

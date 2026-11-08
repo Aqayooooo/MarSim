@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
@@ -139,3 +140,29 @@ def test_route_never_enters_forbidden_and_explains_alternatives(api, mission):
 
 def test_ui_files_revalidated(api):
     assert api.get("/src/main.js").headers["cache-control"] == "no-cache"
+
+
+def test_safe_passage_report_does_not_outlive_eva_reset(api):
+    E = api.app.state.active()
+    before = E.layers["hazard"].copy()
+    ys, xs = np.nonzero(before == 1)
+    x, y = (xs[len(xs) // 2] + 0.5) * E.cell, (ys[len(ys) // 2] + 0.5) * E.cell
+    assert api.post("/api/observations", json={"kind": "bezpieczne", "x": float(x), "y": float(y), "radiusM": 150}).status_code == 200
+    assert (E.layers["hazard"] == 1).sum() < (before == 1).sum()       # w tej sesji: strefa „uwaga” zniesiona
+    api.post("/api/eva/reset")
+    assert np.array_equal(E.layers["hazard"], before)                 # nowa sesja: mapa z potoku
+    assert E.model.caution.sum() == (before == 1).sum()
+
+
+def test_eva_follows_waypoints_from_plan_request(api):
+    E = api.app.state.active()
+    wps = [{"id": w["id"], "x": w["x"], "y": w["y"]} for w in E.cfg["waypoints"]]
+    extra = {"id": "WP3", "x": E.cfg["rover"]["x"] + 60, "y": E.cfg["rover"]["y"] + 40}
+    assert api.post("/api/plan", json={"waypoints": wps + [extra]}).status_code == 200
+    api.post("/api/eva/start", json={"timeScale": 600})
+    for _ in range(4000):
+        E.step(1.0)                                                   # wcześniej: IndexError na cfg["waypoints"][2]
+        if E.next_wp >= len(E.wp_s):
+            break
+    assert E.reached == [w["id"] for w in wps] + ["WP3"]
+    assert api.get("/api/report").json()["effectiveness"]["waypointsPlanned"] == 3

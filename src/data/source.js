@@ -21,12 +21,17 @@ function loadImage(url) {
   });
 }
 // Warstwa danych z PNG: dekodowanie bajtów pliku (core/png.js), bo odczyt z canvasa bywa zaszumiony
-// przez ochronę przed fingerprintingiem (tarcze Brave i in.). Canvas tylko awaryjnie (brak DecompressionStream).
+// przez ochronę przed fingerprintingiem (tarcze Brave i in.). Canvas tylko awaryjnie: brak DecompressionStream
+// albo PNG w wariancie, którego dekoder nie obsługuje (16 bitów, przeplot) — np. własne dane z ?data=.
 async function grayRaster(u) {
   if (typeof DecompressionStream !== 'undefined') {
     const r = await fetch(u);
     if (!r.ok) throw new Error(`Nie można wczytać ${u}`);
-    return (await decodePngGray(await r.arrayBuffer())).data;
+    try {
+      return (await decodePngGray(await r.arrayBuffer())).data;
+    } catch (e) {
+      console.warn(`${u}: ${e.message} — odczyt przez canvas (może być zaszumiony przez ochronę przed fingerprintingiem)`);
+    }
   }
   return grayFromImage(await loadImage(u));
 }
@@ -85,7 +90,13 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
     async loadMission() {
       const mission = await json(await fetch(url('mission.json'), { cache: 'no-store' }));
       if (![1, 2].includes(mission.contractVersion)) throw new Error(`Nieobsługiwana wersja kontraktu danych: ${mission.contractVersion}`);
-      const f32 = async (meta) => new Float32Array(await (await fetch(url(meta.file))).arrayBuffer());
+      const f32 = async (meta) => {
+        const r = await fetch(url(meta.file));
+        if (!r.ok) throw new Error(`Nie można wczytać ${url(meta.file)}`);
+        const buf = await r.arrayBuffer();
+        if (buf.byteLength !== meta.width * meta.height * 4) throw new Error(`${meta.file}: ${buf.byteLength} B zamiast ${meta.width * meta.height * 4} B`);
+        return new Float32Array(buf);
+      };
       const terrain = new Terrain({ heights: await f32(mission.dem), width: mission.dem.width, height: mission.dem.height, cellM: mission.dem.cellM });
       const rasters = {};
       const jobs = [];

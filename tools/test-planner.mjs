@@ -1,32 +1,25 @@
-// Szybki test planera w Node na danych przykładowych (bez przeglądarki).
+// Szybki test planera w Node (bez przeglądarki):  node tools/test-planner.mjs [katalog misji, domyślnie data/demo]
+// Mapa zagrożeń jest czytana tym samym dekoderem PNG co w przeglądarce (src/core/png.js — odporny na tarcze Brave).
 import fs from 'node:fs';
 import path from 'node:path';
-import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { Terrain, Raster } from '../src/core/terrain.js';
 import { planRoute } from '../src/data/mockPlanner.js';
+import { decodePngGray } from '../src/core/png.js';
 
-const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'demo');
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const DIR = path.resolve(ROOT, process.argv[2] || path.join('data', 'demo'));
 const m = JSON.parse(fs.readFileSync(path.join(DIR, 'mission.json'), 'utf8'));
 const demBuf = fs.readFileSync(path.join(DIR, m.dem.file));
 const heights = new Float32Array(demBuf.buffer.slice(demBuf.byteOffset, demBuf.byteOffset + demBuf.byteLength));
 const terrain = new Terrain({ heights, width: m.dem.width, height: m.dem.height, cellM: m.dem.cellM });
 
-function readGrayPng(file) {
-  const b = fs.readFileSync(path.join(DIR, file));
-  let o = 8, w = 0, h = 0; const idat = [];
-  while (o < b.length) {
-    const len = b.readUInt32BE(o), type = b.toString('ascii', o + 4, o + 8), data = b.subarray(o + 8, o + 8 + len);
-    if (type === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); }
-    if (type === 'IDAT') idat.push(data);
-    o += 12 + len;
-  }
-  const raw = zlib.inflateSync(Buffer.concat(idat)), out = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) out.set(raw.subarray(y * (w + 1) + 1, y * (w + 1) + 1 + w), y * w);
-  return { data: out, width: w, height: h };
-}
 const hz = m.layers.find((l) => l.id === 'hazards').raster;
-const hazards = new Raster({ ...readGrayPng(hz.file), cellM: hz.cellM });
+const png = await decodePngGray(fs.readFileSync(path.join(DIR, hz.file)));
+if (png.width !== hz.width || png.height !== hz.height) { console.log('BŁĄD: wymiary', hz.file, png.width, png.height); process.exit(1); }
+const badClass = png.data.filter((v) => v > 2).length;          // tak wyglądało zaszumienie canvasa w Brave
+if (badClass) { console.log(`BŁĄD: ${badClass} komórek ${hz.file} poza klasami 0/1/2`); process.exit(1); }
+const hazards = new Raster({ data: png.data, width: png.width, height: png.height, cellM: hz.cellM });
 
 const t0 = performance.now();
 const r = planRoute({ terrain, hazards, start: m.rover, waypoints: m.waypoints, eva: m.eva });

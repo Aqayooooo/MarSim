@@ -45,6 +45,7 @@ const samples = [
   'dawka EVA ok. 45 μSv; Brak danych o pogodzie kosmicznej', 'grunt −40…−5 °C', '60 m trasy z < 3 nadajnikami w zasięgu',
   'Protony ≥10 MeV przy Ziemi: 0,23 pfu (burza: brak); zdarzenia DONKI z 7 dni: 0',
   'EV1: więcej niż jedno wyjście w tym samym solu', 'EVA-3: wyjście dłuższe niż 8 h', 'Tlen: plan wymaga 900 L, dostępne 4800 L (80% zapasów)',
+  'Energia: plan wymaga 2470 Wh, dostępne 1600 Wh (80% baterii × 4 sol)',
   'POGODA KOSMICZNA: ostrzeżenie SEP · łazik jedzie do załogi', 'Nowa trasa B (zgłoszenie: glazy): +84 m', 'załoga: glazy (500, 400) r=25 m',
   'Kontrola misji: przyjęto „Trasa A: 874 m, 70 min, 56 L O₂, bezpieczna z uwagami”', 'dawka EVA ok. 31 μSv; brak danych pogody kosmicznej',
   'WP2 osiągnięty', 'Nowa sesja EVA nr 3', 'Zapisano EVA-9: sol 160, 10:00, 2.5 h', 'Brak bezpiecznego przejścia do WP1',

@@ -146,7 +146,7 @@ $('evaBtn').addEventListener('click', async () => {
   if (app.state.route && app.sim.crewS > 0) { app.pauseEva(false); $('evaBtn').textContent = t('eva.pause'); return; }
   for (const id of ['optical', 'terrain', 'hazards']) app.toggleLayer(id, true);
   app.setView('map');
-  await app.planInitial({ animate: true });
+  if (!(await app.planInitial({ animate: true }))) return;        // brak trasy: alarm już widać, EVA nie startuje
   setTimeout(() => { app.startEva(470); $('evaBtn').textContent = t('eva.pause'); }, 3400);
 });
 app.on('reset', () => { $('evaBtn').textContent = t('eva.start'); });
