@@ -2,6 +2,7 @@
 import { num, int, hm, clock, km, parseClock } from '../core/format.js';
 import { t, tx, plural } from '../i18n.js';
 
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const $ = (id) => document.getElementById(id);
 function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
 function setHidden(el, h) { if (el.hidden !== h) el.hidden = h; }
@@ -136,9 +137,9 @@ export class Panels {
     setHidden(card, !(isMap && r && app.now >= st.routeCardAt));
     if (r) {
       const u = r.uncertainty, dem = app.m.dem;
-      const extra = u ? `<br><span class="u">${t('route.slope', { s: num(u.maxSlopeDeg, 0), sg: num(Math.max(1, u.maxSlopeSigmaDeg), 0), y: dem.year || '' })}</span>`
+      const extra = u ? `<br><span class="u">${t('route.slope', { s: num(u.maxSlopeDeg, 0), sg: num(Math.max(1, u.maxSlopeSigmaDeg), 0), y: esc(dem.year) || '' })}</span>`
         + `<br><span class="u">${t('route.sand', { p: num(u.maxSandProb * 100, 0), o2: int(r.o2L ?? 0) })}</span>` : '';
-      const html = `<b>${t('route', { l: r.letter })}</b> <span class="g">${tx(r.rating)}</span><br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${r.stops} ${plural(r.stops)}${extra}`;
+      const html = `<b>${t('route', { l: esc(r.letter) })}</b> <span class="g">${esc(tx(r.rating))}</span><br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${esc(r.stops)} ${plural(r.stops)}${extra}`;
       if (card.dataset.k !== html) { card.innerHTML = html; card.dataset.k = html; }
     }
     const al = $('alert');

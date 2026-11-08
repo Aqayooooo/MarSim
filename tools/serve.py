@@ -34,6 +34,22 @@ def stamp() -> float:
 class NoCache(http.server.SimpleHTTPRequestHandler):
     extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, '.js': 'text/javascript', '.mjs': 'text/javascript', '.f32': 'application/octet-stream'}
 
+    def send_head(self):
+        from pathlib import Path
+        p = Path(self.translate_path(self.path)).resolve()
+        root = Path(ROOT).resolve()
+        allowed = {"index.html", "styles.css", "data-sources.json"}
+        if p == root:
+            p = root / "index.html"
+        relative = p.relative_to(root) if p.is_relative_to(root) else None
+        if relative is None or not p.is_file() or any(part.startswith('.') for part in relative.parts) or not (str(relative) in allowed or relative.parts[0] in ("src", "vendor", "data")):
+            self.send_error(404)
+            return None
+        if relative.parts[0] == "data" and not (len(relative.parts)>1 and relative.parts[1] in ("demo", "missions")):
+            self.send_error(404)
+            return None
+        return super().send_head()
+
     def do_GET(self):
         path = self.path.split('?', 1)[0]
         if LIVE and path == '/__live':

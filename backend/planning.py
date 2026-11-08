@@ -3,7 +3,7 @@
 - Nachylenie liczone z marginesem: nachylenie + 2σ (ostrożnie).
 - Strefy zakazane (piasek > 0,6, nachylenie+2σ > maks., głazy) są nieprzekraczalne.
 - Strefy „uwaga” kosztują więcej (dłuższy, ostrożniejszy marsz).
-Najkrótsza ścieżka: skimage.graph.MCP_Geometric (Dijkstra w C, 8 sąsiadów, długość przekątnej uwzględniona).
+Najkrótsza ścieżka: skimage.graph.MCP_Geometric (Dijkstra w C, 4 sąsiadów, bez ścinania narożników zakazanych pól).
 """
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ def walk_speed_ms(slope_deg: np.ndarray | float, base_kmh: float) -> np.ndarray 
 
 class CostModel:
     def __init__(self, layers: dict, cell: float, eva: dict, person: Person):
+        self.person = person
         self.cell = cell
         self.eva = eva
         slope_up = layers["slope"] + 2 * layers["slopeSigma"]
@@ -87,12 +88,15 @@ def plan(model: CostModel, start: dict, waypoints: list[dict], obstacles: list[d
     _unblock(cost, prev, model)
     for wp in waypoints:
         goal = model.to_rc(wp)
-        _unblock(cost, goal, model)
-        mcp = MCP_Geometric(cost, fully_connected=True)
+        if not np.isfinite(cost[goal]):
+            return {"ok": False, "error": f"Cel {wp['id']} leży w strefie niedostępnej"}
+        mcp = MCP_Geometric(cost, fully_connected=False)
         cum, _ = mcp.find_costs([prev], [goal])
         if not np.isfinite(cum[goal]):
             return {"ok": False, "error": f"Brak bezpiecznego przejścia do {wp['id']}"}
         leg = mcp.traceback(goal)
+        if len(leg) == 1:
+            leg = [prev, goal]
         # „przeszukane” komórki do animacji: siatka co 10 komórek, w kolejności kosztu, tańsze niż cel
         sub = cum[::10, ::10]
         rr, cc = np.nonzero(np.isfinite(sub) & (sub <= cum[goal]))
@@ -112,19 +116,25 @@ def plan(model: CostModel, start: dict, waypoints: list[dict], obstacles: list[d
     stops = len(waypoints)
     stop_min = sum(w.get("stopMin", 0) for w in waypoints)
     return {"ok": True, "path": pts, "waypointIndex": wp_idx, "lengthM": stats["lengthM"],
-            "durationH": stats["walkH"] + stop_min / 60, "o2L": stats["o2L"], "stops": stops,
+            "durationH": stats["walkH"] + stop_min / 60, "o2L": stats["o2L"] + stop_min * (float(o2_l_per_min(metabolic_w(model.person, 0, 0))) + model.person.leak_l_min), "stops": stops,
             "rating": stats["rating"], "uncertainty": stats["uncertainty"], "expanded": expanded[:600]}
 
 
 def _segment_clear(model: "CostModel", a: dict, b: dict, blocked: np.ndarray) -> bool:
-    """Czy prosty odcinek a→b omija komórki zakazane (próbkowanie co ¼ komórki)."""
-    d = math.hypot(b["x"] - a["x"], b["y"] - a["y"])
-    n = max(1, int(d / (model.cell / 4)))
-    for k in range(n + 1):
-        t = k / n
-        if blocked[model.to_rc({"x": a["x"] + (b["x"] - a["x"]) * t, "y": a["y"] + (b["y"] - a["y"]) * t})]:
-            return False
-    return True
+    """Sprawdza każde pole przecięte przez odcinek, w tym punkty na granicach pól."""
+    cuts = [np.array([0.0, 1.0])]
+    for axis in ("x", "y"):
+        origin = a[axis]
+        delta = b[axis] - origin
+        if delta:
+            low, high = sorted((origin, b[axis]))
+            borders = np.arange(math.floor(low / model.cell) + 1, math.ceil(high / model.cell)) * model.cell
+            cuts.append((borders - origin) / delta)
+    times = np.unique(np.concatenate(cuts))
+    samples = np.concatenate((times, (times[:-1] + times[1:]) * 0.5))
+    cols = np.clip(np.floor((a["x"] + (b["x"] - a["x"]) * samples) / model.cell).astype(int), 0, blocked.shape[1] - 1)
+    rows = np.clip(np.floor((a["y"] + (b["y"] - a["y"]) * samples) / model.cell).astype(int), 0, blocked.shape[0] - 1)
+    return not bool(blocked[rows, cols].any())
 
 
 def _simplify(pts, wp_idx, tol=1.5, model: "CostModel | None" = None, blocked: np.ndarray | None = None):
@@ -138,7 +148,7 @@ def _simplify(pts, wp_idx, tol=1.5, model: "CostModel | None" = None, blocked: n
         a, b = pts[last], pts[i + 1] if i + 1 < len(pts) else p
         ax, ay, bx, by = a["x"], a["y"], b["x"], b["y"]
         d = abs((bx - ax) * (ay - p["y"]) - (ax - p["x"]) * (by - ay)) / (math.hypot(bx - ax, by - ay) + 1e-9)
-        shortcut_unsafe = model is not None and blocked is not None and not _segment_clear(model, a, b, blocked)
+        shortcut_unsafe = d <= tol and model is not None and blocked is not None and not _segment_clear(model, a, b, blocked)
         if d > tol or shortcut_unsafe:
             new_idx[i] = len(out); out.append(p); last = i
     return out, [new_idx[i] for i in wp_idx]
@@ -169,14 +179,15 @@ def path_stats(model: CostModel, pts: list[dict], layers: dict | None) -> dict:
     return {"lengthM": L, "walkH": walk_s / 3600, "o2L": o2, "rating": rating, "uncertainty": unc}
 
 
-def cost_field(model: CostModel, origin: dict, kind: str = "o2") -> np.ndarray:
+def cost_field(model: CostModel, origin: dict, kind: str = "o2", obstacles=None) -> np.ndarray:
     """Koszt (L O₂ albo s) dojścia z każdej komórki do punktu origin (np. habitatu)."""
-    cost = model.cost_array(kind)
+    cost = model.cost_array(kind, obstacle_mask(model.blocked.shape, model.cell, obstacles or []))
     rc = model.to_rc(origin)
-    _unblock(cost, rc, model)
-    mcp = MCP_Geometric(cost, fully_connected=True)
+    if not np.isfinite(cost[rc]):
+        return np.full(cost.shape, 9999, dtype=np.float32)
+    mcp = MCP_Geometric(cost, fully_connected=False)
     cum, _ = mcp.find_costs([rc])
-    return cum.astype(np.float32)
+    return np.nan_to_num(cum, posinf=9999).astype(np.float32)
 
 
 # ---------------- porównanie wariantów trasy („dlaczego ta trasa”) ----------------
@@ -228,10 +239,16 @@ def _summary(variant_id: str, acc: dict, stop_h: float, path, ok: bool = True) -
 def alternatives(model: CostModel, start: dict, waypoints: list, obstacles, layers: dict, comms, chosen: dict) -> list:
     """Warianty obok wybranej trasy (najmniej O₂) i powody, dla których przegrywają.
     Powody to kody z liczbami — zdania składa interfejs (PL/EN)."""
+    effective_layers = {**layers, "hazard": layers["hazard"].copy()}
+    effective_layers["hazard"][obstacle_mask(model.blocked.shape, model.cell, obstacles or [])] = 2
+    evaluation_model = CostModel(effective_layers, model.cell, model.eva, model.person)
+    def assess(path):
+        return evaluate(evaluation_model, path, effective_layers, comms)
     stop_h = sum(w.get("stopMin", 0) for w in waypoints) / 60
-    best = _summary("chosen", evaluate(model, chosen["path"], layers, comms), stop_h, chosen["path"])
+    stop_o2 = stop_h * 60 * (float(o2_l_per_min(metabolic_w(model.person, 0, 0))) + model.person.leak_l_min)
+    best = _summary("chosen", assess(chosen["path"]), stop_h, chosen["path"])
     best["verdict"] = "chosen"
-    best["reasons"] = [{"code": "minO2", "o2": best["o2L"]}, {"code": "noForbidden"}, {"code": "margin2s", "deg": model.eva["maxSlopeDeg"]}]
+    best["reasons"] = [{"code": "minO2", "o2": round(best["o2L"] + stop_o2, 1)}, {"code": "noForbidden"}, {"code": "margin2s", "deg": model.eva["maxSlopeDeg"]}]
     if best["cautionM"]:
         best["reasons"].append({"code": "cautionShare", "m": best["cautionM"], "pct": round(100 * best["cautionM"] / max(best["lengthM"], 1))})
     out = [best]
@@ -245,11 +262,11 @@ def alternatives(model: CostModel, start: dict, waypoints: list, obstacles, laye
 
     for vid, path, ok in variants:
         if not ok:
-            v = _summary(vid, evaluate(model, straight, layers, comms), stop_h, None, ok=False)
+            v = _summary(vid, assess(straight), stop_h, None, ok=False)
             v.update(verdict="impossible", reasons=[{"code": "noPath"}])
             out.append(v)
             continue
-        v = _summary(vid, evaluate(model, path, layers, comms), stop_h, path)
+        v = _summary(vid, assess(path), stop_h, path)
         same = abs(v["lengthM"] - best["lengthM"]) <= 0.01 * best["lengthM"] and abs(v["o2L"] - best["o2L"]) <= 0.01 * best["o2L"]
         reasons = []
         if v["forbiddenM"] > 0:
@@ -282,4 +299,6 @@ def alternatives(model: CostModel, start: dict, waypoints: list, obstacles, laye
                 reasons.append({"code": "lessComms", "m": v["noCommsM"] - best["noCommsM"]})
         v.update(verdict=verdict, reasons=reasons)
         out.append(v)
+    for variant in out:
+        variant["o2L"] = round(variant["o2L"] + stop_o2, 1)
     return out

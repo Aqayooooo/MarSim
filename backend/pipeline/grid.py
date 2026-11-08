@@ -110,8 +110,15 @@ def cache_remote_window(url: str, grid: Grid, dest: str, margin_m: float = 200.0
     import time as _t
     from rasterio.warp import transform_bounds
     from rasterio.windows import from_bounds
-    if os.path.exists(dest):
-        return dest
+    import json
+    from pathlib import Path
+    identity = {"url": url, "crs": grid.crs.to_wkt(), "x0": grid.x0, "y0": grid.y0, "width": grid.width_m, "height": grid.height_m, "res": grid.res, "margin": margin_m}
+    identity_path = Path(dest + ".identity.json")
+    if os.path.exists(dest) and identity_path.exists() and json.loads(identity_path.read_text(encoding="utf-8")) == identity:
+        with rasterio.open(dest) as cached:
+            bounds = transform_bounds(grid.crs, cached.crs, grid.x0, grid.y0-grid.height_m, grid.x0+grid.width_m, grid.y0)
+            if cached.bounds.left <= bounds[0] and cached.bounds.bottom <= bounds[1] and cached.bounds.right >= bounds[2] and cached.bounds.top >= bounds[3]:
+                return dest
     last = None
     for attempt in range(retries):
         try:
@@ -128,8 +135,11 @@ def cache_remote_window(url: str, grid: Grid, dest: str, margin_m: float = 200.0
                         data = src.read(1, window=w, boundless=True, fill_value=src.nodata if src.nodata is not None else 0)
                     prof = {"driver": "GTiff", "height": data.shape[0], "width": data.shape[1], "count": 1, "dtype": data.dtype,
                             "crs": src.crs, "transform": src.window_transform(w), "nodata": src.nodata, "compress": "deflate", "tiled": True}
-            with rasterio.open(dest, "w", **prof) as dst:
+            temporary = dest + ".part"
+            with rasterio.open(temporary, "w", **prof) as dst:
                 dst.write(data, 1)
+            os.replace(temporary, dest)
+            identity_path.write_text(json.dumps(identity), encoding="utf-8")
             return dest
         except Exception as e:  # zerwane połączenie — spróbuj ponownie
             last = e

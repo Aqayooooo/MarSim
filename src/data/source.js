@@ -55,7 +55,7 @@ export async function detectBackend(explicitApi) {
 }
 
 export function createDataSource({ mode = 'files', base = 'data/demo', api = '' } = {}) {
-  const root = mode === 'http' ? `${api}/missions/current` : base.replace(/\/$/, '');
+  let root = mode === 'http' ? `${api}/missions/current` : base.replace(/\/$/, '');
   const url = (f) => `${root}/${f}`;
   const API = (p) => `${api}/api/${p}`;
   let ctx = null;
@@ -81,13 +81,17 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
   };
   const near = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < 0.5;
   const samePlan = (req, start, waypoints, obstacles) => !!req && !obstacles.length && near(req.start, start)
-    && req.waypoints.length === waypoints.length && req.waypoints.every((w, i) => w.id === waypoints[i].id && near(w, waypoints[i]));
+    && req.waypoints.length === waypoints.length && req.waypoints.every((w, i) => w.id === waypoints[i].id && near(w, waypoints[i]) && (w.stopMin || 0) === (waypoints[i].stopMin || 0));
 
   return {
     mode,
     api: API,
     sample,
     async loadMission() {
+      if (mode === 'http') {
+        const active = await json(await fetch(API('missions'), { cache: 'no-store' }));
+        root = `${api}/missions/${encodeURIComponent(active.active)}`;
+      }
       const mission = await json(await fetch(url('mission.json'), { cache: 'no-store' }));
       if (![1, 2].includes(mission.contractVersion)) throw new Error(`Nieobsługiwana wersja kontraktu danych: ${mission.contractVersion}`);
       const f32 = async (meta) => {
@@ -97,7 +101,8 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
         if (buf.byteLength !== meta.width * meta.height * 4) throw new Error(`${meta.file}: ${buf.byteLength} B zamiast ${meta.width * meta.height * 4} B`);
         return new Float32Array(buf);
       };
-      const terrain = new Terrain({ heights: await f32(mission.dem), width: mission.dem.width, height: mission.dem.height, cellM: mission.dem.cellM });
+      const [heights, slopes] = await Promise.all([f32(mission.dem), mission.rasters?.slope ? f32(mission.rasters.slope) : null]);
+      const terrain = new Terrain({ heights, slopes, width: mission.dem.width, height: mission.dem.height, cellM: mission.dem.cellM });
       const rasters = {};
       const jobs = [];
       for (const l of mission.layers) {
@@ -119,7 +124,7 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
         })());
       }
       for (const [k, meta] of Object.entries(mission.rasters || {})) {
-        jobs.push((async () => { rasters[k] = new Raster({ data: await f32(meta), width: meta.width, height: meta.height, cellM: meta.cellM }); })());
+        jobs.push((async () => { rasters[k] = new Raster({ data: k === 'slope' && slopes ? slopes : await f32(meta), width: meta.width, height: meta.height, cellM: meta.cellM }); })());
       }
       await Promise.all(jobs);
       if (rasters.slope) terrain.slopeGrid = rasters.slope.data;     // nachylenie policzone przez potok (z niepewnością obok)
@@ -131,7 +136,7 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
     async planRoute({ start, waypoints, obstacles = [] }) {
       if (mode === 'http') {
         return json(await fetch(API('plan'), {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start, waypoints, obstacles }),
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MarSim-Mission': ctx?.mission.mission.id || '' }, body: JSON.stringify({ start, waypoints, obstacles }),
         }));
       }
       // to samo zapytanie co przy eksporcie: trasa policzona przez backend (Dijkstra na koszcie O₂) razem z wariantami
@@ -151,10 +156,10 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
 
     // ---- tylko z backendem ----
     async post(path, body = {}) {
-      return json(await fetch(API(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+      return json(await fetch(API(path), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MarSim-Mission': ctx?.mission.mission.id || '' }, body: JSON.stringify(body) }));
     },
     async get(path) { return json(await fetch(API(path), { cache: 'no-store' })); },
-    async del(path) { return json(await fetch(API(path), { method: 'DELETE' })); },
+    async del(path) { return json(await fetch(API(path), { method: 'DELETE', headers: { 'X-MarSim-Mission': ctx?.mission.mission.id || '' } })); },
     stream(onData) {
       const es = new EventSource(API('stream'));
       es.onmessage = (e) => onData(JSON.parse(e.data));

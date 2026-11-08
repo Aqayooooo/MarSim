@@ -40,7 +40,7 @@ const app = new App(ds, world);
 const panels = new Panels(app);
 const map = new Map2D($('map'), app);
 let view3d = null;
-const director = new Director(app, () => view3d);
+const director = new Director(app, () => view3d, () => ensureView3D());
 const device = new DeviceView(app), report = new ReportView(app), schedule = new ScheduleView(app);
 new FieldReports(app, map);
 const compare = new RouteCompare(app);
@@ -57,14 +57,29 @@ function fit() {
 addEventListener('resize', fit);
 fit();
 
-// Widok 3D wczytuje się w tle (three.js z CDN), mapa 2D działa od razu.
-document.querySelectorAll('#viewSeg button[data-view="orbit"], #viewSeg button[data-view="helmet"]').forEach((b) => (b.disabled = true));
-import('./ui/view3d.js').then(({ View3D }) => {
-  view3d = new View3D($('view3d'), app);
-  fit();
-  document.querySelectorAll('#viewSeg button').forEach((b) => (b.disabled = false));
-  if (['orbit', 'helmet', 'drive'].includes(app.state.view)) view3d.setMode(app.state.view);
-}).catch((e) => console.error('3D view unavailable / widok 3D niedostępny:', e));
+let view3dLoading = null;
+function ensureView3D() {
+  if (view3d) return Promise.resolve(view3d);
+  if (view3dLoading) return view3dLoading;
+  $('view3d').querySelector('#loading')?.remove();
+  const status = document.createElement('div');
+  status.id = 'loading';
+  status.setAttribute('role', 'status');
+  status.textContent = t('loading');
+  $('view3d').appendChild(status);
+  view3dLoading = import('./ui/view3d.js').then(({ View3D }) => {
+    view3d = new View3D($('view3d'), app);
+    status.remove();
+    fit();
+    if (['orbit', 'helmet', 'drive'].includes(app.state.view)) view3d.setMode(app.state.view);
+    return view3d;
+  }).catch((e) => {
+    status.textContent = t('loading.fail', { e: e.message });
+    view3dLoading = null;
+    throw e;
+  });
+  return view3dLoading;
+}
 
 // ---------- wybór misji bez backendu: przeładowanie z ?data=<katalog> ----------
 function setupStaticMissions(index, current) {
@@ -130,6 +145,7 @@ function applyView(v) {
   if (v === 'report') report.open();
   if (v === 'schedule') schedule.open();
   if (view3d && is3d) view3d.setMode(v);
+  else if (is3d) ensureView3D().catch(e => console.error(e));
 }
 app.on('view', applyView);
 app.on('reset', () => applyView(app.state.view));
@@ -146,14 +162,19 @@ $('evaBtn').addEventListener('click', async () => {
   if (app.state.route && app.sim.crewS > 0) { app.pauseEva(false); $('evaBtn').textContent = t('eva.pause'); return; }
   for (const id of ['optical', 'terrain', 'hazards']) app.toggleLayer(id, true);
   app.setView('map');
-  if (!(await app.planInitial({ animate: true }))) return;        // brak trasy: alarm już widać, EVA nie startuje
+  try {
+    if (!(await app.planInitial({ animate: true }))) return;
+  } catch (e) { app.setAlert({ category: t('noRoute'), text: e.message }); return; }        // brak trasy: alarm już widać, EVA nie startuje
   setTimeout(() => { app.startEva(470); $('evaBtn').textContent = t('eva.pause'); }, 3400);
 });
 app.on('reset', () => { $('evaBtn').textContent = t('eva.start'); });
 
 // ---------- WP z widokiem: render terenu z poziomu gruntu ----------
-app.on('waypoint', ({ wp }) => {
-  if (!wp.view || !view3d) return;
+app.on('waypoint', async ({ wp }) => {
+  if (!wp.view) return;
+  const route = app.state.route;
+  try { await ensureView3D(); } catch { return; }
+  if (app.state.route !== route) return;
   const r = app.state.route, i = app.m.waypoints.indexOf(wp);
   const heading = r.poly.heading(r.wpS[i] - 6);
   setTimeout(() => app.setWaypointView(wp.id, view3d.snapshot(wp, heading), wp.view.caption), 240);

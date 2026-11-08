@@ -9,3 +9,5 @@ data/*.db
 backend/cache
 backend/config/paths.local.json
 node_modules
+
+backend/tests

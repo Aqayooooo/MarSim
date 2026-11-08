@@ -1,14 +1,14 @@
 # MarSim — backend + interfejs w jednym kontenerze.
 #   docker build -t marsim .
-#   docker run --rm -p 8000:8000 -v marsim-data:/data marsim     →  http://localhost:8000
+#   docker run --rm -p 127.0.0.1:8000:8000 -v marsim-data:/data marsim     →  http://localhost:8000
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     MARSIM_HOST=0.0.0.0 PORT=8000 MARSIM_DATA=/data
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-runtime.txt .
+RUN pip install --no-cache-dir -r requirements-runtime.txt
 
 COPY index.html styles.css data-sources.json LICENSE ./
 COPY src ./src

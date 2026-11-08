@@ -28,7 +28,7 @@ Wymagania: Windows, macOS albo Linux, **Python 3.10+** i przeglądarka z WebGL. 
 ```
 python -m venv .venv
 # Windows: .venv\Scripts\activate     macOS/Linux: source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-runtime.txt
 python backend/server.py              # http://localhost:8000
 ```
 
@@ -36,10 +36,12 @@ python backend/server.py              # http://localhost:8000
 
 ```
 docker build -t marsim .
-docker run --rm -p 8000:8000 -v marsim-data:/data marsim
+docker run --rm -p 127.0.0.1:8000:8000 -v marsim-data:/data marsim
 ```
 
 ### Przebudowa danych NASA (opcjonalnie)
+
+Do przebudowy zainstaluj dodatkowe biblioteki poleceniem `pip install -r requirements.txt`.
 
 Gotowe pliki misji są w `data/missions/<misja>/` (`mount-sharp`, `jezero`). Surowe produkty (ok. 0,5 GB na misję) trafiają poza repozytorium. Katalog wskazuje zmienna `MARSIM_DATA` albo plik `backend/config/paths.local.json`, np. `{ "dataDir": "D:/MarSim-data" }`.
 

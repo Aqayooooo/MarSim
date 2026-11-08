@@ -52,13 +52,21 @@ def get(max_age_s: int = 1800) -> dict:
     CACHE.mkdir(parents=True, exist_ok=True)
     cached = None
     if CACHE_FILE.exists():
-        cached = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
-        if time.time() - CACHE_FILE.stat().st_mtime < max_age_s:
+        try:
+            cached = json.loads(CACHE_FILE.read_text(encoding="utf-8"))
+        except (ValueError, OSError):
+            cached = None
+        if cached and time.time() - CACHE_FILE.stat().st_mtime < max_age_s:
             return summarize(cached, source="bufor")
     try:
         data = fetch()
+        if not data.get("protons10MeV") and cached and cached.get("protons10MeV"):
+            data["protons10MeV"] = cached["protons10MeV"]
+            data["protonsStale"] = True
         if len(data["errors"]) < 4:
-            CACHE_FILE.write_text(json.dumps(data), encoding="utf-8")
+            temporary = CACHE_FILE.with_suffix(".tmp")
+            temporary.write_text(json.dumps(data), encoding="utf-8")
+            temporary.replace(CACHE_FILE)
             return summarize(data, source="sieć")
     except Exception:
         pass
@@ -68,7 +76,7 @@ def get(max_age_s: int = 1800) -> dict:
 
 
 def summarize(d: dict, source: str) -> dict:
-    pfu = d["protons10MeV"][-1]["pfu"] if d.get("protons10MeV") else 0.0
+    pfu = d["protons10MeV"][-1]["pfu"] if d.get("protons10MeV") else None
     events = []
     for s in d.get("sep", [])[-5:]:
         events.append({"type": "SEP", "time": s.get("eventTime"), "note": "zdarzenie cząstek energetycznych"})
@@ -78,8 +86,9 @@ def summarize(d: dict, source: str) -> dict:
     for f in d.get("flr", [])[-5:]:
         events.append({"type": "FLR", "time": f.get("peakTime"), "note": f"rozbłysk klasy {f.get('classType', '?')}"})
     events.sort(key=lambda e: e["time"] or "", reverse=True)
-    level = "S4+" if pfu >= 10000 else "S3" if pfu >= 1000 else "S2" if pfu >= 100 else "S1" if pfu >= 10 else "brak"
-    return {"available": True, "source": source, "fetchedUtc": d.get("fetchedUtc"), "pfu": round(float(pfu), 3), "stormLevel": level,
+    value = pfu or 0
+    level = "S4+" if value >= 10000 else "S3" if value >= 1000 else "S2" if value >= 100 else "S1" if value >= 10 else "brak"
+    return {"available": True, "source": source, "fetchedUtc": d.get("fetchedUtc"), "protonsAvailable": pfu is not None, "protonsStale": d.get("protonsStale", False), "protonsTime": d.get("protons10MeV", [{}])[-1].get("t") if d.get("protons10MeV") else None, "pfu": round(float(pfu), 3) if pfu is not None else None, "stormLevel": level if pfu is not None else "brak danych",
             "events": events[:8], "errors": d.get("errors", []),
-            "summary": f"Protony ≥10 MeV przy Ziemi: {pfu:.2f} pfu (burza: {level}); zdarzenia DONKI z 7 dni: {len(events)}".replace(".", ","),
+            "summary": "Brak aktualnego pomiaru protonów NOAA" if pfu is None else ("Ostatni pomiar (nieaktualny): " if d.get("protonsStale") else "") + f"Protony ≥10 MeV przy Ziemi: {value:.2f} pfu (burza: {level}); zdarzenia DONKI z 7 dni: {len(events)}".replace(".", ","),
             "note": "Pomiary przy Ziemi — dla Marsa wskaźnik orientacyjny."}

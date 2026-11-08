@@ -21,19 +21,22 @@ class Positioner:
         self.sigma = range_sigma
         self.mast = beacon_mast
         self.odo_err = {}
+        self.last_moved = {}
 
     def _h(self, x, y):
         return float(ndimage.map_coordinates(self.dem, [[y / self.cell - 0.5], [x / self.cell - 0.5]], order=1, mode="nearest")[0])
 
     def _los(self, a: dict, b: dict) -> bool:
         ha, hb = self._h(a["x"], a["y"]) + self.mast, self._h(b["x"], b["y"]) + 1.8
-        for t in np.linspace(0.05, 0.95, 24):
-            x, y = a["x"] + (b["x"] - a["x"]) * t, a["y"] + (b["y"] - a["y"]) * t
-            if self._h(x, y) > ha + (hb - ha) * t:
-                return False
-        return True
+        samples = np.linspace(0.05, 0.95, 24)
+        xs = a["x"] + (b["x"] - a["x"]) * samples
+        ys = a["y"] + (b["y"] - a["y"]) * samples
+        heights = ndimage.map_coordinates(self.dem, [ys / self.cell - 0.5, xs / self.cell - 0.5], order=1, mode="nearest")
+        return not bool(np.any(heights > ha + (hb - ha) * samples))
 
     def estimate(self, who: str, true_xy: dict, moved_m: float) -> dict:
+        delta = max(0, moved_m - self.last_moved.get(who, 0))
+        self.last_moved[who] = moved_m
         vis = [b for b in self.beacons if self._los(b, true_xy)]
         if len(vis) >= 3:
             self.odo_err[who] = 0.0
@@ -55,7 +58,7 @@ class Positioner:
                     "ellipse": {"a": round(float(2 * math.sqrt(max(w[1], 0))), 2), "b": round(float(2 * math.sqrt(max(w[0], 0))), 2),
                                 "angleDeg": round(math.degrees(math.atan2(v[1, 1], v[0, 1])), 1)},
                     "beaconsVisible": [b["id"] for b in vis]}
-        err = self.odo_err.get(who, 0.0) + 0.02 * moved_m
+        err = self.odo_err.get(who, 0.0) + 0.02 * delta
         self.odo_err[who] = err
         return {"x": round(true_xy["x"] + random.gauss(0, err / 3), 2), "y": round(true_xy["y"] + random.gauss(0, err / 3), 2),
                 "source": f"odometria ({len(vis)} nadajn. w zasięgu)", "ellipse": {"a": round(2 * err, 2), "b": round(2 * err, 2), "angleDeg": 0},

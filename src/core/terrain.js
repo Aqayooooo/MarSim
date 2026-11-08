@@ -1,7 +1,7 @@
 // Model terenu: wysokości z DEM w metrach, próbkowanie dwuliniowe, nachylenie.
 // Układ współrzędnych: x na wschód, y na południe, (0,0) = lewy górny róg obszaru.
 export class Terrain {
-  constructor({ heights, width, height, cellM }) {
+  constructor({ heights, width, height, cellM, slopes = null }) {
     this.h = heights;
     this.w = width;
     this.hgt = height;
@@ -12,7 +12,7 @@ export class Terrain {
     for (const v of heights) { if (v < min) min = v; if (v > max) max = v; }
     this.minH = min;
     this.maxH = max;
-    this.slopeGrid = this.#computeSlope();
+    this.slopeGrid = slopes || this.#computeSlope();
   }
 
   at(i, j) {

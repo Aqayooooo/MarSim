@@ -5,9 +5,10 @@ import { t, tx } from './i18n.js';
 const STOP = Symbol('stop');
 
 export class Director {
-  constructor(app, getView3d) {
+  constructor(app, getView3d, loadView3d = async () => getView3d()) {
     this.app = app;
     this.view3d = getView3d;
+    this.loadView3d = loadView3d;
     this.token = 0;
     this.playing = false;
   }
@@ -41,7 +42,7 @@ export class Director {
       app.setCaption('02', t('demo.c2'));
       app.clearFocus('hazards');
       await wait(0.36);
-      await app.planInitial({ animate: true });
+      if (!(await app.planInitial({ animate: true }))) throw new Error(t('noRoute'));
       await wait(3.64);
       if (app.state.route?.alternatives) {           // „dlaczego ta trasa”: porównanie wariantów przez chwilę
         app.setCaption('02', t('demo.c2b'));
@@ -76,6 +77,8 @@ export class Director {
 
       app.setCaption('07', t('demo.c7', { x: this.view3d()?.exOrbit ?? 10 }));
       app.setView('orbit');
+      await this.loadView3d();
+      alive();
       this.view3d()?.flyover(7.5);
       await wait(8.0);
 
@@ -86,9 +89,10 @@ export class Director {
       await wait(10.7);
       app.state.fadeOut = true;
       await wait(0.6);
-      app.sim.running = false;
+      await app.pauseEva(true);
     } catch (e) {
-      if (e !== STOP) throw e;
+      this.stop();
+      if (e !== STOP) app.setAlert({ category: t('noRoute'), text: e.message });
       return;
     }
     if (this.token === my) { this.playing = false; app.autoEvents = true; app.emit('director', false); }

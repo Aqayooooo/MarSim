@@ -36,6 +36,9 @@ class DtnLink:
         self.queue: list[Bundle] = []      # historia w kolejności nadania
         self.pending: list[Bundle] = []    # jeszcze niedostarczone
         self.outage_until_s = -1.0
+        self.replies = {}
+        self.last_step = 0.0
+        self.blocked_since = None
 
     def geometry(self, t_s: float) -> dict:
         return earth_mars(self.date + timedelta(seconds=t_s))
@@ -56,19 +59,37 @@ class DtnLink:
 
     def send(self, t_s: float, kind: str, text: str, meta: dict | None = None, reply: str | None = None) -> Bundle:
         delay = self.geometry(t_s)["oneWayMin"] * 60
-        b = Bundle(next(_ids), "do Ziemi", kind, text, t_s, t_s + delay, meta=meta or {})
+        b = Bundle(next(_ids), "do Ziemi", kind, text, t_s, max(t_s, self.outage_until_s) + delay, meta=meta or {})
         self._add(b)
         if reply:  # automatyczne potwierdzenie z kontroli misji po pełnej drodze tam i z powrotem (+2 min na decyzję)
-            self._add(Bundle(next(_ids), "z Ziemi", "potwierdzenie", reply, t_s, t_s + 2 * delay + 120, meta={"re": b.id}))
+            answer = Bundle(next(_ids), "z Ziemi", "potwierdzenie", reply, t_s, b.deliver_s + delay + 120, meta={"re": b.id})
+            self.replies[b.id] = answer
+            self._add(answer)
         return b
 
     def step(self, t_s: float) -> list[Bundle]:
         """Dostarcza paczki, których czas minął (gdy łącze działa). Zwraca nowo dostarczone."""
         if not self.pending or t_s < self.outage_until_s or self.geometry(t_s)["conjunction"]:
+            if self.blocked_since is None:
+                self.blocked_since = self.last_step
+            self.last_step = t_s
             return []
+        if self.blocked_since is not None:
+            duration = t_s - self.blocked_since
+            for b in self.pending:
+                b.deliver_s += duration
+            self.blocked_since = None
+        self.last_step = t_s
+        for b in self.pending:
+            if b.direction == "do Ziemi" and self.outage_until_s > b.created_s and b.deliver_s < self.outage_until_s:
+                b.deliver_s = self.outage_until_s + self.geometry(t_s)["oneWayMin"] * 60
+                if b.id in self.replies:
+                    self.replies[b.id].deliver_s = b.deliver_s + self.geometry(t_s)["oneWayMin"] * 60 + 120
         done = [b for b in self.pending if t_s >= b.deliver_s]
         if done:
             for b in done:
                 b.delivered = True
+                if b.direction == "z Ziemi":
+                    self.replies.pop(b.meta.get("re"), None)
             self.pending = [b for b in self.pending if not b.delivered]
         return done

@@ -69,16 +69,18 @@ def label_value(text: str, key: str):
 
 def cached(name: str, fn, fresh: bool):
     CACHE.mkdir(parents=True, exist_ok=True)
-    f = CACHE / f"{name}.npz"
+    signature = hashlib.sha256(json.dumps({"cfg": CFG, "sources": SOURCES, "version": PIPELINE_VERSION, "manifest": load_manifest()}, sort_keys=True).encode()).hexdigest()[:16]
+    f = CACHE / f"{name}-{signature}.npz"
     if f.exists() and not fresh:
-        d = np.load(f, allow_pickle=True)
+        d = np.load(f, allow_pickle=False)
         return {k: d[k] for k in d.files} if len(d.files) > 1 else d[d.files[0]]
     t = time.time()
     out = fn()
     if isinstance(out, dict):
-        np.savez_compressed(f, **out)
+        np.savez_compressed(str(f) + ".part.npz", **out)
     else:
-        np.savez_compressed(f, a=out)
+        np.savez_compressed(str(f) + ".part.npz", a=out)
+    Path(str(f) + ".part.npz").replace(f)
     log(f"  {name}: {time.time() - t:.1f} s")
     return out
 
@@ -171,7 +173,8 @@ def main() -> int:
 
     a = CFG["aoi"]
     log("Siatka obszaru (układ DTM HiRISE)")
-    crs = open_crs(dtm_url)
+    local_dtm = RAW / f"dtm_window_{CFG['id']}.tif"
+    crs = open_crs(str(local_dtm) if local_dtm.exists() else dtm_url)
     g1 = grid_from_center(crs, a["centerLon"], a["centerLat"], a["widthM"], a["heightM"], 1.0)
     g3, g025 = g1.with_res(3.0), g1.with_res(0.25)
     corners = g1.corners_lonlat()

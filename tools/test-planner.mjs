@@ -26,6 +26,10 @@ const r = planRoute({ terrain, hazards, start: m.rover, waypoints: m.waypoints, 
 const ms = performance.now() - t0;
 if (!r.ok) { console.log('BŁĄD', r.error); process.exit(1); }
 let inForbidden = 0;
-for (const p of r.path) if (hazards.sample(p.x, p.y) === 2) inForbidden++;
+for (let i = 1; i < r.path.length; i++) {
+  const a = r.path[i - 1], b = r.path[i], n = Math.max(1, Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)*20));
+  for (let k=0;k<=n;k++) if (hazards.sample(a.x+(b.x-a.x)*k/n,a.y+(b.y-a.y)*k/n)===2) inForbidden++;
+}
+if (inForbidden) throw new Error(`Trasa przecina zakaz: ${inForbidden}`);
 console.log(`czas ${ms.toFixed(0)} ms, punktów ${r.path.length}, długość ${r.lengthM.toFixed(0)} m, czas ${(r.durationH * 60).toFixed(0)} min, w strefie zakazu: ${inForbidden}, rozwinięte (próbka): ${r.expanded.length}`);
 console.log('WP idx', r.waypointIndex, 'punkty WP', r.waypointIndex.map((i) => r.path[i]));

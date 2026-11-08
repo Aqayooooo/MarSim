@@ -27,18 +27,19 @@ export class App {
       onSnapshot: (s) => this.emit('snapshot', s),
     };
     this.sim = this.remote ? new RemoteSim(this.m, ds, hooks) : new Sim(this.m, hooks);
-    this.reset();
+    this.reset(false);
   }
 
   on(evt, fn) { (this.handlers[evt] ||= []).push(fn); }
   off(evt, fn) { this.handlers[evt] = (this.handlers[evt] || []).filter((f) => f !== fn); }
   emit(evt, data) { (this.handlers[evt] || []).forEach((fn) => fn(data)); }
 
-  reset() {
-    if (this.remote) { this.pendingReset = this.ds.post('eva/reset').catch(() => {}); this.sim.reset(); }
+  reset(newSession = true) {
+    if (this.remote && newSession) { this.pendingReset = this.ds.post('eva/reset'); this.sim.reset(); }
     else this.sim.reset();
     this.drive = null;       // jazda łazikiem po trasie A→B (core/drive.js)
     this.roverAt = null;     // gdzie łazik stanął po jeździe (null = pozycja z misji / z symulacji EVA)
+    this.routeBlocked = false;
     this.windNext = 0;
     this.lastReplan = null;
     this.state = {
@@ -91,6 +92,7 @@ export class App {
     if (this.pendingReset) await this.pendingReset;
     const r = await this.ds.planRoute({ start: { x: this.m.rover.x, y: this.m.rover.y }, waypoints: this.m.waypoints });
     if (!r.ok && !r.path) { this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return null; }
+    this.routeBlocked = false;
     const searchDur = animate ? 2.2 : 0, drawDur = animate ? 1.0 : 0;
     this.state.search = animate ? { pts: r.expanded || [], t0: this.now, dur: searchDur } : null;
     this.state.route = this.#makeRoute(r.path, r.waypointIndex, r.letter || 'A', r, { t0: this.now + searchDur, dur: drawDur, s0: 0 });
@@ -104,7 +106,7 @@ export class App {
   #makeRoute(path, wpIndex, letter, stats, draw) {
     const poly = new Polyline(path);
     return {
-      letter, poly, wpS: wpIndex.map((i) => poly.cum[i]),
+      letter, version: stats.version, poly, wpS: wpIndex.map((i) => poly.cum[i]),
       lengthM: stats.lengthM, durationH: stats.durationH, stops: stats.stops, rating: stats.rating || 'bezpieczna',
       o2L: stats.o2L, uncertainty: stats.uncertainty || null, alternatives: stats.alternatives || null, draw,
     };
@@ -112,9 +114,9 @@ export class App {
 
   async #syncRemoteRoute() {
     const { route, discarded } = await this.ds.get('route');
-    if (!route) return;
+    if (!route) { this.state.route = null; this.sim.setRoute(null); this.emit('route'); return; }
     const cur = this.state.route;
-    if (cur && cur.letter === route.letter) return;              // ta sama trasa (np. po własnym POST /plan)
+    if (cur && cur.version === route.version) return;              // ta sama trasa (np. po własnym POST /plan)
     const s0 = route.replanFrom ?? 0;
     this.state.discarded = discarded || [];
     this.state.route = this.#makeRoute(route.path, route.waypointIndex, route.letter, route, { t0: this.now, dur: cur ? 0.65 : 0, s0: cur ? s0 : 0 });
@@ -132,7 +134,7 @@ export class App {
     const pos = old.poly.at(s);
     const remaining = this.m.waypoints.slice(this.sim.nextWp);
     const r = await this.ds.planRoute({ start: pos, waypoints: remaining, obstacles: this.state.obstacles });
-    if (!r.ok) { this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return; }
+    if (!r.ok) { this.sim.running = false; this.routeBlocked = true; this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return; }
     const walked = old.poly.slice(0, s);
     const path = walked.concat(r.path.slice(1));
     const off = walked.length - 1;
@@ -144,6 +146,7 @@ export class App {
     const stats = routeStats(this.world.terrain, path, this.m.eva, this.m.waypoints.length, totalStop);
     this.state.discarded.push(old.poly.slice(s, old.poly.length));
     const letter = String.fromCharCode(old.letter.charCodeAt(0) + 1);
+    this.routeBlocked = false;
     this.state.route = this.#makeRoute(path, wpIndex, letter, { ...stats, uncertainty: old.uncertainty }, { t0: this.now, dur: 0.65, s0: s });
     this.sim.setRoute(this.state.route);
     this.state.routeCardAt = this.now + 0.65;
@@ -199,15 +202,16 @@ export class App {
   // ---------- EVA ----------
   showCrew() { this.state.crewVisible = true; this.emit('crew'); }
   startEva(timeScale = 470) {
-    if (!this.state.route) return;
+    if (!this.state.route || this.routeBlocked) return;
     if (this.drive || this.roverAt) { this.drive = null; this.roverAt = null; this.emit('drive'); }   // EVA zaczyna od łazika przy habitacie
     this.state.crewVisible = true;
-    if (this.remote) this.ds.post('eva/start', { timeScale, scenario: !this.autoEvents });
+    if (this.remote) return this.ds.post('eva/start', { timeScale, scenario: !this.autoEvents }).catch(e => this.setAlert({ category: t('noRoute'), text: e.message }));
     else { this.sim.timeScale = timeScale; this.sim.running = true; }
     this.emit('eva');
   }
   pauseEva(paused) {
-    if (this.remote) this.ds.post(paused ? 'eva/pause' : 'eva/start', paused ? {} : { timeScale: this.sim.timeScale });
+    if (!paused && this.routeBlocked) return;
+    if (this.remote) return this.ds.post(paused ? 'eva/pause' : 'eva/start', paused ? {} : { timeScale: this.sim.timeScale });
     else this.sim.running = !paused;
   }
   setTimeScale(ts) { if (this.remote) this.ds.post('eva/timescale', { timeScale: ts }); else this.sim.timeScale = ts; }

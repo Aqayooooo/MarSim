@@ -1,7 +1,6 @@
 // ZAŚLEPKA BACKENDU: planer trasy A* na siatce kosztów.
 // Docelowo zastąpi go endpoint backendu POST /api/plan (patrz docs/KONTRAKT_DANYCH.md).
 // Wejście i wyjście mają dokładnie ten kształt, który ma zwracać backend.
-import { cumulative } from '../core/path.js';
 import { routeStats } from '../core/routeStats.js';
 
 class Heap {
@@ -73,7 +72,11 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
       if (a >= 0 && b >= 0 && a < W && b < H) blocked[b * W + a] = 0;
     }
   };
-  free(start); waypoints.forEach(free);
+  free(start);
+  for (const wp of waypoints) {
+    const [i, j] = cellOf(wp);
+    if (blocked[j * W + i]) return { ok: false, error: `Cel ${wp.id} leży w strefie niedostępnej` };
+  }
 
   const expanded = [];
   let visited = 0;
@@ -98,7 +101,7 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
         if (ni < 0 || nj < 0 || ni >= W || nj >= H) continue;
         const nk = nj * W + ni;
         if (blocked[nk] || closed[nk]) continue;
-        if (exact && di && dj && (blocked[j * W + ni] || blocked[nj * W + i])) continue;   // bez ścinania rogu po skosie
+        if (di && dj && (blocked[j * W + ni] || blocked[nj * W + i])) continue;   // bez ścinania rogu po skosie
         const ng = g[k] + d * C * 0.5 * (mult[k] + mult[nk]);
         if (ng < g[nk]) { g[nk] = ng; from[nk] = k; heap.push(ng + Math.hypot(ni - bi, nj - bj) * hw, nk); }
       }
@@ -106,6 +109,7 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
     if (from[t] === -1 && s !== t) return null;
     const cells = []; for (let k = t; k !== -1; k = from[k]) cells.push(k);
     cells.reverse();
+    if (cells.length === 1) cells.push(cells[0]);
     const pts = cells.map((k) => ({ x: (k % W + 0.5) * C, y: (((k / W) | 0) + 0.5) * C }));
     pts[0] = { x: a.x, y: a.y }; pts[pts.length - 1] = { x: b.x, y: b.y };
     return smooth(pts);
@@ -113,42 +117,45 @@ export function planRoute({ terrain, hazards, start, waypoints, obstacles = [], 
 
   // koszt odcinka prostego; Infinity, gdy przecina strefę zablokowaną
   function lineCost(p, q) {
-    const L = Math.hypot(q.x - p.x, q.y - p.y), n = Math.max(1, Math.ceil(L / (C * (exact ? 0.15 : 0.5))));
-    let c = 0;
-    for (let s = 0; s <= n; s++) {
-      const x = p.x + (q.x - p.x) * s / n, y = p.y + (q.y - p.y) * s / n;
-      const [i, j] = cellOf({ x, y }), k = j * W + i;
-      if (blocked[k]) return Infinity;
-      c += mult[k];
+    const length = Math.hypot(q.x - p.x, q.y - p.y);
+    const cuts = [0, 1];
+    for (const axis of ['x', 'y']) {
+      const delta = q[axis] - p[axis];
+      if (!delta) continue;
+      const low = Math.min(p[axis], q[axis]), high = Math.max(p[axis], q[axis]);
+      for (let border = Math.floor(low / C) + 1; border < Math.ceil(high / C); border++) {
+        cuts.push((border * C - p[axis]) / delta);
+      }
     }
-    return c / (n + 1) * L;
+    cuts.sort((a, b) => a - b);
+    const at = t => {
+      const [i, j] = cellOf({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+      return j * W + i;
+    };
+    let cost = 0;
+    for (let i = 0; i < cuts.length; i++) {
+      if (blocked[at(cuts[i])]) return Infinity;
+      if (i === 0 || cuts[i] === cuts[i - 1]) continue;
+      const k = at((cuts[i] + cuts[i - 1]) / 2);
+      if (blocked[k]) return Infinity;
+      cost += mult[k] * (cuts[i] - cuts[i - 1]) * length;
+    }
+    return cost;
   }
   function smooth(pts) {
-    const cum = cumulative(pts), out = [pts[0]];
+    const out = [pts[0]];
+    const legCosts = pts.slice(1).map((p, i) => lineCost(pts[i], p));
     let a = 0;
     while (a < pts.length - 1) {
       let best = a + 1;
       for (let b = Math.min(pts.length - 1, a + 80); b > a + 1; b--) {
-        let raw = 0; for (let m = a; m < b; m++) raw += lineCost(pts[m], pts[m + 1]);
-        if (lineCost(pts[a], pts[b]) <= raw * 1.04) { best = b; break; }
+        let raw = 0; for (let m = a; m < b; m++) raw += legCosts[m];
+        const shortcut = lineCost(pts[a], pts[b]);
+        if (Number.isFinite(shortcut) && shortcut <= raw * 1.04) { best = b; break; }
       }
       out.push(pts[best]); a = best;
     }
-    // zaokrąglenie załamań (Chaikin), końce bez zmian; łazik: bez zaokrąglania (mogłoby zahaczyć o kamień)
-    let r = out;
-    if (exact) return out;
-    for (let it = 0; it < 2; it++) {
-      const n = [r[0]];
-      for (let i = 0; i < r.length - 1; i++) {
-        const p = r[i], q = r[i + 1];
-        if (i > 0) n.push({ x: 0.75 * p.x + 0.25 * q.x, y: 0.75 * p.y + 0.25 * q.y });
-        if (i < r.length - 2) n.push({ x: 0.25 * p.x + 0.75 * q.x, y: 0.25 * p.y + 0.75 * q.y });
-      }
-      n.push(r[r.length - 1]);
-      r = n;
-    }
-    void cum;
-    return r;
+    return out;
   }
 
   const path = [];

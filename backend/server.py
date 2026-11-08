@@ -6,6 +6,7 @@ nigdy 500. Zdarzenia, zgłoszenia i harmonogram zapisuje baza SQLite (backend/li
 from __future__ import annotations
 
 import asyncio
+from contextvars import ContextVar
 import json
 import logging
 import os
@@ -148,8 +149,10 @@ def create_app(store: Store | None = None, start_loop: bool = True, live_feeds: 
                 engines[mid] = EvaEngine(MISSIONS / mid, mis.config(mid), store=st, live_feeds=live_feeds)
             return engines[mid]
 
+    request_mission = ContextVar("request_mission", default=None)
+
     def E() -> EvaEngine:
-        return engine_for(current["active"])
+        return engine_for(request_mission.get() or current["active"])
 
     def S() -> Store:
         return E().store
@@ -175,7 +178,14 @@ def create_app(store: Store | None = None, start_loop: bool = True, live_feeds: 
     @app.middleware("http")
     async def _revalidate_ui(request: Request, call_next):
         """Pliki interfejsu zawsze sprawdzane u serwera (ETag) — po aktualizacji nikt nie zostaje ze starym kodem."""
-        resp = await call_next(request)
+        expected = request.headers.get("X-MarSim-Mission")
+        if request.method in ("POST", "PUT", "DELETE") and expected and expected != current["active"]:
+            return _err(409, "Misja została zmieniona. Odśwież stronę.")
+        token = request_mission.set(current["active"] if request.url.path != "/api/missions/select" else None)
+        try:
+            resp = await call_next(request)
+        finally:
+            request_mission.reset(token)
         if request.url.path.startswith(("/src/", "/vendor/fonts/")) or request.url.path in ("/", "/styles.css"):
             resp.headers["Cache-Control"] = "no-cache"
         return resp
@@ -224,9 +234,12 @@ def create_app(store: Store | None = None, start_loop: bool = True, live_feeds: 
                 E().add_log("EVA", f"Przełączono misję: {old} → {body.id}", to_earth=False)
         return {"ok": True, "active": current["active"]}
 
-    @app.get("/missions/current/{name}")
-    def mission_file(name: str):
-        mdir = MISSIONS / current["active"]
+    @app.get("/missions/{mid}/{name}")
+    def mission_file(mid: str, name: str):
+        selected = E().cfg["id"] if mid == "current" else mid
+        if selected not in ready:
+            raise HTTPException(404, "Nie ma takiej misji")
+        mdir = MISSIONS / selected
         p = (mdir / name).resolve()
         if mdir.resolve() not in p.parents or not p.is_file():
             raise HTTPException(404, "Nie ma takiego pliku misji")
@@ -271,6 +284,8 @@ def create_app(store: Store | None = None, start_loop: bool = True, live_feeds: 
                 r = E().plan()
                 if not r.get("ok", True) and "path" not in r:
                     return JSONResponse(r, status_code=409)
+            if E().route_blocked:
+                return _err(409, "Trasa jest zablokowana. Wyznacz nową trasę.")
             E().running = True
             if body.timeScale is not None:
                 E().time_scale = body.timeScale
@@ -304,10 +319,20 @@ def create_app(store: Store | None = None, start_loop: bool = True, live_feeds: 
     @app.post("/api/telemetry")
     def telemetry(d: Telemetry):
         """Wejście dla prawdziwego skafandra. Wyłącza model dla tej osoby."""
+        if not d.model_fields_set - {"id"}:
+            raise HTTPException(422, "Brak pomiarów telemetrii")
+        if d.x is not None or d.y is not None:
+            if d.x is None or d.y is None:
+                raise HTTPException(422, "Pozycja wymaga x i y")
+            inside(d.x, d.y)
         with E().lock:
             for c in E().crew:
                 if c["cfg"]["id"] == d.id:
                     c["source"] = "skafander"
+                    values = d.model_dump(exclude_none=True, exclude={"id"})
+                    c.setdefault("telemetry", {}).update(values)
+                    c.setdefault("telemetryTimes", {}).update({key: E().t for key in values})
+                    c["telemetryAt"] = E().t
                     p = c["person"]
                     if d.o2L is not None:
                         p.o2_l = min(d.o2L, p.o2_capacity_l)
@@ -355,6 +380,12 @@ def create_app(store: Store | None = None, start_loop: bool = True, live_feeds: 
 
     @app.post("/api/schedule")
     def schedule_upsert(item: ScheduleItem):
+        with E().lock:
+            return _schedule_insert(item)
+
+    def _schedule_insert(item: ScheduleItem):
+        if any(i["id"] == item.id for i in E().scheduler.items):
+            raise HTTPException(409, "Identyfikator wyjścia jest już zajęty")
         ids = {c["id"] for c in E().cfg["crew"]}
         bad = [c for c in item.crew if c not in ids]
         if bad:
@@ -362,6 +393,17 @@ def create_app(store: Store | None = None, start_loop: bool = True, live_feeds: 
         E().scheduler.upsert(item.model_dump())
         E().add_log("harmonogram", f"Zapisano {item.id}: sol {item.sol}, {item.startLtst}, {item.durationH:g} h", to_earth=False)
         return E().scheduler.evaluate()
+
+    @app.put("/api/schedule/{item_id}")
+    def schedule_update(item_id: str, item: ScheduleItem):
+        with E().lock:
+            if item_id != item.id or not any(i["id"] == item_id for i in E().scheduler.items):
+                raise HTTPException(404, "Nie ma takiego wyjścia")
+            ids = {c["id"] for c in E().cfg["crew"]}
+            if not set(item.crew) <= ids:
+                raise HTTPException(422, "Nieznany członek załogi")
+            E().scheduler.upsert(item.model_dump())
+            return E().scheduler.evaluate()
 
     @app.delete("/api/schedule/{item_id}")
     def schedule_delete(item_id: str):

@@ -98,6 +98,9 @@ def main() -> int:
     SOURCES = missions.sources(mission)
     print(f"Misja: {mission}")
     check = "--check" in sys.argv
+    manifest_path = RAW / f"manifest-{mission}.json"
+    previous = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    failed = False
     manifest = {}
     for p in SOURCES["products"]:
         if p.get("remote"):
@@ -107,16 +110,21 @@ def main() -> int:
         dest = RAW / p["file"]
         if not dest.exists():
             if check:
+                failed = True
                 print(f"[BRAK]  {p['id']}")
                 continue
             dest.parent.mkdir(parents=True, exist_ok=True)
             print(f"[pobieram] {p['id']} → {dest}")
             download(p["url"], dest)
         digest = sha256(dest)
+        if check and digest != previous.get(p["id"], {}).get("sha256"):
+            failed = True
+            print(f"[ZMIANA] {p['id']}")
         manifest[p["id"]] = {"url": p["url"], "file": str(dest), "bytes": dest.stat().st_size, "sha256": digest}
         print(f"[OK]    {p['id']}  {dest.stat().st_size:>11} B  sha256 {digest[:16]}…")
-    (RAW / f"manifest-{mission}.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    return 0
+    if not check:
+        manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return int(failed)
 
 
 if __name__ == "__main__":

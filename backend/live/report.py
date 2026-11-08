@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from backend import planning
 
 import numpy as np
 
@@ -35,6 +36,8 @@ def build(e) -> dict:
         return {"ok": False, "error": "Brak trasy — najpierw wyznacz trasę."}
     L, cell, prov = e.layers, e.cell, e.provenance
     pts = _sample_path(r["path"])
+    if not pts:
+        pts = [{**r["path"][0], "d": 0.0}]
     rc = [(min(L["hazard"].shape[0] - 1, int(p["y"] // cell)), min(L["hazard"].shape[1] - 1, int(p["x"] // cell))) for p in pts]
     slope = np.array([L["slope"][i] for i in rc]); sig = np.array([L["slopeSigma"][i] for i in rc])
     sand = np.array([L["sand"][i] for i in rc]); sconf = np.array([L["sandConfidence"][i] for i in rc])
@@ -45,7 +48,8 @@ def build(e) -> dict:
     o2_need = r["o2L"] * 1.1
     cap = min(c["person"].o2_capacity_l for c in e.crew)
     reserve = e.cfg["eva"]["o2ReservePct"] / 100 * cap
-    end_h = e.start_min / 60 + r["durationH"]
+    return_leg = planning.plan(e.model, r['path'][-1], [{"id": "habitat", **e.cfg['habitat']}], e.obstacles, e.layers)
+    end_h = e.start_min / 60 + r["durationH"] + (return_leg['durationH'] if return_leg['ok'] else 24)
     sunset = prov["sun"]["sunsetLtst"]
     temps = [e.temperature_at(r["path"][0], e.start_min / 60), e.temperature_at(r["path"][-1], end_h)]
     sw = e.spaceweather or {}
@@ -79,7 +83,7 @@ def build(e) -> dict:
     add("H6", "Zmrok przed powrotem", 4 if end_h > sunset - 0.5 else 2 if end_h > sunset - 2 else 1, 4,
         "położenie Słońca (Allison & McEwen 2000) i cienie z DTM", "planowany powrót ≥30 min przed zmierzchem",
         f"koniec ok. {fmt_ltst(end_h)} LTST, zmierzch {fmt_ltst(sunset)}")
-    add("H7", "Promieniowanie (GCR i burza słoneczna)", 3 if sw.get("pfu", 0) >= 10 else 2, 4 if sw.get("pfu", 0) >= 100 else 3,
+    add("H7", "Promieniowanie (GCR i burza słoneczna)", 3 if (sw.get("pfu") or 0) >= 10 else 2, 4 if (sw.get("pfu") or 0) >= 100 else 3,
         "RAD (Curiosity) 0,64 mSv/sol; DONKI i NOAA SWPC", "schron ≤15 min; przerwanie EVA przy S2+",
         f"dawka EVA ok. {dose_eva:.0f} μSv; {sw.get('summary', 'brak danych pogody kosmicznej')}")
     add("H8", "Niska temperatura (skafander, baterie)", 2 if min(temps) > 190 else 3, 2,

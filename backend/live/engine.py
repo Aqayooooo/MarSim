@@ -144,9 +144,11 @@ class EvaEngine:
             if not np.array_equal(self.layers["hazard"], self._hazard0):   # nowa sesja: mapa zagrożeń bez zgłoszeń z poprzedniej
                 self.layers["hazard"] = self._hazard0.copy()
                 self.model = self._cost_model()
+            self.o2_home = planning.cost_field(self.model, self.cfg["habitat"], "o2")
             self.start_min = int(self.cfg["startLtst"][:2]) * 60 + int(self.cfg["startLtst"][3:])
             self.t = 0.0                    # sekundy misji od startu
             self.running = False
+            self.route_blocked = False
             self.time_scale = 60.0
             self.route = None
             self.route_version = 0
@@ -165,6 +167,8 @@ class EvaEngine:
             self.sim_pfu = 0.0
             self.alerts = []
             self.obstacles = []
+            self.positioner.odo_err.clear()
+            self.positioner.last_moved.clear()
             self.observations = []
             self.discarded = []
             self.fired = set()
@@ -208,7 +212,9 @@ class EvaEngine:
 
     def _set_route(self, r, waypoints):
         self.route = r
+        self.route_blocked = False
         self.route_version += 1
+        r["version"] = self.route_version
         self.waypoints = list(waypoints)
         self.poly = Polyline(r["path"])
         self.wp_s = [self.poly.cum[i] for i in r["waypointIndex"]]
@@ -223,6 +229,7 @@ class EvaEngine:
             return None
         r = planning.plan(self.model, pos, remaining, self.obstacles, self.layers)
         if not r["ok"]:
+            self.route_blocked = True
             self.alert("BRAK TRASY", r["error"])
             return None
         walked = self.poly.slice(0, self.crew_s)
@@ -235,7 +242,7 @@ class EvaEngine:
         letter = chr(ord(old["letter"]) + 1)
         stop_min = sum(w.get("stopMin", 0) for w in self.waypoints)
         new = {**r, "path": path, "waypointIndex": idx, "lengthM": stats["lengthM"], "durationH": stats["walkH"] + stop_min / 60,
-               "o2L": stats["o2L"], "rating": stats["rating"], "uncertainty": stats["uncertainty"], "letter": letter,
+               "o2L": r["o2L"] + planning.path_stats(self.model, walked, self.layers)["o2L"], "rating": stats["rating"], "uncertainty": stats["uncertainty"], "letter": letter,
                "replanFrom": self.crew_s, "deltaM": stats["lengthM"] - old["lengthM"]}
         self._set_route(new, self.waypoints)
         self.add_log("trasa", f"Nowa trasa {letter} ({reason}): {new['deltaM']:+.0f} m")
@@ -264,6 +271,7 @@ class EvaEngine:
                 m = np.hypot(xx - obs["x"], yy - obs["y"]) < r
                 self.layers["hazard"][m & (self.layers["hazard"] == 1)] = 0
                 self.model = self._cost_model()
+            self.o2_home = planning.cost_field(self.model, self.cfg["habitat"], "o2", self.obstacles)
             self.add_log("zgłoszenie", f"{obs.get('source', 'załoga')}: {kind} ({obs['x']:.0f}, {obs['y']:.0f}) r={r:.0f} m", obs)
             res = None
             if self.route and kind != "bezpieczne" and self._route_hits(obs["x"], obs["y"], r):
@@ -312,7 +320,7 @@ class EvaEngine:
             self.t += dt
             dt_min = dt / 60
             # marsz
-            if self.poly and self.t / 60 >= self.stop_until and self.next_wp < len(self.wp_s):
+            if not self.route_blocked and self.poly and self.t / 60 >= self.stop_until and self.next_wp < len(self.wp_s):
                 p = self.poly.at(self.crew_s)
                 i = self.rc(p)
                 v = float(max(0.3, planning.walk_speed_ms(self.layers["slope"][i] + 2 * self.layers["slopeSigma"][i], self.cfg["eva"]["walkKmh"])))
@@ -334,8 +342,9 @@ class EvaEngine:
                 walking = False
             # telemetria skafandrów (model)
             for k, c in enumerate(self.crew):
-                if c["source"] != "model":
-                    continue
+                c["telemetry"] = {key: value for key, value in c.get("telemetry", {}).items() if self.t - c.get("telemetryTimes", {}).get(key, -1e9) <= 60}
+                if not c["telemetry"]:
+                    c["source"] = "model"
                 pers = c["person"]
                 pos = self.crew_pos(k)
                 i = self.rc(pos)
@@ -344,11 +353,17 @@ class EvaEngine:
                 speed = float(planning.walk_speed_ms(slope, self.cfg["eva"]["walkKmh"])) if walking else 0.0
                 met = float(metabolic_w(pers, speed, math.tan(math.radians(slope)) * 100, terrain)) * (1.12 if self.sep else 1.0)
                 c["metabolic"] = met * (0.97 + 0.06 * random.random())
+                old_o2, old_battery, old_co2 = pers.o2_l, pers.battery_left_wh, c["co2mmHg"]
                 pers.o2_l = max(0.0, pers.o2_l - (o2_l_per_min(c["metabolic"]) + pers.leak_l_min) * dt_min)
                 pers.co2_absorbed_l += co2_l_per_min(c["metabolic"]) * dt_min
                 sat = min(1.0, pers.co2_absorbed_l / pers.co2_capacity_l)
                 c["co2mmHg"] = 0.6 + 7.0 * sat ** 4 + random.gauss(0, 0.05)
                 pers.battery_left_wh = max(0.0, pers.battery_left_wh - (80 + 0.06 * c["metabolic"]) * dt / 3600)
+                if c["source"] == "skafander":
+                    measured = c.get("telemetry", {})
+                    if "o2L" in measured: pers.o2_l = old_o2
+                    if "batteryPct" in measured: pers.battery_left_wh = old_battery
+                    if "co2mmHg" in measured: c["co2mmHg"] = old_co2
                 dose = self.dose_rate() * dt / 3600
                 c["evaDoseUsv"] += dose
                 pers.dose_msv += dose / 1000
@@ -385,6 +400,8 @@ class EvaEngine:
                 self.inject("boulders" if ev["type"] == "obstacle" else "sep")
 
     def crew_pos(self, k: int) -> dict:
+        if "telemetry" in self.crew[k] and "x" in self.crew[k]["telemetry"]:
+            return {key: self.crew[k]["telemetry"][key] for key in ("x", "y")}
         if not self.poly:
             return {"x": self.cfg["rover"]["x"] + 5 * (k + 1), "y": self.cfg["rover"]["y"]}
         return self.poly.at(max(0.0, self.crew_s - k * self.gap))
@@ -410,8 +427,9 @@ class EvaEngine:
             for k, c in enumerate(self.crew):
                 pers, pos = c["person"], self.crew_pos(k)
                 i = self.rc(pos)
-                if int(self.t) % 2 == 0 or c["est"] is None:
+                if c["est"] is None or self.t - c.get("estAt", -2.0) >= 2.0:
                     c["est"] = self.positioner.estimate(c["cfg"]["id"], pos, c["moved"])
+                    c["estAt"] = self.t
                 need = float(self.o2_home[i]) * (pers.body_kg + pers.load_kg) / self._ref_mass_kg
                 avail = pers.o2_l - self.cfg["eva"]["o2ReservePct"] / 100 * pers.o2_capacity_l
                 rate_lh = (o2_l_per_min(c["metabolic"]) + pers.leak_l_min) * 60
@@ -419,17 +437,18 @@ class EvaEngine:
                 wb = {"needL": round(need, 1), "availL": round(avail, 1), "marginH": round(margin_h, 2), "ok": avail > need}
                 if worst is None or margin_h < worst:
                     worst = margin_h
-                crew.append({"id": c["cfg"]["id"], "x": round(pos["x"], 1), "y": round(pos["y"], 1), "est": c["est"], "source": c["source"],
+                crew.append({"id": c["cfg"]["id"], "x": round(pos["x"], 1), "y": round(pos["y"], 1), "est": c["est"], "source": c["source"], "telemetryFields": list(c.get("telemetry", {})),
                              "o2Pct": round(pers.o2_l / pers.o2_capacity_l * 100, 1), "o2L": round(pers.o2_l, 1),
                              "co2mmHg": round(c["co2mmHg"], 2), "batteryPct": round(pers.battery_left_wh / pers.battery_wh * 100, 1),
                              "pressureKPa": round(29.6 + random.gauss(0, 0.04), 2), "suitTempC": round(20.5 + (c["metabolic"] - 200) / 120 + random.gauss(0, 0.1), 1),
-                             "hr": int(heart_rate(c["metabolic"]) + random.gauss(0, 1.5)), "metabolicW": round(c["metabolic"]),
+                             "telemetryAgeS": round(self.t - c.get("telemetryAt", self.t), 1),
+                             "hr": c.get("telemetry", {}).get("hr", int(heart_rate(c["metabolic"]) + random.gauss(0, 1.5))), "metabolicW": round(c["metabolic"]),
                              "evaDoseUsv": round(c["evaDoseUsv"], 1), "career": radiation.limit_status(pers.dose_msv), "walkback": wb,
                              "comms": int(self.comms[i]), "zone": int(self.layers["hazard"][i])})
             pos0 = self.crew_pos(0)
             sw = self.spaceweather or {}
             return {
-                "t": round(self.t, 1), "clockMin": self.clock_min, "clock": self.clock_str(), "sol": self.cfg["sol"], "running": self.running,
+                "missionId": self.cfg["id"], "t": round(self.t, 1), "clockMin": self.clock_min, "clock": self.clock_str(), "sol": self.cfg["sol"], "running": self.running,
                 "timeScale": self.time_scale, "routeVersion": self.route_version, "crewS": round(self.crew_s, 2), "gap": self.gap,
                 "nextWp": self.next_wp, "reached": self.reached, "sep": self.sep, "crew": crew,
                 "rover": {"x": round(self.rover["x"], 1), "y": round(self.rover["y"], 1), "s": round(self.rover["s"], 1), "mode": self.rover["mode"]},

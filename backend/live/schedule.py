@@ -93,6 +93,10 @@ class Scheduler:
         wh_avail = self.stores["batteriesWh"] * 0.8 * n_sols          # baterie ładowane co sol
         if o2_total > o2_avail:
             issues.append(f"Tlen: plan wymaga {o2_total:.0f} L, dostępne {o2_avail:.0f} L (80% zapasów)")
+        for sol in sorted({i["sol"] for i in self.items}):
+            needed = sum(95 * i["durationH"] * len(i["crew"]) for i in self.items if i["sol"] == sol)
+            if needed > self.stores["batteriesWh"] * 0.8:
+                issues.append(f"Energia: sol {sol} wymaga {needed:.0f} Wh, dostępne {self.stores['batteriesWh'] * 0.8:.0f} Wh")
         if wh_total > wh_avail:
             issues.append(f"Energia: plan wymaga {wh_total:.0f} Wh, dostępne {wh_avail:.0f} Wh (80% baterii × {n_sols} sol)")
         for it in per_item:

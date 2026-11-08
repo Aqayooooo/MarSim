@@ -27,7 +27,7 @@ if /i "%~1"=="demo" goto demo
 if not exist ".venv\Scripts\python.exe" (
   echo [MarSim] Pierwsze uruchomienie: tworze srodowisko .venv i instaluje pakiety ^(wymaga internetu, raz^)...
   %PY% -m venv .venv || goto fail
-  ".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q -r requirements.txt || goto fail
+  ".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -q -r requirements-runtime.txt || goto fail
 )
 
 set "PORT=8000"

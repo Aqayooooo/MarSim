@@ -45,6 +45,7 @@ export class RemoteSim {
   reserveH() { return this.snap?.reserveH ?? 0; }
 
   #onSnap(s) {
+    if (s.missionId && s.missionId !== this.m.mission.id) { location.reload(); return; }
     const first = this.snap === null;
     this.snap = s;
     this.min = s.clockMin;

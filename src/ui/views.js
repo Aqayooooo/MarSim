@@ -95,7 +95,7 @@ export class ReportView {
     let matrix = '<div class="matrix" role="table"><div class="ax"></div>' + [1, 2, 3, 4, 5].map((s) => `<div class="ax" style="justify-content:center">${S}${s}</div>`).join('');
     r.riskMatrix.forEach((row, i) => {
       const l = 5 - i;
-      matrix += `<div class="ax">${P}${l}</div>` + row.map((n, j) => `<div style="background:${color(l, j + 1)}">${n || ''}</div>`).join('');
+      matrix += `<div class="ax">${P}${l}</div>` + row.map((n, j) => `<div style="background:${color(l, j + 1)}">${esc(n || '')}</div>`).join('');
     });
     matrix += `</div><p class="muted" style="font-size:11px">${t('rep.matrixNote')}</p>`;
     const link = snap?.link, pv = r.provenance;
@@ -113,7 +113,7 @@ export class ReportView {
       <p class="muted" style="font-size:12px">${esc(tx(e.note))}</p>
       <h2>${t('rep.hazards')}</h2>
       <div class="two"><table><tr><th>#</th><th>${t('rep.thHazard')}</th><th>${t('rep.thRisk')}</th><th>${t('rep.thValue')}</th><th>${t('rep.thBasis')}</th><th>${t('rep.thMit')}</th></tr>
-        ${r.hazards.map((h) => `<tr><td>${h.id}</td><td>${esc(tx(h.hazard))}</td><td><span class="lvl ${h.level}">${esc(tx(h.level))} ${h.likelihood}×${h.severity}</span></td>
+        ${r.hazards.map((h) => `<tr><td>${esc(h.id)}</td><td>${esc(tx(h.hazard))}</td><td><span class="lvl">${esc(tx(h.level))} ${esc(h.likelihood)}×${esc(h.severity)}</span></td>
           <td>${esc(tx(h.value))}</td><td class="muted">${esc(tx(h.basis))}</td><td class="muted">${esc(tx(h.mitigation))}</td></tr>`).join('')}</table>
         <div>${matrix}</div></div>
       <h2>${t('rep.data')}</h2>
@@ -156,7 +156,7 @@ export class ScheduleView {
     this.el.innerHTML = `${sample ? SAMPLE_NOTE(sample) : ''}
       <h2>${t('sc.title')}</h2>
       <table><tr><th>EVA</th><th>Sol</th><th>${t('sc.thStart')}</th><th>${t('sc.thCrew')}</th><th>${t('sc.thPurpose')}</th><th>O₂</th><th>${t('sc.thEnergy')}</th><th>${t('sc.thNotes')}</th>${sample ? '' : '<th></th>'}</tr>
-        ${d.items.map((i) => `<tr><td><b>${esc(i.id)}</b></td><td>${i.sol}</td><td>${esc(i.startLtst)}–${esc(i.endLtst)}</td><td>${esc(i.crew.join(', '))}</td>
+        ${d.items.map((i) => `<tr><td><b>${esc(i.id)}</b></td><td>${esc(i.sol)}</td><td>${esc(i.startLtst)}–${esc(i.endLtst)}</td><td>${esc(i.crew.join(', '))}</td>
           <td class="muted">${esc(tx(i.purpose))}</td><td>${int(i.o2L)} L</td><td>${int(i.batteryWh)} Wh</td>
           <td>${i.issues.length ? `<span class="warn">${esc(i.issues.map(tx).join('; '))}</span>` : '<span class="ok">OK</span>'}</td>
           ${sample ? '' : `<td><button class="btn" data-del="${esc(i.id)}" aria-label="${t('sc.delete')} ${esc(i.id)}">${t('sc.delete')}</button></td>`}</tr>`).join('')}</table>
@@ -175,7 +175,7 @@ export class ScheduleView {
       <div class="row">
         <input id="scId" placeholder="EVA-5" size="7" aria-label="EVA ID"> sol <input id="scSol" type="number" value="${(d.items.at(-1)?.sol ?? 147) + 1}" style="width:70px" aria-label="sol">
         ${t('sc.start')} <input id="scStart" value="09:30" size="5" aria-label="${t('sc.start')} (LTST)"> ${t('sc.dur')} <input id="scDur" type="number" step="0.5" value="3" style="width:60px" aria-label="${t('sc.dur')}">
-        ${crew.map((c) => `<label><input type="checkbox" class="scCrew" value="${c}" checked> ${c}</label>`).join(' ')}
+        ${crew.map((c) => `<label><input type="checkbox" class="scCrew" value="${esc(c)}" checked> ${esc(c)}</label>`).join(' ')}
         <input id="scPurpose" placeholder="${t('sc.purpose')}" size="22" aria-label="${t('sc.purpose')}"> <button class="btn accent" id="scAdd">${t('sc.save')}</button>
       </div>`}`;
     if (sample) return;
@@ -183,7 +183,7 @@ export class ScheduleView {
       try { this.render(await this.app.ds.del(`schedule/${encodeURIComponent(b.dataset.del)}`)); } catch (e) { this.render(d, e.message); }
     }));
     $('scAdd').addEventListener('click', async () => {
-      const item = { id: $('scId').value || `EVA-${d.items.length + 1}`, sol: +$('scSol').value, startLtst: $('scStart').value, durationH: +$('scDur').value,
+      const item = { id: $('scId').value || `EVA-${Math.max(0, ...d.items.map(i => Number(i.id.match(/^EVA-(\d+)$/)?.[1]) || 0)) + 1}`, sol: +$('scSol').value, startLtst: $('scStart').value, durationH: +$('scDur').value,
         crew: [...this.el.querySelectorAll('.scCrew:checked')].map((x) => x.value), purpose: $('scPurpose').value || t('sc.defaultPurpose') };
       try { this.render(await this.app.ds.post('schedule', item)); } catch (e) { this.render(d, e.message); }
     });
@@ -276,13 +276,13 @@ export class RouteCompare {
     const order = ['chosen', 'shortest', 'straight', 'strict'];
     const rows = [...alts].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)).map((a) => {
       const nums = a.ok ? t('alt.nums', { len: kmFmt(a.lengthM), time: hm(a.durationH), o2: int(a.o2L) }) : '—';
-      return `<div class="row" tabindex="0" role="button" data-id="${a.id}" aria-label="${esc(t(`alt.v.${a.id}`))}">
+      return `<div class="row" tabindex="0" role="button" data-id="${esc(a.id)}" aria-label="${esc(t(`alt.v.${a.id}`))}">
         <i class="sw" style="background:${ALT_COLORS[a.id]}"></i>
-        <div><span class="nm">${esc(t(`alt.v.${a.id}`))}</span>${a.verdict === 'chosen' ? '' : `<span class="badge ${a.verdict}">${esc(t(`alt.b.${a.verdict}`))}</span>`}</div>
+        <div><span class="nm">${esc(t(`alt.v.${a.id}`))}</span>${a.verdict === 'chosen' ? '' : `<span class="badge">${esc(t(`alt.b.${a.verdict}`))}</span>`}</div>
         <div class="nums">${nums}</div>
         <div class="rs">${a.reasons.map((r) => esc(reasonText(r))).join(' · ')}</div></div>`;
     }).join('');
-    this.el.innerHTML = `<h3>${t('alt.title')}</h3><p class="why">${t('alt.intro', { deg })}</p>${rows}<div class="foot">${t('alt.foot')}</div>`;
+    this.el.innerHTML = `<h3>${t('alt.title')}</h3><p class="why">${t('alt.intro', { deg: esc(deg) })}</p>${rows}<div class="foot">${t('alt.foot')}</div>`;
     this.el.querySelectorAll('.row').forEach((r) => {
       const pick = () => { this.app.state.altHi = this.app.state.altHi === r.dataset.id ? null : r.dataset.id;
         this.el.querySelectorAll('.row').forEach((x) => x.classList.toggle('hi', x.dataset.id === this.app.state.altHi)); };
@@ -364,7 +364,7 @@ export class PathPicker {
     }
     st.pick.path = res.path;
     this.#card(`<b>${t('pick.title')}</b><span class="big">${t('pick.result', { len: kmFmt(res.lengthM), time: hm(res.durationH), rover: fmtS(new Drive(res.path, { terrain: this.app.world.terrain, hazards: this.app.world.rasters.hazards, speedKmh: this.app.m.rover.speedKmh }).etaS()) })}</span><br>
-      ${t('pick.stats', { n: int(res.visited), ms: int(res.ms), deg: this.app.m.eva.maxSlopeDeg })}<br><span class="muted">${t('pick.again')}</span>
+      ${t('pick.stats', { n: int(res.visited), ms: int(res.ms), deg: esc(this.app.m.eva.maxSlopeDeg) })}<br><span class="muted">${t('pick.again')}</span>
       <div class="pc-row"><button class="btn accent" data-a="drive3d">${t('pick.drive3d')}</button><button class="btn" data-a="drive2d">${t('pick.drive2d')}</button></div>`);
   }
 }
