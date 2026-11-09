@@ -125,7 +125,7 @@ def test_schedule_end_time_and_energy_rule():
     assert not any(i.startswith("Energia") for i in ev["issues"])
     s.stores = {"o2TanksL": 1e6, "batteriesWh": 100}                    # 95 Wh/h × 1 h > 80% z 100 Wh
     ev = s.evaluate()
-    assert any(i.startswith("Energia: plan wymaga 95 Wh, dostępne 80 Wh") for i in ev["issues"]), ev["issues"]
+    assert any(i.startswith("Energia: sol 1 wymaga 95 Wh, dostępne 80 Wh") for i in ev["issues"]), ev["issues"]
     assert ev["consumables"]["batteryAvailableWh"] == 80
 
 

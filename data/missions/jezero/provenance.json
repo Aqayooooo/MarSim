@@ -268,7 +268,7 @@
     "hazards.png": "d7f7dbac1ef33896806c2b282fd69ffbc2e7b20b4d49f9f3915303a9afa127aa",
     "minerals.png": "924145a199652d6443686a7e88e7b5193c78aa5aae4fcf34207f1cfe2eab7b20",
     "mineralsConfidence.png": "75da5d8ed160f638b1f9e5d4fc84769823b9e729f75467e526afb5e5190d6249",
-    "o2ToHabitat.f32": "a900729195c9a6e1999b3af3734057b6bdd811b68f9c9d0c0673d60c93dce9ac",
+    "o2ToHabitat.f32": "b1763d8e85e830e1d5f0c14d7bc59caf62d25ce3365f5e49cfabedef216f8750",
     "optical.png": "5a1afb58f4fb61339237c8b5b5ee45202c261c50d897f4ee5d6b4994d35402fb",
     "sand.png": "432ce31e803a1fdff827020fca0b152fe8cb1cf29f20b576ae64f302f5b3f309",
     "sandConfidence.png": "acf8620cac0b3c435c81c5014ee40867305555860db736d3b15d2af4947b7221",
@@ -288,6 +288,6 @@
     "slope.f32": "914c80aaac023dd4fa493ea3a9cf314e9d6d546b770493e93e6d8455ca1bf992",
     "slopeSigma.f32": "37635b0aa12c4e657c9ca4cb2e4cd870cc4e1027b2c47c728452eb0823b8fc7b",
     "thermal.png": "f705ed493ab25a1e34b53582116418b2bd5408e0262f9e45ff47f37cc8467270",
-    "timeToHabitat.f32": "65edecad8326ebce7c025fdd52fc75efa172b155e3a32e2bb3cd86e42c8bf3f3"
+    "timeToHabitat.f32": "bbfeddc056065f0ae1e25ade860c0e835503c672c8476b655ee3cdb59aa6b30f"
   }
 }

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import math
 import re
-from backend import planning
 
 import numpy as np
 
+from backend import planning
 from backend.models.sun import fmt_ltst
 
 LIKELIHOOD = {1: "rzadkie", 2: "mało prawdopodobne", 3: "możliwe", 4: "prawdopodobne", 5: "prawie pewne"}
@@ -15,9 +15,14 @@ SEVERITY = {1: "pomijalny", 2: "mały", 3: "umiarkowany", 4: "poważny", 5: "kry
 P_FAIL = {1: 0.002, 2: 0.01, 3: 0.04, 4: 0.12, 5: 0.3}   # wpływ na ukończenie misji (założenie)
 
 
-def _risk(l, s):
-    r = l * s
-    return r, ("wysokie" if r >= 15 else "średnie" if r >= 8 else "niskie")
+def _risk(likelihood: int, severity: int) -> tuple[int, str]:
+    risk = likelihood * severity
+    return risk, ("wysokie" if risk >= 15 else "średnie" if risk >= 8 else "niskie")
+
+
+def _polish_number_format(text):
+    """Przecinek dziesiętny i typograficzny minus w tekstach raportu."""
+    return re.sub(r"(?<=\d)\.(?=\d)", ",", text).replace("-", "−") if isinstance(text, str) else text
 
 
 def _sample_path(path, step=3.0):
@@ -39,15 +44,19 @@ def build(e) -> dict:
     if not pts:
         pts = [{**r["path"][0], "d": 0.0}]
     rc = [(min(L["hazard"].shape[0] - 1, int(p["y"] // cell)), min(L["hazard"].shape[1] - 1, int(p["x"] // cell))) for p in pts]
-    slope = np.array([L["slope"][i] for i in rc]); sig = np.array([L["slopeSigma"][i] for i in rc])
-    sand = np.array([L["sand"][i] for i in rc]); sconf = np.array([L["sandConfidence"][i] for i in rc])
-    comms = np.array([e.comms[i] for i in rc]); seg = np.array([p["d"] for p in pts])
+    slope = np.array([L["slope"][i] for i in rc])
+    sig = np.array([L["slopeSigma"][i] for i in rc])
+    sand = np.array([L["sand"][i] for i in rc])
+    sconf = np.array([L["sandConfidence"][i] for i in rc])
+    comms = np.array([e.comms[i] for i in rc])
+    seg = np.array([p["d"] for p in pts])
+    eva = e.cfg["eva"]
     k = int(np.argmax(slope))
     near_b = [b for b in e.boulders if b["confidence"] >= 0.5 and min(math.hypot(b["x"] - p["x"], b["y"] - p["y"]) for p in pts[::3]) < 15]
     no_comms = float(seg[comms == 0].sum())
     o2_need = r["o2L"] * 1.1
     cap = min(c["person"].o2_capacity_l for c in e.crew)
-    reserve = e.cfg["eva"]["o2ReservePct"] / 100 * cap
+    reserve = eva["o2ReservePct"] / 100 * cap
     return_leg = planning.plan(e.model, r['path'][-1], [{"id": "habitat", **e.cfg['habitat']}], e.obstacles, e.layers)
     end_h = e.start_min / 60 + r["durationH"] + (return_leg['durationH'] if return_leg['ok'] else 24)
     sunset = prov["sun"]["sunsetLtst"]
@@ -65,7 +74,8 @@ def build(e) -> dict:
 
     ms, ss = float(slope[k]), float(sig[k])
     add("H1", "Strome zbocze (poślizg, upadek)", 4 if ms + 2 * ss > 20 else 3 if ms + 2 * ss > 15 else 2, 4,
-        f"DTM HiRISE {e.mission['dem']['source']}, σz {e.mission['dem']['sigmaZM']} m", "trasa omija nachylenie+2σ > 25°; kijki, asekuracja",
+        f"DTM HiRISE {e.mission['dem']['source']}, σz {e.mission['dem']['sigmaZM']} m",
+        f"trasa omija nachylenie+2σ > {eva['maxSlopeDeg']:g}°; kijki, asekuracja",
         f"maks. {ms:.1f}° ±{ss:.1f}° (2σ: {ms + 2 * ss:.1f}°)")
     add("H2", "Luźny piasek (zakopanie, wysiłek)", 3 if sand.max() > 0.45 else 2, 3,
         "5 wskaźników: ciemność, zmarszczki, THEMIS, gładkość obrazu i DTM", "trasa omija piasek > 0,6; uwaga przy 0,35–0,6",
@@ -78,7 +88,8 @@ def build(e) -> dict:
         f"{no_comms:.0f} m trasy bez zasięgu ({no_comms / max(seg.sum(), 1) * 100:.0f}%)")
     margin = cap - reserve - o2_need
     add("H5", "Niewystarczający zapas tlenu", 1 if margin > 200 else 3 if margin > 50 else 5, 5,
-        "model wysiłku Pandolfa (0,38 g) skalibrowany do EVA Apollo", "granica powrotu pieszego na mapie; rezerwa 20%",
+        "model wysiłku Pandolfa (0,38 g) dopasowany do średniego wysiłku w EVA Apollo",
+        f"granica powrotu pieszego na mapie; rezerwa {eva['o2ReservePct']:g}%",
         f"potrzeba {o2_need:.0f} L, dostępne {cap - reserve:.0f} L ponad rezerwę")
     add("H6", "Zmrok przed powrotem", 4 if end_h > sunset - 0.5 else 2 if end_h > sunset - 2 else 1, 4,
         "położenie Słońca (Allison & McEwen 2000) i cienie z DTM", "planowany powrót ≥30 min przed zmierzchem",
@@ -115,10 +126,9 @@ def build(e) -> dict:
     ]
     data_basis = [{"source": s["id"], "instrument": s["instrument"], "use": s["description"].split(" — ")[-1] if " — " in s["description"] else s["description"],
                    "sha256": (s.get("sha256") or "")[:12] or None} for s in prov["sources"]]
-    pl = lambda t: re.sub(r"(?<=\d)\.(?=\d)", ",", t).replace("-", "−") if isinstance(t, str) else t  # noqa: E731
-    summary = [pl(x) for x in summary]
+    summary = [_polish_number_format(line) for line in summary]
     for h in H:
-        h["value"] = pl(h["value"])
+        h["value"] = _polish_number_format(h["value"])
     return {"ok": True, "routeLetter": r["letter"], "summary": summary, "hazards": H, "riskMatrix": matrix,
             "effectiveness": effectiveness, "dataBasis": data_basis,
             "provenance": {"pipelineVersion": prov["pipelineVersion"], "builtUtc": prov["builtUtc"], "checks": prov["checks"],

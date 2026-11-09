@@ -13,6 +13,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from backend import __version__
 from backend.paths import CACHE
 
 DONKI = "https://api.nasa.gov/DONKI/{kind}?startDate={start}&endDate={end}&api_key={key}"
@@ -21,7 +22,7 @@ CACHE_FILE = CACHE / "spaceweather.json"
 
 
 def _get(url: str, timeout: int = 40):
-    req = urllib.request.Request(url, headers={"User-Agent": "MarSim/1.0 (hackathon prototype)"})
+    req = urllib.request.Request(url, headers={"User-Agent": f"MarSim/{__version__}"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 

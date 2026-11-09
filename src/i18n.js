@@ -291,7 +291,7 @@ const EXACT = {
   'metoda cieni na HiRISE 0,25 m; wykrywalne ≥1 m': 'shadow method on HiRISE 0.25 m; detectable ≥1 m',
   'omijanie o ≥6 m; mniejsze kamienie niewidoczne z orbity': 'keep ≥6 m away; smaller rocks are not visible from orbit',
   'przekaźnik na łaziku; zgłoszenia co 10 min': 'relay on the rover; check-in every 10 min',
-  'model wysiłku Pandolfa (0,38 g) skalibrowany do EVA Apollo': 'Pandolf effort model (0.38 g) calibrated to Apollo EVAs',
+  'model wysiłku Pandolfa (0,38 g) dopasowany do średniego wysiłku w EVA Apollo': 'Pandolf effort model (0.38 g) fitted to the average Apollo EVA workload',
   'granica powrotu pieszego na mapie; rezerwa 20%': 'walk-back limit on the map; 20% reserve',
   'położenie Słońca (Allison & McEwen 2000) i cienie z DTM': 'Sun position (Allison & McEwen 2000) and DTM shadows',
   'planowany powrót ≥30 min przed zmierzchem': 'planned return ≥30 min before dusk',
@@ -315,6 +315,7 @@ const EXACT = {
   'Brak danych o pogodzie kosmicznej': 'No space weather data', 'pobieranie…': 'fetching…', 'sieć': 'network', 'bufor (brak sieci)': 'cache (offline)',
   'brak danych': 'no data', 'zdarzenie cząstek energetycznych': 'solar energetic particle event',
   // harmonogram
+  'trawers do WP2, rozpoznanie terenu': 'traverse to WP2, terrain survey', 'pobranie próbek skał': 'rock sampling',
   'trawers do WP2, rozpoznanie wydm': 'traverse to WP2, dune survey', 'rozmieszczenie nadajników UWB': 'UWB beacon deployment',
   'serwis łazika': 'rover service', 'pomiary na krawędzi krateru': 'crater rim measurements', 'wyjście': 'EVA',
   'wyjście dłuższe niż 8 h': 'EVA longer than 8 h',
@@ -330,6 +331,11 @@ const EXACT = {
   'harmonogram': 'schedule', 'błąd': 'error', 'skafander': 'suit', 'model': 'model',
   'trasa': 'route', 'alert': 'alert', 'zgłoszenie': 'report', 'łączność': 'comms', 'punkt': 'waypoint', 'EVA': 'EVA',
   'Brak trasy — najpierw wyznacz trasę.': 'No route — plan a route first.',
+  // tlen i powrót
+  'TLEN': 'OXYGEN', 'za mało tlenu na powrót pieszo — wezwij łazik': 'not enough oxygen to walk back — call the rover',
+  'powrót do habitatu': 'return to habitat', 'Powrót do habitatu już trwa.': 'The return to the habitat is already under way.',
+  'EVA jest zakończona. Zresetuj symulację, aby zacząć nowe wyjście.': 'The EVA is finished. Reset the simulation to start a new one.',
+  'Trasa jest zablokowana. Wyznacz nową trasę.': 'The route is blocked. Plan a new route.',
 };
 
 const WORDS = { glazy: 'boulders', piasek: 'sand', osuwisko: 'landslide', inne: 'obstacle', bezpieczne: 'safe passage', 'załoga': 'crew', 'łazik': 'rover', dron: 'drone', brak: 'none' };
@@ -367,15 +373,21 @@ const PATTERNS = [
   [/^(\w+): 4 sole z rzędu z wyjściem \(sol (\d+)\) — potrzebny sol odpoczynku$/, (m) => `${m[1]}: 4 EVA sols in a row (sol ${m[2]}) — rest sol needed`],
   [/^(\w+): (.+) h EVA w 7 solach od sola (\d+) \(limit 24 h\)$/, (m) => `${m[1]}: ${m[2]} h of EVA in 7 sols from sol ${m[3]} (limit 24 h)`],
   [/^Tlen: plan wymaga (.+) L, dostępne (.+) L \(80% zapasów\)$/, (m) => `Oxygen: plan needs ${m[1]} L, ${m[2]} L available (80% of stores)`],
-  [/^Energia: plan wymaga (.+) Wh, dostępne (.+) Wh \(80% baterii × (\d+) sol\)$/, (m) => `Energy: plan needs ${m[1]} Wh, ${m[2]} Wh available (80% of batteries × ${m[3]} sol)`],
+  [/^Energia: sol (\d+) wymaga (.+) Wh, dostępne (.+) Wh \(80% baterii\)$/, (m) => `Energy: sol ${m[1]} needs ${m[2]} Wh, ${m[3]} Wh available (80% of batteries)`],
   [/^Trasa (\w+): (.+) m, (.+) min, (.+) L O₂, (.+)$/, (m) => `Route ${m[1]}: ${m[2]} m, ${m[3]} min, ${m[4]} L O₂, ${w(m[5])}`],
   [/^Nowa trasa (\w+) \((.+)\): (.+) m$/, (m) => `New route ${m[1]} (${tx(m[2])}): ${m[3]} m`],
   [/^zgłoszenie: (.+)$/, (m) => `report: ${w(m[1])}`],
   [/^(\S+): (\S+) \((.+)\) r=(.+) m$/, (m) => `${w(m[1])}: ${w(m[2])} (${m[3]}) r=${m[4]} m`],
   [/^(\w+) osiągnięty$/, (m) => `${m[1]} reached`],
+  [/^(\w+) osiągnięty — cel wyjścia, czas zaplanować powrót$/, (m) => `${m[1]} reached — EVA target, time to plan the return`],
+  [/^EVA zakończona: załoga w habitacie po (.+) min, zużycie O₂ do (.+) L$/, (m) => `EVA finished: crew back in the habitat after ${m[1]} min, O₂ used up to ${m[2]} L`],
+  [/^tlen poniżej rezerwy (.+)%$/, (m) => `oxygen below the ${m[1]}% reserve`],
+  [/^zapas na powrót pieszo poniżej (\d+) min — zawróć$/, (m) => `walk-back margin below ${m[1]} min — turn back`],
+  [/^Przerwa łącza z Ziemią na (\d+) min$/, (m) => `Link to Earth down for ${m[1]} min`],
   [/^Kontrola misji: przyjęto „(.+)”$/, (m) => `Mission control: received “${tx(m[1])}”`],
   [/^Start EVA ×(.+)$/, (m) => `EVA start ×${m[1]}`],
   [/^Zapisano ([\w-]+): sol (\d+), (.+), (.+) h$/, (m) => `Saved ${m[1]}: sol ${m[2]}, ${m[3]}, ${m[4]} h`],
+  [/^Zmieniono ([\w-]+): sol (\d+), (.+), (.+) h$/, (m) => `Changed ${m[1]}: sol ${m[2]}, ${m[3]}, ${m[4]} h`],
   [/^Usunięto ([\w-]+)$/, (m) => `Deleted ${m[1]}`],
   [/^Nowa sesja EVA nr (\d+)$/, (m) => `New EVA session no. ${m[1]}`],
   // „EVA-1: …”, „EV1: …”, „POGODA KOSMICZNA: …” — przedrostek + znany tekst

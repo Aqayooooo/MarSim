@@ -289,8 +289,8 @@ def main() -> int:
     png_gray(out / "comms.png", comms_cls)
     slope.astype("<f4").tofile(out / "slope.f32")
     slope_sigma.astype("<f4").tofile(out / "slopeSigma.f32")
-    np.nan_to_num(o2_home, posinf=9999).astype("<f4").tofile(out / "o2ToHabitat.f32")
-    np.nan_to_num(t_home, posinf=9e6).astype("<f4").tofile(out / "timeToHabitat.f32")
+    o2_home.astype("<f4").tofile(out / "o2ToHabitat.f32")          # pola nieosiągalne: planning.UNREACHABLE
+    t_home.astype("<f4").tofile(out / "timeToHabitat.f32")
     th = themis100.copy(); th[th <= 0] = np.nan
     tlo, thi = np.nanpercentile(th, [2, 98])
     png_gray(out / "thermal.png", np.nan_to_num((th - tlo) / (thi - tlo + 1e-6) * 255, nan=128))
