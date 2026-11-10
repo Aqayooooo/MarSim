@@ -56,6 +56,8 @@ try:
     print("sse", [(e["t"], e["phase"], e["crewS"]) for e in events])
     assert events[-1]["t"] > events[0]["t"], "czas misji nie płynie w strumieniu"
 
+    # Podczas serii zapytań czas płynie wolniej, aby próba obciążenia nie zużyła całego tlenu.
+    assert call("/api/eva/timescale", {"timeScale": 60})[0] == 200
     codes = []
 
     def hammer(i):
@@ -70,8 +72,10 @@ try:
     for t in threads:
         t.join()
     print("równolegle:", len(codes), "zapytań, kody", sorted(set(codes)))
+    assert len(codes) == 360, f"Nie zakończono wszystkich zapytań: {len(codes)}/360"
     assert set(codes) == {200}
 
+    assert call("/api/eva/timescale", {"timeScale": 3000})[0] == 200
     for _ in range(100):
         if call("/api/state")[1]["phase"] == "atTarget":
             break
@@ -84,6 +88,7 @@ try:
         time.sleep(0.2)
     print("koniec", state["phase"], state["reached"], "t =", state["t"], "O2 EV1", state["crew"][0]["o2Pct"], "%")
     assert state["finished"]
+    assert all(member["o2Pct"] > 0 for member in state["crew"]), "Załoga wróciła bez tlenu"
     print("start po końcu", call("/api/eva/start", {}))
     print("OK")
 finally:

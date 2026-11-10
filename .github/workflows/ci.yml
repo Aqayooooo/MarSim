@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, pages-demo]
   pull_request:
 
 jobs:
@@ -16,6 +16,10 @@ jobs:
           cache: pip
       - name: Install Python packages
         run: pip install -r requirements.txt
+      - name: Python checks
+        run: |
+          python -m ruff check backend tools
+          python -m ruff format --check backend tools
       - name: Backend tests (pytest)
         run: python -m pytest backend/tests -q
       - uses: actions/setup-node@v7
@@ -26,5 +30,7 @@ jobs:
           node tools/test-planner.mjs
           node tools/test-planner.mjs data/missions/mount-sharp
           node tools/test-planner.mjs data/missions/jezero
+      - name: EVA regression tests
+        run: node --test tools/test-eva.mjs
       - name: Translation test (PL/EN)
         run: node tools/test-i18n.mjs

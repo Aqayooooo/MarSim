@@ -273,3 +273,12 @@ def test_concurrent_step_snapshot_observation(gale):
     assert not errors, errors
     assert len(gale.observations) == 20
     assert [o["id"] for o in gale.observations] == list(range(1, 21))
+
+
+def test_return_route_counts_only_real_stops_and_names_waypoints(gale):
+    """Trasa powrotna: habitat nie jest „przystankiem”, a identyfikatory punktów idą razem z trasą (dla interfejsu)."""
+    start(gale)
+    walk_to_end(gale)
+    assert gale.route["waypointIds"] == ["WP1", "WP2"] and gale.route["stops"] == 2
+    back = gale.return_to_habitat()
+    assert back["waypointIds"] == ["WP1", "WP2", "HAB"] and back["stops"] == 2

@@ -1,13 +1,11 @@
 // Widoki dodatkowe: urządzenie w hełmie (mały ekran), raport ryzyka, plan wyjść, zgłoszenia z terenu.
-import { num, int, hm, clock } from '../core/format.js';
+import { $, esc } from '../core/dom.js';
+import { num, int, hm, clock, km as kmFmt } from '../core/format.js';
 import { headingDeg } from '../core/path.js';
 import { MAIN_W, MAIN_H, ALT_COLORS } from './map2d.js';
 import { t, tx } from '../i18n.js';
-import { km as kmFmt } from '../core/format.js';
 import { Drive } from '../core/drive.js';
 
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const NEED_BACKEND = () => `<h2>${t('need.title')}</h2><p class="muted">${t('need.text')}</p>`;
 // bez serwera: zapisane odpowiedzi backendu (tools/export_backend_sample.py), tylko do odczytu
 const SAMPLE_NOTE = (meta) => `<p class="sampleNote">${t('sample.note', { d: esc(String(meta?.generatedUtc ?? '').slice(0, 10) || '—') })}</p>`;
@@ -23,7 +21,7 @@ export class DeviceView {
       <div class="cell"><span class="k">${t('dev.return')}</span><span class="v" id="dvWb">--</span><span class="s">${t('dev.returnSub')}</span></div>
       <div class="cell nav"><span class="k" id="dvTgt">${t('dev.target')}</span>
         <svg viewBox="-50 -50 100 100" aria-hidden="true"><circle r="46" fill="none" stroke="#333" stroke-width="2"/><path id="dvArrow" d="M0,-38 L14,10 L0,2 L-14,10 Z" fill="#FFDC52"/></svg>
-        <span class="v" id="dvDist" style="font-size:24px">--</span><span class="s">${t('dev.meters')}</span></div>
+        <span class="v dist" id="dvDist">--</span><span class="s">${t('dev.meters')}</span></div>
       <div class="cell"><span class="k">CO₂</span><span class="v" id="dvCo2">--</span><span class="s">mmHg</span></div>
       <div class="cell"><span class="k">${t('dev.battery')}</span><span class="v" id="dvBat">--</span><span class="s" id="dvHr"></span></div>
       <div class="msg ok" id="dvMsg" role="status">OK</div></div>
@@ -46,19 +44,19 @@ export class DeviceView {
     const link = snap?.link;
     $('dvLink').textContent = c ? `${c.comms > 0 ? t('dev.habitat') : t('dev.noLink')}${link ? ` · ${t('dev.earth')} ${num(link.oneWayMin, 0)}′` : ''}` : '';
     // nawigacja do następnego punktu
-    const wps = app.m.waypoints, wp = wps[Math.min(sim.nextWp, wps.length - 1)];
+    const wp = app.navTarget();
     const p = sim.crewPos(0);
     let rel = 0;
-    if (r && wp) {
+    if (r) {
       const brg = headingDeg(wp.x - p.x, wp.y - p.y);
       const hdg = r.poly.heading(Math.min(sim.crewS + 2, r.poly.length - 1));
       rel = brg - hdg;
-      $('dvTgt').textContent = sim.nextWp >= wps.length ? `${wp.id} ✓` : wp.id;
+      $('dvTgt').textContent = wp.reached ? `${wp.id} ✓` : wp.id;
       $('dvDist').textContent = String(Math.round(Math.hypot(wp.x - p.x, wp.y - p.y)));
     }
     $('dvArrow').setAttribute('transform', `rotate(${rel})`);
     // jeden komunikat — najważniejszy
-    let msg = `OK · ${sim.running ? t('dev.walk') : t('dev.stop')}`, cls = 'ok';
+    let msg = `OK · ${app.phase === 'walking' || app.phase === 'returning' ? t('dev.walk') : t('dev.stop')}`, cls = 'ok';
     if (c && !c.walkback.ok) { msg = t('dev.goBack'); cls = 'bad'; }
     else if (sim.sep) { msg = t('dev.sep'); cls = 'bad'; }
     else if (c && c.zone === 2) { msg = t('dev.nogo'); cls = 'bad'; }
@@ -82,22 +80,27 @@ export class ReportView {
     }
     this.el.innerHTML = `<p class="muted">${t('rep.loading')}</p>`;
     try {
-      const [rep, sw, log] = await Promise.all([this.app.ds.get('report'), this.app.ds.get('spaceweather'), this.app.ds.get('log?limit=12').catch(() => ({ events: [] }))]);
-      this.render(rep, sw, log);
+      const [rep, sw, log, audit] = await Promise.all([this.app.ds.get('report'), this.app.ds.get('spaceweather'),
+        this.app.ds.get('log?limit=12').catch(() => ({ events: [] })), this.app.ds.get('log/verify').catch(() => null)]);
+      this.render(rep, sw, log, { audit });
     } catch (e) { this.el.innerHTML = `<p class="warn">${esc(t('rep.error', { e: e.message }))}</p>`; }
   }
 
-  render(r, sw, log, { sample = null, snap: sampleSnap = null } = {}) {
+  render(r, sw, log, { sample = null, snap: sampleSnap = null, audit = null } = {}) {
     if (!r.ok) { this.el.innerHTML = `<h2>${t('rep.title')}</h2><p class="muted">${esc(tx(r.error))}</p>`; return; }
     const e = r.effectiveness, snap = sampleSnap || this.app.sim.snap;
-    const color = (l, s) => { const v = l * s; return v >= 15 ? '#5a1408' : v >= 8 ? '#4d3608' : '#12301d'; };
+    const riskClass = (likelihood, severity) => { const v = likelihood * severity; return v >= 15 ? 'r-hi' : v >= 8 ? 'r-mid' : 'r-lo'; };
     const P = t('rep.matrixP'), S = t('rep.matrixS');
-    let matrix = '<div class="matrix" role="table"><div class="ax"></div>' + [1, 2, 3, 4, 5].map((s) => `<div class="ax" style="justify-content:center">${S}${s}</div>`).join('');
+    let matrix = '<div class="matrix" role="table"><div class="ax"></div>' + [1, 2, 3, 4, 5].map((s) => `<div class="ax top">${S}${s}</div>`).join('');
     r.riskMatrix.forEach((row, i) => {
       const l = 5 - i;
-      matrix += `<div class="ax">${P}${l}</div>` + row.map((n, j) => `<div style="background:${color(l, j + 1)}">${esc(n || '')}</div>`).join('');
+      matrix += `<div class="ax">${P}${l}</div>` + row.map((n, j) => `<div class="${riskClass(l, j + 1)}">${esc(n || '')}</div>`).join('');
     });
-    matrix += `</div><p class="muted" style="font-size:11px">${t('rep.matrixNote')}</p>`;
+    matrix += `</div><p class="note">${t('rep.matrixNote')}</p>`;
+    const assumptions = (r.assumptions || []).map((a) => `<div><dt>${esc(t(`as.${a.id}`))}</dt><dd>${esc(num(a.value, Number.isInteger(a.value) ? 0 : 2))}${a.unit ? ` ${esc(a.unit)}` : ''}</dd></div>`).join('');
+    const auditBadge = !audit ? '' : audit.ok
+      ? ` <span class="badge good">${esc(t('rep.auditOk', { n: audit.checked }))}</span>`
+      : ` <span class="badge poor">${esc(t('rep.auditBad', { id: audit.brokenAt }))}</span>`;
     const link = snap?.link, pv = r.provenance;
     const events = log?.events || [];
     this.el.innerHTML = `${sample ? SAMPLE_NOTE(sample) : ''}
@@ -110,16 +113,17 @@ export class ReportView {
         <div class="kpi"><b>${num(e.routeEfficiency * 100, 0)}%</b><span>${t('rep.kEff')}</span></div>
         <div class="kpi"><b>${hm(e.durationH)}</b><span>${t('rep.kDur')}</span></div>
       </div>
-      <p class="muted" style="font-size:12px">${esc(tx(e.note))}</p>
+      <p class="note">${esc(tx(e.note))}</p>
       <h2>${t('rep.hazards')}</h2>
       <div class="two"><table><tr><th>#</th><th>${t('rep.thHazard')}</th><th>${t('rep.thRisk')}</th><th>${t('rep.thValue')}</th><th>${t('rep.thBasis')}</th><th>${t('rep.thMit')}</th></tr>
         ${r.hazards.map((h) => `<tr><td>${esc(h.id)}</td><td>${esc(tx(h.hazard))}</td><td><span class="lvl">${esc(tx(h.level))} ${esc(h.likelihood)}×${esc(h.severity)}</span></td>
           <td>${esc(tx(h.value))}</td><td class="muted">${esc(tx(h.basis))}</td><td class="muted">${esc(tx(h.mitigation))}</td></tr>`).join('')}</table>
         <div>${matrix}</div></div>
+      ${assumptions ? `<h2>${t('rep.assume')}</h2><dl class="facts">${assumptions}</dl><p class="note">${t('rep.assumeNote')}</p>` : ''}
       <h2>${t('rep.data')}</h2>
       <table><tr><th>${t('rep.thProduct')}</th><th>${t('rep.thInstr')}</th><th>${t('rep.thUse')}</th><th>SHA-256</th></tr>
         ${r.dataBasis.map((d) => `<tr><td><code>${esc(d.source)}</code></td><td>${esc(d.instrument)}</td><td class="muted">${esc(tx(d.use))}</td><td><code>${esc(d.sha256 || t('rep.remote'))}</code></td></tr>`).join('')}</table>
-      <p class="muted" style="font-size:12px">${esc(t('rep.prov', { v: pv.pipelineVersion, b: pv.builtUtc, ep: num(pv.dtmPrecision.epM, 2), sz: num(pv.dtmPrecision.sigmaZUsedM, 2),
+      <p class="note">${esc(t('rep.prov', { v: pv.pipelineVersion, b: pv.builtUtc, ep: num(pv.dtmPrecision.epM, 2), sz: num(pv.dtmPrecision.sigmaZUsedM, 2),
         dm: num(pv.checks.dtmMinusMolaM ?? 0, 1), cc: num(pv.checks.hiriseVsCtxCorrelation ?? 0, 2), n: pv.outputsHashed }))}</p>
       <h2>${t('rep.sw')}</h2>
       <p>${esc(tx(sw.summary))} <span class="muted">· ${t('rep.swSource')}: ${esc(tx(sw.source || '—'))} · ${esc(tx(sw.note || ''))}</span></p>
@@ -129,7 +133,8 @@ export class ReportView {
         <table><tr><th>${t('rep.thDir')}</th><th>${t('rep.thKind')}</th><th>${t('rep.thText')}</th><th>${t('rep.thState')}</th></tr>${link.recent.map((b) => `<tr><td>${esc(tx(b.direction))}</td><td>${esc(tx(b.kind))}</td><td>${esc(tx(b.text))}</td>
         <td>${b.delivered ? `<span class="ok">${t('rep.delivered')}</span>` : `<span class="muted">${t('rep.inMin', { m: num(Math.max(0, (b.deliver_s - snap.t) / 60), 1) })}</span>`}</td></tr>`).join('')}</table>
         ${sample ? '' : `<div class="row"><button class="btn" id="rpOutage">${t('rep.outage')}</button><button class="btn" id="rpRefresh">${t('rep.refresh')}</button></div>`}` : ''}
-      <h2>${t('rep.audit')}</h2>
+      <h2>${t('rep.audit')}${auditBadge}</h2>
+      ${sample ? '' : `<p class="note"><a href="${esc(this.app.ds.api('log/export'))}" download>${t('rep.csv')}</a></p>`}
       ${events.length ? `<table><tr><th>${t('rep.thUtc')}</th><th>${t('rep.thKind')}</th><th>${t('rep.thText')}</th></tr>${events.map((ev) => `<tr><td class="muted">${esc(ev.utc)}</td><td>${esc(tx(ev.kind))}</td><td>${esc(tx(ev.text))}</td></tr>`).join('')}</table>`
         : `<p class="muted">${t('rep.auditEmpty')}</p>`}`;
     $('rpOutage')?.addEventListener('click', () => this.app.ds.post('eva/inject', { kind: 'link-outage' }).then(() => this.open()));
@@ -169,12 +174,12 @@ export class ScheduleView {
       </div>
       <h2>${t('sc.rules')}</h2>
       ${d.issues.length ? `<ul>${d.issues.map((x) => `<li class="warn">${esc(tx(x))}</li>`).join('')}</ul>` : `<p class="ok">${t('sc.allOk')}</p>`}
-      <p class="muted" style="font-size:12px">${esc(t('sc.rulesLine', { r: d.rules.map(tx).join(' · ') }))}</p>
+      <p class="note">${esc(t('sc.rulesLine', { r: d.rules.map(tx).join(' · ') }))}</p>
       ${sample ? '' : `<h2>${t('sc.add')}</h2>
       ${error ? `<p class="warn" role="alert">${esc(t('sc.error', { e: error }))}</p>` : ''}
       <div class="row">
-        <input id="scId" placeholder="EVA-5" size="7" aria-label="EVA ID"> sol <input id="scSol" type="number" value="${(d.items.at(-1)?.sol ?? 147) + 1}" style="width:70px" aria-label="sol">
-        ${t('sc.start')} <input id="scStart" value="09:30" size="5" aria-label="${t('sc.start')} (LTST)"> ${t('sc.dur')} <input id="scDur" type="number" step="0.5" value="3" style="width:60px" aria-label="${t('sc.dur')}">
+        <input id="scId" placeholder="EVA-5" size="7" aria-label="EVA ID"> sol <input id="scSol" class="narrow" type="number" value="${(d.items.at(-1)?.sol ?? this.app.m.mission.sol) + 1}" aria-label="sol">
+        ${t('sc.start')} <input id="scStart" value="09:30" size="5" aria-label="${t('sc.start')} (LTST)"> ${t('sc.dur')} <input id="scDur" class="narrow" type="number" step="0.5" value="3" aria-label="${t('sc.dur')}">
         ${crew.map((c) => `<label><input type="checkbox" class="scCrew" value="${esc(c)}" checked> ${esc(c)}</label>`).join(' ')}
         <input id="scPurpose" placeholder="${t('sc.purpose')}" size="22" aria-label="${t('sc.purpose')}"> <button class="btn accent" id="scAdd">${t('sc.save')}</button>
       </div>`}`;
@@ -277,12 +282,13 @@ export class RouteCompare {
     const rows = [...alts].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id)).map((a) => {
       const nums = a.ok ? t('alt.nums', { len: kmFmt(a.lengthM), time: hm(a.durationH), o2: int(a.o2L) }) : '—';
       return `<div class="row" tabindex="0" role="button" data-id="${esc(a.id)}" aria-label="${esc(t(`alt.v.${a.id}`))}">
-        <i class="sw" style="background:${ALT_COLORS[a.id]}"></i>
+        <i class="sw" data-color="${ALT_COLORS[a.id]}"></i>
         <div><span class="nm">${esc(t(`alt.v.${a.id}`))}</span>${a.verdict === 'chosen' ? '' : `<span class="badge">${esc(t(`alt.b.${a.verdict}`))}</span>`}</div>
         <div class="nums">${nums}</div>
         <div class="rs">${a.reasons.map((r) => esc(reasonText(r))).join(' · ')}</div></div>`;
     }).join('');
     this.el.innerHTML = `<h3>${t('alt.title')}</h3><p class="why">${t('alt.intro', { deg: esc(deg) })}</p>${rows}<div class="foot">${t('alt.foot')}</div>`;
+    this.el.querySelectorAll('.sw').forEach((sw) => { sw.style.background = sw.dataset.color; });
     this.el.querySelectorAll('.row').forEach((r) => {
       const pick = () => { this.app.state.altHi = this.app.state.altHi === r.dataset.id ? null : r.dataset.id;
         this.el.querySelectorAll('.row').forEach((x) => x.classList.toggle('hi', x.dataset.id === this.app.state.altHi)); };

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="MarSim — mapa i planer wyjść (EVA) dla astronautów na Marsie, oparty na danych NASA.">
+<meta name="theme-color" content="#060200">
 <title>MarSim · planowanie EVA na Marsie</title>
 <!-- wszystko lokalnie (vendor/), działa bez internetu -->
 <link rel="stylesheet" href="vendor/fonts/fonts.css">
@@ -31,14 +32,15 @@
         <button role="tab" data-view="report" data-i18n="view.report">Raport</button>
         <button role="tab" data-view="schedule" data-i18n="view.schedule">Plan wyjść</button>
       </div>
-      <button id="evaBtn" class="btn" data-i18n-title="eva.title" data-i18n="eva.start">Start EVA</button>
+      <button id="evaBtn" class="btn primary" data-i18n-title="eva.title" data-i18n="eva.start">Start EVA</button>
+      <button id="returnBtn" class="btn" data-i18n-title="eva.returnTitle" data-i18n="eva.return" hidden>Wróć do habitatu</button>
       <button id="demoBtn" class="btn accent" data-i18n-title="demo.title" data-i18n="demo.play">▶ Prezentacja</button>
       <div class="seg lang" id="langSeg" role="group" data-i18n-aria="lang.label">
         <button data-lang="pl" lang="pl" aria-label="Polski">PL</button>
         <button data-lang="en" lang="en" aria-label="English">EN</button>
       </div>
+      <button id="helpBtn" class="btn round" data-i18n-title="help.btnTitle" data-i18n-aria="help.btnTitle" aria-haspopup="dialog">?</button>
     </div>
-    <div class="src" id="sourceLabel"></div>
   </header>
 
   <aside id="left" class="panel" data-i18n-aria="layers.head">
@@ -60,6 +62,7 @@
       <div class="hudwarn" id="hudWarn" role="alert" hidden></div>
       <div class="hudhelp" id="hudHelp" data-i18n="hud.help">W A S D — chodzenie · przeciągnij — rozglądanie · Shift — szybciej</div>
     </div>
+    <div id="net" role="status" hidden><span class="dot"></span><span data-i18n="net.down">Brak połączenia z serwerem — ponawiam…</span></div>
     <div id="locLabel" class="maplabel"></div>
     <div id="view3dLabel" class="maplabel" hidden></div>
     <div id="alert" role="alert" hidden><div class="a1"></div><div class="a2"></div></div>
@@ -69,21 +72,25 @@
     <div id="device" class="pane" hidden></div>
     <div id="report" class="pane doc" hidden></div>
     <div id="schedule" class="pane doc" hidden></div>
-    <button id="altBtn" class="btn mapbtn alt" data-i18n-title="alt.btnTitle" data-i18n="alt.btn" aria-expanded="false" hidden>⇄ Porównaj trasy</button>
-    <button id="pickBtn" class="btn mapbtn pick" data-i18n-title="pick.btnTitle" data-i18n="pick.btn" aria-pressed="false">◎ Wyznacz trasę</button>
+    <div id="mapTools" role="toolbar" data-i18n-aria="tools.aria">
+      <button id="pickBtn" class="btn" data-i18n-title="pick.btnTitle" data-i18n="pick.btn" aria-pressed="false">Wyznacz trasę</button>
+      <button id="reportBtn" class="btn" data-i18n-title="obs.btnTitle" data-i18n="obs.btn" aria-pressed="false">Zgłoś z terenu</button>
+      <button id="altBtn" class="btn" data-i18n-title="alt.btnTitle" data-i18n="alt.btn" aria-expanded="false" hidden>Porównaj trasy</button>
+      <button id="profileBtn" class="btn" data-i18n-title="profile.btnTitle" data-i18n="profile.btn" aria-expanded="false" hidden>Profil trasy</button>
+    </div>
     <div id="pickCard" role="status" aria-live="polite" hidden></div>
+    <section id="profile" data-i18n-aria="profile.btn" hidden></section>
     <div id="driveHud" role="group" data-i18n-aria="drive.title" hidden></div>
-    <button id="reportBtn" class="btn mapbtn" data-i18n-title="obs.btnTitle" data-i18n="obs.btn">＋ Zgłoś z terenu</button>
     <div id="obsForm" role="dialog" data-i18n-aria="obs.title" hidden>
       <div class="of-title" data-i18n="obs.title">Zgłoszenie z terenu</div>
       <label><span data-i18n="obs.kind">Rodzaj</span> <select id="obsKind">
         <option value="glazy" data-i18n="obs.k.glazy">głazy</option><option value="piasek" data-i18n="obs.k.piasek">luźny piasek</option>
         <option value="osuwisko" data-i18n="obs.k.osuwisko">osuwisko / skarpa</option><option value="inne" data-i18n="obs.k.inne">inna przeszkoda</option>
         <option value="bezpieczne" data-i18n="obs.k.bezpieczne">bezpieczne przejście</option></select></label>
-      <label><span data-i18n="obs.radius">Promień</span> <input id="obsR" type="number" min="5" max="150" value="25"> m</label>
+      <label><span data-i18n="obs.radius">Promień</span> <span><input id="obsR" type="number" min="5" max="150" value="25"> m</span></label>
       <label><span data-i18n="obs.source">Źródło</span> <select id="obsSrc"><option value="załoga" data-i18n="obs.s.załoga">załoga</option>
         <option value="łazik" data-i18n="obs.s.łazik">łazik</option><option value="dron" data-i18n="obs.s.dron">dron</option></select></label>
-      <div class="of-btns"><button id="obsOk" class="btn accent" data-i18n="obs.send">Wyślij</button><button id="obsCancel" class="btn" data-i18n="obs.cancel">Anuluj</button></div>
+      <div class="of-btns"><button id="obsOk" class="btn primary" data-i18n="obs.send">Wyślij</button><button id="obsCancel" class="btn" data-i18n="obs.cancel">Anuluj</button></div>
     </div>
     <div id="fade"></div>
     <div id="loading" role="status" data-i18n="loading">Wczytywanie danych terenu…</div>
@@ -92,22 +99,32 @@
   <aside id="right" class="panel">
     <div id="altPanel" role="region" data-i18n-aria="alt.title" hidden></div>
     <div class="ph clock" id="clock" aria-live="off">SOL — · --:--</div>
+    <div id="evaStatus" class="status" role="status"><span class="dot"></span><span class="txt"></span></div>
     <div class="cards">
-      <div class="card big" id="cDose"><div class="cl" data-i18n-html="card.dose">Dawka<br>μSv/h</div><div class="cv">--</div><div class="csub" id="cDoseSub"></div></div>
-      <div class="card big" id="cWind"><div class="cl" data-i18n="card.wind">Wiatr m/s</div><div class="cv">--</div></div>
+      <div class="card" id="cDose"><div class="cl" data-i18n="card.dose">Dawka μSv/h</div><div class="cv">--</div><div class="csub" id="cDoseSub"></div></div>
+      <div class="card" id="cWind"><div class="cl" data-i18n="card.wind">Wiatr m/s</div><div class="cv">--</div></div>
       <div class="card" id="cTemp"><div class="cl" data-i18n="card.temp">Temp. °C</div><div class="cv">--</div></div>
       <div class="card" id="cTau"><div class="cl" data-i18n="card.tau">Pył τ</div><div class="cv">--</div></div>
     </div>
-    <h2 class="ph sec" id="o2Head" data-i18n-html="crew.o2">Załoga O<span class="sub2">₂</span></h2>
+    <h2 class="ph" id="o2Head" data-i18n-html="crew.o2">Załoga O<span class="sub2">₂</span></h2>
     <div id="o2Rows"></div>
-    <h2 class="ph sec" id="resHead" data-i18n="reserve">Zapas na powrót</h2>
+    <h2 class="ph" id="resHead" data-i18n="reserve">Zapas na powrót</h2>
     <div class="reserve" id="reserve">--</div>
-    <h2 class="ph sec" id="wpViewHead">Widok w WP2</h2>
+    <h2 class="ph" id="wpViewHead">Widok w WP2</h2>
     <div class="wpview" id="wpView">
       <div class="locked" id="wpLocked">odblokuje się w WP2</div>
       <div class="shot" id="wpShot"><img alt=""><div class="cap"></div></div>
     </div>
   </aside>
+
+  <div id="help" class="overlay" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="helpTitle" tabindex="-1">
+      <div class="dlg-head"><h2 id="helpTitle" data-i18n="help.title">Skróty klawiszowe</h2>
+        <button id="helpClose" class="btn round" data-i18n-aria="help.close">×</button></div>
+      <div id="helpBody"></div>
+      <p class="dlg-foot"><span id="sourceLabel"></span> · <span id="versionLabel"></span></p>
+    </div>
+  </div>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

@@ -1,11 +1,15 @@
 // Kontroler aplikacji: stan UI + akcje. Widoki tylko czytają stan i wywołują akcje.
 // Tryb lokalny: symulacja w przeglądarce (Sim). Tryb backendu: stan z /api/stream (RemoteSim), akcje przez API.
 import { Polyline } from './core/path.js';
-import { Sim } from './core/sim.js';
+import { Sim, HABITAT_ID } from './core/sim.js';
 import { RemoteSim } from './core/remoteSim.js';
 import { routeStats } from './core/routeStats.js';
 import { Drive } from './core/drive.js';
+import { hm } from './core/format.js';
 import { t, tx } from './i18n.js';
+
+const DEFAULT_LAYERS = ['optical', 'hazards', 'sky'];   // widoczne od razu po otwarciu strony
+const CAN_RETURN = ['walking', 'stop', 'atTarget'];
 
 export class App {
   constructor(ds, world) {
@@ -17,6 +21,8 @@ export class App {
     this.autoEvents = true;   // false, gdy prezentacja sama steruje końcem alarmów
     this.handlers = {};
     this.shadowHour = 14;
+    this.offline = false;     // utracone połączenie ze strumieniem backendu
+    this.lastPhase = null;
     const hooks = {
       onWaypoint: (wp, last) => this.#onWaypoint(wp, last),
       onEvent: (ev) => this.#onEvent(ev),
@@ -25,6 +31,10 @@ export class App {
       onSep: (on) => this.#onRemoteSep(on),
       onObstacles: (obs) => this.#syncObstacles(obs),
       onSnapshot: (s) => this.emit('snapshot', s),
+      onSession: () => this.reset(false),
+      onFinish: () => this.#onFinish(),
+      onOngoing: (s) => this.#onOngoing(s),
+      onLink: (up) => { this.offline = !up; this.emit('net', up); },
     };
     this.sim = this.remote ? new RemoteSim(this.m, ds, hooks) : new Sim(this.m, hooks);
     this.reset(false);
@@ -34,18 +44,30 @@ export class App {
   off(evt, fn) { this.handlers[evt] = (this.handlers[evt] || []).filter((f) => f !== fn); }
   emit(evt, data) { (this.handlers[evt] || []).forEach((fn) => fn(data)); }
 
-  reset(newSession = true) {
-    if (this.remote && newSession) { this.pendingReset = this.ds.post('eva/reset'); this.sim.reset(); }
-    else this.sim.reset();
+  /** bare: pusta mapa bez warstw (prezentacja włącza je po kolei). */
+  reset(newSession = true, { bare = false } = {}) {
+    this.routeSync = (this.routeSync ?? 0) + 1;
+    if (this.remote && newSession) {
+      this.resetting = true;
+      this.pendingReset = this.ds.post('eva/reset').then((result) => {
+        this.reset(false, { bare });
+        return result;
+      }).catch((e) => {
+        this.setAlert({ category: t('eva.error'), text: tx(e.message) });
+        return null;
+      }).finally(() => { this.resetting = false; });
+      return this.pendingReset;
+    }
+    this.sim.reset();
     this.drive = null;       // jazda łazikiem po trasie A→B (core/drive.js)
     this.roverAt = null;     // gdzie łazik stanął po jeździe (null = pozycja z misji / z symulacji EVA)
     this.routeBlocked = false;
     this.windNext = 0;
     this.lastReplan = null;
     this.state = {
-      layers: Object.fromEntries(this.m.layers.map((l) => [l.id, { on: false, changedAt: -10 }])),
-      focus: 'optical',
-      legend: 'optical',
+      layers: Object.fromEntries(this.m.layers.map((l) => [l.id, { on: !bare && DEFAULT_LAYERS.includes(l.id), changedAt: -10 }])),
+      focus: null,
+      legend: bare ? 'optical' : 'hazards',
       view: 'map',
       caption: null,
       route: null,
@@ -65,6 +87,7 @@ export class App {
       reportMode: false,
       altOpen: false,
       altHi: null,
+      probe: null,           // punkt trasy wskazany na profilu wysokości
     };
     this.emit('reset');
   }
@@ -89,7 +112,11 @@ export class App {
 
   // ---------- trasa ----------
   async planInitial({ animate = true } = {}) {
-    if (this.pendingReset) await this.pendingReset;
+    if (this.pendingReset) {
+      const result = await this.pendingReset;
+      this.pendingReset = null;
+      if (!result) return null;
+    }
     const r = await this.ds.planRoute({ start: { x: this.m.rover.x, y: this.m.rover.y }, waypoints: this.m.waypoints });
     if (!r.ok && !r.path) { this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return null; }
     this.routeBlocked = false;
@@ -107,13 +134,24 @@ export class App {
     const poly = new Polyline(path);
     return {
       letter, version: stats.version, poly, wpS: wpIndex.map((i) => poly.cum[i]),
+      wpIds: stats.waypointIds ?? (this.sim.waypoints ?? this.m.waypoints).map((w) => w.id),
       lengthM: stats.lengthM, durationH: stats.durationH, stops: stats.stops, rating: stats.rating || 'bezpieczna',
       o2L: stats.o2L, uncertainty: stats.uncertainty || null, alternatives: stats.alternatives || null, draw,
     };
   }
 
   async #syncRemoteRoute() {
-    const { route, discarded } = await this.ds.get('route');
+    const request = ++this.routeSync;
+    let response;
+    try { response = await this.ds.get('route'); } catch (e) {
+      if (request === this.routeSync) {
+        this.sim.routeVersion = null;   // kolejna próbka ponowi odczyt trasy
+        this.setAlert({ category: t('eva.error'), text: tx(e.message) });
+      }
+      return;
+    }
+    if (request !== this.routeSync) return;   // nowszy odczyt albo reset zastąpił to żądanie
+    const { route, discarded } = response;
     if (!route) { this.state.route = null; this.sim.setRoute(null); this.emit('route'); return; }
     const cur = this.state.route;
     if (cur && cur.version === route.version) return;              // ta sama trasa (np. po własnym POST /plan)
@@ -129,21 +167,28 @@ export class App {
     }
   }
 
+  /** Tryb lokalny: nowa trasa od pozycji załogi wokół przeszkody, do punktów jeszcze nieodwiedzonych. */
   async replanAround(obstacle) {
     const old = this.state.route, s = this.sim.crewS;
-    const pos = old.poly.at(s);
-    const remaining = this.m.waypoints.slice(this.sim.nextWp);
-    const r = await this.ds.planRoute({ start: pos, waypoints: remaining, obstacles: this.state.obstacles });
+    const remaining = this.sim.waypoints.slice(this.sim.nextWp);
+    const r = await this.ds.planRoute({ start: old.poly.at(s), waypoints: remaining, obstacles: this.state.obstacles });
     if (!r.ok) { this.sim.running = false; this.routeBlocked = true; this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return; }
-    const walked = old.poly.slice(0, s);
-    const path = walked.concat(r.path.slice(1));
+    const route = this.#spliceRoute(r);
+    return { deltaM: route.lengthM - old.lengthM, obstacle };
+  }
+
+  /** Skleja przebytą część bieżącej trasy z planem `onward` od pozycji załogi (tryb lokalny). */
+  #spliceRoute(onward) {
+    const old = this.state.route, s = this.sim.crewS, wps = this.sim.waypoints;
+    const walked = s > 0 ? old.poly.slice(0, s) : [old.poly.at(0)];
+    const path = walked.concat(onward.path.slice(1));
     const off = walked.length - 1;
     const wpIndex = [
-      ...this.m.waypoints.slice(0, this.sim.nextWp).map((wp) => this.#nearestIndex(walked, wp)),
-      ...r.waypointIndex.map((i) => i + off),
+      ...wps.slice(0, this.sim.nextWp).map((wp) => this.#nearestIndex(walked, wp)),
+      ...onward.waypointIndex.map((i) => i + off),
     ];
-    const totalStop = this.m.waypoints.reduce((a, w) => a + (w.stopMin ?? 0), 0);
-    const stats = routeStats(this.world.terrain, path, this.m.eva, this.m.waypoints.length, totalStop);
+    const totalStop = wps.reduce((a, w) => a + (w.stopMin ?? 0), 0);
+    const stats = routeStats(this.world.terrain, path, this.m.eva, wps.filter((w) => w.id !== HABITAT_ID).length, totalStop);
     this.state.discarded.push(old.poly.slice(s, old.poly.length));
     const letter = String.fromCharCode(old.letter.charCodeAt(0) + 1);
     this.routeBlocked = false;
@@ -151,8 +196,30 @@ export class App {
     this.sim.setRoute(this.state.route);
     this.state.routeCardAt = this.now + 0.65;
     this.emit('route');
-    return { deltaM: stats.lengthM - old.lengthM, obstacle };
+    return this.state.route;
   }
+
+  /** Powrót do habitatu od bieżącej pozycji załogi. Po dojściu do śluzy wyjście się kończy. */
+  async returnToHabitat() {
+    if (!this.state.route || !CAN_RETURN.includes(this.phase)) return null;
+    if (this.remote) {
+      try { return await this.ds.post('eva/return'); } catch (e) { this.setAlert({ category: t('noRoute'), text: tx(e.message) }); return null; }
+    }
+    const habitat = { id: HABITAT_ID, x: this.m.habitat.x, y: this.m.habitat.y, stopMin: 0 };
+    const r = await this.ds.planRoute({ start: this.state.route.poly.at(this.sim.crewS), waypoints: [habitat], obstacles: this.state.obstacles });
+    if (!r.ok) { this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return null; }
+    this.sim.beginReturn(habitat);
+    return this.#spliceRoute(r);
+  }
+
+  /** Dokąd teraz idzie załoga: następny punkt trasy albo habitat. */
+  navTarget() {
+    const phase = this.phase;
+    if (phase === 'returning' || phase === 'done') return { id: HABITAT_ID, x: this.m.habitat.x, y: this.m.habitat.y, reached: phase === 'done' };
+    const wps = this.m.waypoints, i = Math.min(this.sim.nextWp, wps.length - 1);
+    return { ...wps[i], reached: this.sim.nextWp >= wps.length };
+  }
+
   #nearestIndex(pts, p) {
     let bi = 0, bd = Infinity;
     pts.forEach((q, i) => { const d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd) { bd = d; bi = i; } });
@@ -166,7 +233,8 @@ export class App {
     const ob = { id: `obs${this.state.obstacles.length + 1}`, x: obs.x, y: obs.y, radiusM: obs.radiusM, t0: this.now, label: labelFor(obs.kind) };
     this.state.obstacles.push(ob);
     this.emit('obstacle', ob);
-    if (this.state.route && this.sim.running) {
+    if (this.state.route && !this.sim.finished) {
+      if (this.sim.nextWp >= this.state.route.wpS.length) return { ok: true };
       const res = await this.replanAround(ob);
       this.lastReplan = res;
       this.emit('replanned', res);
@@ -200,21 +268,35 @@ export class App {
   }
 
   // ---------- EVA ----------
+  /** Faza wyjścia: idle | walking | stop | atTarget | returning | done (jak pole `phase` w stanie backendu). */
+  get phase() { return this.sim.phase; }
+  get paused() { return !this.sim.running && this.phase !== 'idle' && this.phase !== 'done'; }
+
   showCrew() { this.state.crewVisible = true; this.emit('crew'); }
   startEva(timeScale = 470) {
-    if (!this.state.route || this.routeBlocked) return;
+    if (!this.state.route || this.routeBlocked) return null;
     if (this.drive || this.roverAt) { this.drive = null; this.roverAt = null; this.emit('drive'); }   // EVA zaczyna od łazika przy habitacie
     this.state.crewVisible = true;
-    if (this.remote) return this.ds.post('eva/start', { timeScale, scenario: !this.autoEvents }).catch(e => this.setAlert({ category: t('noRoute'), text: e.message }));
-    else { this.sim.timeScale = timeScale; this.sim.running = true; }
+    if (this.remote) return this.#evaCommand('eva/start', { timeScale, scenario: !this.autoEvents });
+    this.sim.timeScale = timeScale;
+    this.sim.running = true;
     this.emit('eva');
+    return { ok: true };
   }
   pauseEva(paused) {
     if (!paused && this.routeBlocked) return;
-    if (this.remote) return this.ds.post(paused ? 'eva/pause' : 'eva/start', paused ? {} : { timeScale: this.sim.timeScale });
-    else this.sim.running = !paused;
+    if (this.remote) return this.#evaCommand(paused ? 'eva/pause' : 'eva/start', paused ? {} : { timeScale: this.sim.timeScale });
+    this.sim.running = !paused;
+    return { ok: true };
   }
-  setTimeScale(ts) { if (this.remote) this.ds.post('eva/timescale', { timeScale: ts }); else this.sim.timeScale = ts; }
+  async #evaCommand(path, body) {
+    try { return await this.ds.post(path, body); } catch (e) {
+      this.setAlert({ category: t('eva.error'), text: tx(e.message) });
+      return null;
+    }
+  }
+
+  setTimeScale(ts) { if (this.remote) return this.#evaCommand('eva/timescale', { timeScale: ts }); else this.sim.timeScale = ts; }
 
   setAlert(a) { this.state.alert = a ? { ...a, t0: this.now } : null; this.emit('alert'); }
   setCaption(n, text) { this.state.caption = n ? { n, text, t0: this.now } : null; this.emit('caption'); }
@@ -222,7 +304,7 @@ export class App {
 
   endSep() {
     if (!this.sim.sep && !this.state.doseHi) return;
-    if (this.remote) this.ds.post('eva/inject', { kind: 'sep-end' });
+    if (this.remote) this.#evaCommand('eva/inject', { kind: 'sep-end' });
     else this.sim.sep = false;
     this.state.doseHi = false;
     this.emit('sep-end');
@@ -236,6 +318,20 @@ export class App {
   setWaypointView(id, src, caption) {
     this.state.wpView[id] = { src, caption, t0: this.now };
     this.emit('wpview', id);
+  }
+
+  #onFinish() {
+    const o2 = Math.min(...this.sim.crew.map((c) => c.o2));
+    this.setAlert({ category: t('eva.doneCat'), text: t('eva.doneText', { time: hm((this.sim.min - this.sim.startMin) / 60), o2: Math.round(o2) }) });
+    this.emit('finished');
+  }
+
+  /** Strona otwarta w trakcie wyjścia (odświeżenie albo restart serwera): pokazujemy załogę od razu. */
+  #onOngoing(snapshot) {
+    if (this.resetting) return;
+    this.state.crewVisible = true;
+    if (snapshot.resumed && !snapshot.running && !snapshot.finished) this.setAlert({ category: t('resume.cat'), text: t('resume.text') });
+    this.emit('crew');
   }
 
   #onRemoteAlert(a) {
@@ -276,6 +372,8 @@ export class App {
   update(dt) {
     this.now += dt;
     this.sim.step(dt);
+    const phase = `${this.phase}${this.sim.running ? '' : ':paused'}`;
+    if (phase !== this.lastPhase) { this.lastPhase = phase; this.emit('phase', this.phase); }
     if (this.drive) {
       const was = this.drive.done;
       this.drive.step(dt);

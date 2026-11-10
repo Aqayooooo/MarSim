@@ -188,3 +188,13 @@ def test_eva_follows_waypoints_from_plan_request(api):
             break
     assert E.reached == [w["id"] for w in wps] + ["WP3"]
     assert api.get("/api/report").json()["effectiveness"]["waypointsPlanned"] == 3
+
+
+def test_snapshot_identifies_session_and_backend_html(api):
+    before = api.get("/api/state").json()["session"]
+    api.post("/api/eva/reset")
+    assert api.get("/api/state").json()["session"] == before + 1
+    response = api.get("/")
+    assert response.status_code == 200
+    assert '<meta name="marsim-api" content="' in response.text
+    assert response.headers["cache-control"] == "no-cache"

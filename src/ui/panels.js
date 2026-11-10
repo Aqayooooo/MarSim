@@ -1,12 +1,12 @@
 // Panele boczne i nakładki DOM nad mapą. Aktualizowane z pętli, zmieniają DOM tylko przy zmianie.
 import { num, int, hm, clock, km, parseClock } from '../core/format.js';
+import { $, esc, setText, setHidden, setClass } from '../core/dom.js';
 import { t, tx, plural } from '../i18n.js';
+import { layerKey } from './help.js';
 
-const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const $ = (id) => document.getElementById(id);
-function setText(el, v) { if (el.textContent !== v) el.textContent = v; }
-function setHidden(el, h) { if (el.hidden !== h) el.hidden = h; }
-function setClass(el, c, on) { if (el.classList.contains(c) !== on) el.classList.toggle(c, on); }
+const O2_BAR_PX = 190;
+const O2_LOW_PCT = 40, O2_CRITICAL_PCT = 25;        // progi kolorów jak na urządzeniu w hełmie
+const RESERVE_LOW_H = 1, RESERVE_CRITICAL_H = 0.3;
 
 export class Panels {
   constructor(app) {
@@ -34,12 +34,13 @@ export class Panels {
     const list = $('layerList');
     list.innerHTML = '';
     this.rows = {};
-    for (const l of this.app.m.layers) {
+    this.app.m.layers.forEach((l, index) => {
       const r = document.createElement('div');
       r.className = 'lrow';
       r.tabIndex = 0;
       r.setAttribute('role', 'switch');
-      r.innerHTML = `<i class="sw"></i><div class="nm"></div><div class="ds"></div><span class="tg"></span>`;
+      const key = layerKey(index);
+      r.innerHTML = `<i class="sw"></i><div class="nm"></div><div class="ds"></div>${key ? `<span class="key" aria-hidden="true">${key}</span>` : ''}<span class="tg"></span>`;
       r.querySelector('.nm').textContent = tx(l.name);
       r.querySelector('.ds').textContent = tx(l.desc);
       r.setAttribute('aria-label', `${tx(l.name)}: ${tx(l.desc)}`);
@@ -48,7 +49,7 @@ export class Panels {
       r.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); } });
       list.appendChild(r);
       this.rows[l.id] = r;
-    }
+    });
   }
 
   #syncLayers() {
@@ -91,7 +92,7 @@ export class Panels {
       r.innerHTML = `<div class="o2top"><b></b><div class="bar"><i></i></div><span></span></div><div class="tele"></div>`;
       r.querySelector('b').textContent = c.id;
       box.appendChild(r);
-      return { fill: r.querySelector('i'), val: r.querySelector('span'), tele: r.querySelector('.tele') };
+      return { bar: r.querySelector('.bar'), fill: r.querySelector('i'), val: r.querySelector('span'), tele: r.querySelector('.tele') };
     });
   }
 
@@ -123,13 +124,18 @@ export class Panels {
     // tlen i zapas
     sim.crew.forEach((c, i) => {
       const p = Math.round(c.o2);
-      const w = `${(c.o2 / 100) * 190}px`;
+      const w = `${(c.o2 / 100) * O2_BAR_PX}px`;
       if (this.o2[i].fill.style.width !== w) this.o2[i].fill.style.width = w;
+      setClass(this.o2[i].bar, 'low', p <= O2_LOW_PCT && p > O2_CRITICAL_PCT);
+      setClass(this.o2[i].bar, 'crit', p <= O2_CRITICAL_PCT);
       setText(this.o2[i].val, `${p}%`);
       const tl = snap?.crew?.[i];
       setText(this.o2[i].tele, tl ? t('tele', { co2: num(tl.co2mmHg, 1), bat: int(tl.batteryPct), hr: tl.hr, kpa: num(tl.pressureKPa, 1) }) : '');
     });
-    setText($('reserve'), hm(sim.reserveH()));
+    const reserveH = sim.reserveH(), underway = app.phase !== 'idle' && app.phase !== 'done';
+    setText($('reserve'), hm(reserveH));
+    setClass($('reserve'), 'low', underway && reserveH <= RESERVE_LOW_H && reserveH > RESERVE_CRITICAL_H);
+    setClass($('reserve'), 'crit', underway && reserveH <= RESERVE_CRITICAL_H);
     // nakładki mapy
     const isMap = st.view === 'map';
     const r = st.route;
@@ -138,7 +144,7 @@ export class Panels {
     if (r) {
       const u = r.uncertainty, dem = app.m.dem;
       const extra = u ? `<br><span class="u">${t('route.slope', { s: num(u.maxSlopeDeg, 0), sg: num(Math.max(1, u.maxSlopeSigmaDeg), 0), y: esc(dem.year) || '' })}</span>`
-        + `<br><span class="u">${t('route.sand', { p: num(u.maxSandProb * 100, 0), o2: int(r.o2L ?? 0) })}</span>` : '';
+        + `<br><span class="u">${t(r.o2L == null ? 'route.sandOnly' : 'route.sand', { p: num(u.maxSandProb * 100, 0), o2: int(r.o2L ?? 0) })}</span>` : '';
       const html = `<b>${t('route', { l: esc(r.letter) })}</b> <span class="g">${esc(tx(r.rating))}</span><br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${esc(r.stops)} ${plural(r.stops)}${extra}`;
       if (card.dataset.k !== html) { card.innerHTML = html; card.dataset.k = html; }
     }

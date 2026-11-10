@@ -9,7 +9,7 @@ export class RemoteSim {
     this.hooks = hooks;
     this.remote = true;
     this.reset();
-    this.es = ds.stream((s) => this.#onSnap(s));
+    this.es = ds.stream((s) => this.#onSnap(s), (up) => this.hooks.onLink?.(up));
   }
 
   reset() {
@@ -17,6 +17,9 @@ export class RemoteSim {
     this.startMin = parseClock(this.m.mission.startClock);
     this.min = this.startMin;
     this.running = false;
+    this.finished = false;
+    this.returning = false;
+    this.phase = 'idle';
     this.timeScale = 470;
     this.crewS = 0;
     this.gap = 14;
@@ -46,10 +49,15 @@ export class RemoteSim {
 
   #onSnap(s) {
     if (s.missionId && s.missionId !== this.m.mission.id) { location.reload(); return; }
+    if (this.snap && s.session !== this.snap.session) this.hooks.onSession?.();
     const first = this.snap === null;
+    const wasFinished = this.finished;
     this.snap = s;
     this.min = s.clockMin;
     this.running = s.running;
+    this.finished = !!s.finished;
+    this.phase = s.phase ?? 'idle';
+    this.returning = this.phase === 'returning';
     this.timeScale = s.timeScale;
     this.crewS = s.crewS;
     this.gap = s.gap;
@@ -60,7 +68,7 @@ export class RemoteSim {
     this.reached = [...s.reached];
     if (!first) for (const id of newly) {
       const wp = this.m.waypoints.find((w) => w.id === id);
-      if (wp) this.hooks.onWaypoint?.(wp, this.m.waypoints.indexOf(wp) === this.m.waypoints.length - 1);   // punkt spoza mission.json (własny /api/plan) — pomijamy
+      if (wp) this.hooks.onWaypoint?.(wp, this.m.waypoints.indexOf(wp) === this.m.waypoints.length - 1);   // punkt spoza mission.json (własny /api/plan, habitat) — pomijamy
     }
     if (s.routeVersion !== this.routeVersion) { this.routeVersion = s.routeVersion; this.hooks.onRouteVersion?.(s.routeVersion); }
     const a = s.alerts[s.alerts.length - 1];
@@ -68,6 +76,8 @@ export class RemoteSim {
     if (key !== this.alertKey) { this.alertKey = key; if (a && !first) this.hooks.onAlert?.(a); }
     if (s.sep !== this.sep) { this.sep = s.sep; this.hooks.onSep?.(s.sep); }
     if (s.obstacles.length !== this.obstacleCount) { this.obstacleCount = s.obstacles.length; this.hooks.onObstacles?.(s.obstacles); }
+    if (first && s.t > 0) this.hooks.onOngoing?.(s);        // strona otwarta w trakcie wyjścia (także po restarcie serwera)
+    if (this.finished && !wasFinished && !first) this.hooks.onFinish?.();
     this.hooks.onSnapshot?.(s);
   }
 }

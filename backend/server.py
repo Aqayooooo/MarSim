@@ -29,7 +29,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -45,6 +45,7 @@ log = logging.getLogger("marsim")
 STEP_INTERVAL_S = 0.1  # krok pętli symulacji (czas rzeczywisty)
 STREAM_INTERVAL_S = 0.25  # odstęp między stanami w strumieniu SSE
 MISSION_HEADER = "X-MarSim-Mission"
+API_META = "marsim-api"  # znacznik <meta> dopisywany do index.html serwowanego przez backend
 
 
 # ---------------- modele zapytań ----------------
@@ -491,7 +492,9 @@ def create_app(
     # ---------- interfejs ----------
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(ROOT / "index.html", headers={"Cache-Control": "no-store"})
+        html = (ROOT / "index.html").read_text(encoding="utf-8")
+        marker = f'<meta name="{API_META}" content="{VERSION}">'  # po tym znaczniku interfejs poznaje, że ma backend
+        return HTMLResponse(html.replace("<title>", f"{marker}\n<title>", 1), headers={"Cache-Control": "no-store"})
 
     @app.get("/styles.css", include_in_schema=False)
     def styles():

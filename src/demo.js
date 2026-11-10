@@ -13,7 +13,16 @@ export class Director {
     this.playing = false;
   }
 
-  stop() { this.token++; this.playing = false; this.app.autoEvents = true; this.app.emit('director', false); }
+  stop() {
+    this.token++;
+    this.playing = false;
+    this.app.autoEvents = true;
+    this.app.state.fadeOut = false;
+    this.app.setCaption(null);
+    this.app.emit('compare', false);
+    this.app.pauseEva(true);
+    this.app.emit('director', false);
+  }
 
   async play() {
     const my = ++this.token, app = this.app;
@@ -32,7 +41,7 @@ export class Director {
     });
 
     try {
-      app.reset();
+      app.reset(true, { bare: true });
       app.autoEvents = false;
       app.setView('map');
       await wait(0.6);
@@ -42,7 +51,9 @@ export class Director {
       app.setCaption('02', t('demo.c2'));
       app.clearFocus('hazards');
       await wait(0.36);
-      if (!(await app.planInitial({ animate: true }))) throw new Error(t('noRoute'));
+      const route = await app.planInitial({ animate: true });
+      alive();
+      if (!route) throw new Error(t('noRoute'));
       await wait(3.64);
       if (app.state.route?.alternatives) {           // „dlaczego ta trasa”: porównanie wariantów przez chwilę
         app.setCaption('02', t('demo.c2b'));
@@ -54,7 +65,9 @@ export class Director {
       app.setCaption('03', t('demo.c3', { crew: app.m.crew.map((c) => c.id).join(t('and')) }));
       app.showCrew();
       await wait(0.2);
-      app.startEva(470);
+      const started = await app.startEva(470);
+      alive();
+      if (!started) throw new Error(app.state.alert?.text || t('eva.error'));
 
       const wps = app.m.waypoints, done = () => app.sim.nextWp >= wps.length;
       const rp = await until(() => app.lastReplan || (done() && {}));
@@ -89,8 +102,14 @@ export class Director {
       await wait(10.7);
       app.state.fadeOut = true;
       await wait(0.6);
-      await app.pauseEva(true);
+      if (!(await app.pauseEva(true))) throw new Error(app.state.alert?.text || t('eva.error'));
+      alive();
+      await wait(0.8);
+      app.setView('map');               // po prezentacji zostaje mapa z przebytą trasą, a nie czarny ekran
+      app.setCaption(null);
+      app.state.fadeOut = false;
     } catch (e) {
+      if (this.token !== my) return;
       this.stop();
       if (e !== STOP) app.setAlert({ category: t('noRoute'), text: e.message });
       return;

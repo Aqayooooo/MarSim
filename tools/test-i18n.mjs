@@ -18,7 +18,7 @@ for (const k of pl) check(en.has(k), `brak EN dla klucza ${k}`);
 for (const k of en) check(pl.has(k), `brak PL dla klucza ${k}`);
 
 // użyte w kodzie klucze t('...') muszą istnieć
-for (const f of ['src/main.js', 'src/app.js', 'src/demo.js', 'src/ui/panels.js', 'src/ui/views.js', 'src/ui/map2d.js', 'src/ui/view3d.js', 'index.html']) {
+for (const f of ['src/main.js', 'src/app.js', 'src/demo.js', 'src/ui/panels.js', 'src/ui/views.js', 'src/ui/map2d.js', 'src/ui/view3d.js', 'src/ui/profile.js', 'src/ui/evaControls.js', 'src/ui/help.js', 'index.html']) {
   const s = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
   for (const m of s.matchAll(/\b(?:t|tr)\('([\w.ąćęłńóśźż]+)'/g)) check(pl.has(m[1]), `${f}: nieznany klucz ${m[1]}`);
   for (const m of s.matchAll(/data-i18n(?:-html|-title|-aria)?="([\w.ąćęłńóśźż]+)"/g)) check(pl.has(m[1]), `${f}: nieznany klucz ${m[1]}`);

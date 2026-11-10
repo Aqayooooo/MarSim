@@ -469,5 +469,12 @@ export class Map2D {
       const lead = pos[0];
       this.#label(ids.join(' '), this.sx(lead.x) + 14, this.sy(lead.y) + 14);
     }
+    // punkt wskazany kursorem na profilu trasy
+    if (st.probe) {
+      const x = this.sx(st.probe.x), y = this.sy(st.probe.y);
+      ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2);
+      ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.stroke();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    }
   }
 }

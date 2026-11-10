@@ -1,6 +1,11 @@
-// Symulacja EVA: zegar misji, ruch EV1/EV2 po aktywnej trasie, tlen, zapas na powrót, łazik.
+// Symulacja EVA w przeglądarce (tryb bez backendu): zegar misji, marsz załogi po trasie, tlen, zapas na powrót, łazik.
 // Działa na danych z mission.json; nie zawiera logiki interfejsu.
+// Fazy wyjścia są takie same jak w backendzie: idle → walking/stop → atTarget → returning → done.
 import { parseClock } from './format.js';
+
+export const HABITAT_ID = 'HAB';
+const CREW_SPACING_M = 14;      // EV2 idzie tyle metrów za EV1
+const ROVER_STANDOFF_M = 110;   // łazik zatrzymuje się tyle metrów za załogą
 
 export class Sim {
   constructor(mission, hooks = {}) {
@@ -14,10 +19,13 @@ export class Sim {
     this.startMin = parseClock(m.mission.startClock);
     this.min = this.startMin;
     this.running = false;
+    this.finished = false;                      // załoga wróciła do habitatu
+    this.returning = false;
     this.timeScale = 470;                       // sekundy misji na sekundę rzeczywistą
     this.crewS = 0;                             // odległość EV1 wzdłuż trasy (m)
-    this.gap = 14;                              // EV2 idzie ok. 14 m za EV1
+    this.gap = CREW_SPACING_M;
     this.crew = m.crew.map((c) => ({ ...c, o2: c.o2 }));
+    this.waypoints = [...m.waypoints];          // punkty bieżącej trasy (powrót dopisuje habitat)
     this.stopUntil = -1;
     this.nextWp = 0;
     this.reached = [];
@@ -29,6 +37,21 @@ export class Sim {
   }
 
   setRoute(route) { this.route = route; }
+
+  /** Powrót: trasa kończy się w habitacie; nieodwiedzone punkty wypadają z planu. */
+  beginReturn(habitat) {
+    this.waypoints = [...this.waypoints.slice(0, this.nextWp), habitat];
+    this.returning = true;
+    this.stopUntil = -1;
+  }
+
+  get phase() {
+    if (this.finished) return 'done';
+    if (!this.route || (this.min === this.startMin && !this.running)) return 'idle';
+    if (this.nextWp >= this.route.wpS.length) return 'atTarget';
+    if (this.returning) return 'returning';
+    return this.min < this.stopUntil ? 'stop' : 'walking';
+  }
 
   get walkMpm() { return this.m.eva.walkKmh * 1000 / 60; }
 
@@ -60,26 +83,33 @@ export class Sim {
 
     const r = this.route;
     if (r) {
-      // marsz
-      if (this.min >= this.stopUntil && this.nextWp < r.wpS.length) {
-        const target = r.wpS[this.nextWp];
-        this.crewS = Math.min(target, this.crewS + this.walkMpm * dMin);
-        if (this.crewS >= target - 0.01) {
-          const wp = this.m.waypoints[this.nextWp];
-          this.reached.push(wp.id);
-          this.stopUntil = this.min + (wp.stopMin ?? 0);
-          this.nextWp++;
-          this.hooks.onWaypoint?.(wp, this.nextWp === r.wpS.length);
-        }
-      }
+      if (this.min >= this.stopUntil && this.nextWp < r.wpS.length) this.#walk(r, dMin);
       // łazik jedzie po śladzie załogi, aż załoga znajdzie się blisko
       if (this.rover.mode === 'toCrew') {
-        const stopAt = this.crewS - 110;
+        const stopAt = this.crewS - ROVER_STANDOFF_M;
         const spd = this.m.rover.speedKmh * 1000 / 60;
         if (this.rover.s < stopAt) this.rover.s = Math.min(stopAt, this.rover.s + spd * dMin);
       }
     }
-    this.#checkEvents();
+    if (!this.finished) this.#checkEvents();
+  }
+
+  #walk(route, dMin) {
+    const target = route.wpS[this.nextWp];
+    this.crewS = Math.min(target, this.crewS + this.walkMpm * dMin);
+    if (this.crewS < target - 0.01) return;
+    const wp = this.waypoints[this.nextWp];
+    this.reached.push(wp.id);
+    this.nextWp++;
+    if (wp.id === HABITAT_ID) {
+      this.finished = true;
+      this.returning = false;
+      this.running = false;
+      this.hooks.onFinish?.();
+      return;
+    }
+    this.stopUntil = this.min + (wp.stopMin ?? 0);
+    this.hooks.onWaypoint?.(wp, this.nextWp === route.wpS.length);
   }
 
   #checkEvents() {
@@ -87,7 +117,7 @@ export class Sim {
       if (this.fired.has(ev.id)) continue;
       const t = ev.trigger;
       let go = false;
-      if (t.afterWaypoint && this.route) {
+      if (t.afterWaypoint && this.route && !this.returning) {
         const i = this.m.waypoints.findIndex((w) => w.id === t.afterWaypoint);
         go = this.reached.includes(t.afterWaypoint) && this.crewS >= this.route.wpS[i] + (t.afterM ?? 0);
       }

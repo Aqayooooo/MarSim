@@ -1,7 +1,7 @@
 // JEDYNE miejsce, w którym UI styka się z danymi.
 // Tryb "files": pliki z katalogu (dane przykładowe albo wynik potoku zapisany na dysk) + planer zastępczy w przeglądarce.
 // Tryb "http":  backend MarSim (python backend/server.py) — pliki misji, planowanie, strumień stanu EVA, raport, harmonogram.
-// Wykrywanie: ?api=… albo, gdy strona jest serwowana przez backend, odpowiedź na /api/health.
+// Wykrywanie: ?api=… albo znacznik marsim-api w HTML podanym przez backend.
 // Bez backendu (np. GitHub Pages) tryb "files" czyta też przykładowe odpowiedzi backendu zapisane obok danych misji
 // w <katalog>/backend/*.json (tools/export_backend_sample.py): raport, plan wyjść, pogoda kosmiczna, dziennik, trasa A.
 import { Terrain, Raster } from '../core/terrain.js';
@@ -45,13 +45,19 @@ function grayFromImage(img) {
   return out;
 }
 
+/**
+ * Szuka backendu MarSim. Zwraca { base, version } albo null (tryb plikowy).
+ * Backend dopisuje do serwowanego index.html znacznik <meta name="marsim-api">, więc strona statyczna
+ * (GitHub Pages, tools/serve.py) nie wysyła żadnego zapytania próbnego. Inny serwer wskazuje ?api=adres.
+ */
 export async function detectBackend(explicitApi) {
-  if (explicitApi) return explicitApi.replace(/\/$/, '');
+  const marker = document.querySelector('meta[name="marsim-api"]');
+  if (!explicitApi) return marker ? { base: '', version: marker.content } : null;
+  const base = explicitApi.replace(/\/$/, '');
   try {
-    const r = await fetch('/api/health', { cache: 'no-store' });
-    if (r.ok && (await r.json()).ok) return '';
-  } catch { /* brak backendu — tryb plikowy */ }
-  return null;
+    const health = await (await fetch(`${base}/api/health`, { cache: 'no-store' })).json();
+    return { base, version: health.version ?? '' };
+  } catch { return { base, version: '' }; }
 }
 
 export function createDataSource({ mode = 'files', base = 'data/demo', api = '' } = {}) {
@@ -160,9 +166,11 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
     },
     async get(path) { return json(await fetch(API(path), { cache: 'no-store' })); },
     async del(path) { return json(await fetch(API(path), { method: 'DELETE', headers: { 'X-MarSim-Mission': ctx?.mission.mission.id || '' } })); },
-    stream(onData) {
+    /** Strumień stanu EVA. onLink(false) po utracie połączenia; przeglądarka sama łączy się ponownie. */
+    stream(onData, onLink = () => {}) {
       const es = new EventSource(API('stream'));
-      es.onmessage = (e) => onData(JSON.parse(e.data));
+      es.onmessage = (e) => { onLink(true); onData(JSON.parse(e.data)); };
+      es.onerror = () => onLink(false);
       return es;
     },
   };

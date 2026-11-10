@@ -381,6 +381,7 @@ class EvaEngine:
         self.route_blocked = False
         self.route_version += 1
         r["version"] = self.route_version
+        r["waypointIds"] = [w["id"] for w in waypoints]
         self.waypoints = list(waypoints)
         self.poly = Polyline(r["path"])
         self.wp_s = [self.poly.cum[i] for i in r["waypointIndex"]]
@@ -401,6 +402,7 @@ class EvaEngine:
             "path": path,
             "waypointIndex": nearest + [i + len(walked) - 1 for i in onward["waypointIndex"]],
             "lengthM": stats["lengthM"],
+            "stops": sum(w["id"] != HABITAT_ID for w in waypoints),
             "durationH": stats["walkH"] + sum(w.get("stopMin", 0) for w in waypoints) / 60,
             "o2L": onward["o2L"] + planning.path_stats(self.model, walked, self.layers)["o2L"],
             "rating": stats["rating"],
@@ -740,6 +742,7 @@ class EvaEngine:
             weather = self.spaceweather or {}
             return {
                 "missionId": self.cfg["id"],
+                "session": self.store.session,
                 "t": round(self.t, 1),
                 "clockMin": self.clock_min,
                 "clock": self.clock_str(),

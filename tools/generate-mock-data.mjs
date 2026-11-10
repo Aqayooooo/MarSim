@@ -226,6 +226,7 @@ const mission = {
     { id: 'sky', name: 'Niebo', desc: 'RAD + MAVEN', colorOff: '#475E61', colorOn: '#A7E9FB',
       legend: [{ color: '#A7E9FB', text: 'wiatr 7 m/s z NW' }] },
   ],
+  habitat: { x: 350, y: 720 },
   rover: { ...ROVER, speedKmh: 12 },
   waypoints: WP.map((w) => ({ ...w, stopMin: 15, target: w.id === 'WP2' ? 'cel próbki S-02' : null,
     view: w.id === 'WP2' ? { source: 'render', caption: 'Render z DTM · widok z hełmu' } : null })),
