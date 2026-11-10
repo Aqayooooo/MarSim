@@ -15,7 +15,9 @@ MarSim pokazuje teren z prawdziwych danych NASA i wyznacza bezpieczną trasę pi
 
 Wersja 1.4 zapisuje przebieg EVA i odtwarza go po restarcie w stanie pauzy. Dziennik ma kontrolę integralności i eksport CSV. Interfejs obsługuje powrót do habitatu, profil wysokości trasy, pomoc klawiaturową i sygnalizację utraty połączenia. Poprawiono obsługę błędów sterowania, przeliczanie trasy podczas pauzy i synchronizację sesji między kartami.
 
-Weryfikacja: 271 testów backendu, 21 testów sterowania EVA (w tym pełne przebiegi demo, Mount Sharp i Jezero), trzy testy planera, 350 kluczy tłumaczeń PL/EN oraz kontrola kodu Ruff. Test działającego serwera sprawdził strumień stanu, 360 równoległych zapytań i powrót do habitatu. Kontrola CI obejmuje też gałąź `pages-demo`.
+Poprawki po przeglądzie (wieczór 10 listopada): wyjście i postoje w punktach trasy kończą się dopiero, gdy dojdzie cała załoga, a nie tylko prowadzący. Raport i wizjer pokazują bieżący niedobór tlenu osoby w najgorszym stanie. Wersja bez serwera ma te same alarmy tlenu co backend i liczy zapas na powrót do habitatu. Pierwsze wyjście z harmonogramu na bieżący sol ustala godzinę startu i skład załogi symulowanej EVA. API odrzuca nowe wyznaczenie trasy w trakcie wyjścia oraz telemetrię tlenu ponad pojemność butli. Szczegóły w [CHANGELOG.md](CHANGELOG.md).
+
+Weryfikacja: 281 testów backendu, 25 testów sterowania EVA (w tym pełne przebiegi demo, Mount Sharp i Jezero), trzy testy planera, 352 klucze tłumaczeń PL/EN oraz kontrola kodu Ruff. Test działającego serwera sprawdził strumień stanu, 360 równoległych zapytań i powrót do habitatu. Kontrola CI obejmuje też gałąź `pages-demo`.
 
 Niezależne próby w przeglądarce objęły oba obszary NASA, PL/EN, wersję z backendem i bez niego, widoki 3D, jazdę łazikiem, formularze oraz pełne prezentacje. Naprawiono błędny komunikat marszu podczas pauzy, stary cel na urządzeniu po resecie i utratę zmian wprowadzonych podczas pauzy po restarcie serwera. [Zakres i wynik prób](docs/WERYFIKACJA-UI.md). Docker pozostaje niesprawdzony; nie jest zainstalowany na tym komputerze.
 
@@ -25,7 +27,7 @@ Niezależne próby w przeglądarce objęły oba obszary NASA, PL/EN, wersję z b
 
 [Otwórz widok astronauty](https://aqayooooo.github.io/MarSim/?view=helmet&lang=pl) albo wybierz **Hełm EV1** w aplikacji. Wnętrze hełmu jest modelem 3D przy kamerze: metalowa rama, uszczelka, mocowania, śruby i dolna osłona. Widok terenu zajmuje szerokość ekranu, a dane wyglądają jak projekcja na szybie wizjera.
 
-Panel w prawym dolnym rogu podsumowuje tlen, energię, ciśnienie i zapas na powrót. Wskazuje najpilniejsze zagrożenie oraz działanie. **Pokaż niedobór** uruchamia oznaczony przykład alarmu z małą ilością tlenu i energii; nie zmienia stanu misji. Bez backendu brakujące pomiary baterii i ciśnienia mają znak „—”.
+Panel w prawym dolnym rogu podsumowuje tlen, energię, ciśnienie i zapas na powrót osoby w najgorszym stanie i podaje jej identyfikator. Alarm „rozpocznij powrót” włącza się poniżej rezerwy tlenu misji. Wskazuje najpilniejsze zagrożenie oraz działanie. **Pokaż niedobór** uruchamia oznaczony przykład alarmu z małą ilością tlenu i energii; nie zmienia stanu misji. Bez backendu brakujące pomiary baterii i ciśnienia mają znak „—”.
 
 Sterowanie: przeciągnij myszą, aby się rozejrzeć; W A S D lub strzałki pozwalają poruszać kamerą. To podgląd z perspektywy astronauty, niezależny od ruchu modelowanej EVA. Parametr `?view=helmet` otwiera ten widok od razu. Zdjęcia punktów trasy nadal przedstawiają sam teren, bez wnętrza hełmu.
 
@@ -85,6 +87,7 @@ python tools/make_data_sources.py                # odświeża data-sources.json
 - **Start EVA**: wyznacza trasę i rusza z załogą. Ten sam przycisk wstrzymuje i wznawia marsz. **Powrót do habitatu** wyznacza trasę powrotną; po dotarciu pojawia się **Nowe wyjście**.
 - **Profil trasy**: wykres wysokości, strefy „uwaga” i bieżąca pozycja załogi. Wskazanie wykresu pokazuje odpowiadające miejsce na mapie.
 - **?**: pomoc i skróty. M/O/H/U/R/G zmieniają widok, 1–9 i 0 przełączają warstwy, spacja steruje EVA, B wyznacza powrót, P otwiera profil, C porównuje trasy.
+- **Plan wyjść**: harmonogram z kontrolą zapasów, odpoczynku i światła dziennego. Wpis można dodać, edytować i usunąć. Pierwsze wyjście na bieżący sol ustala godzinę startu i załogę EVA; zmiana działa po resecie wyjścia.
 - **Prezentacja** odtwarza scenariusz w 8 krokach. Zatrzymanie wstrzymuje EVA. Po końcu zostaje mapa z przebytą trasą.
 - **＋ Zgłoś z terenu**: kliknięcie na mapie dodaje przeszkodę albo bezpieczne przejście. Trasa przelicza się, jeśli trzeba.
 
@@ -142,6 +145,7 @@ Uruchamia je też CI (`.github/workflows/ci.yml`).
 
 ## Dokumenty
 
+- [CHANGELOG.md](CHANGELOG.md): historia zmian;
 - [docs/PLAN.md](docs/PLAN.md): etapy i stan prac;
 - [docs/KONTRAKT_DANYCH.md](docs/KONTRAKT_DANYCH.md): format danych między backendem a UI;
 - [docs/BEZPIECZENSTWO.md](docs/BEZPIECZENSTWO.md): bezpieczeństwo i droga do wdrożenia;
