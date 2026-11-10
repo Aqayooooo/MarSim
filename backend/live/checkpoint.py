@@ -34,6 +34,8 @@ def capture(engine: EvaEngine) -> dict:
         "route": engine.route,
         "waypoints": engine.waypoints,
         "rover": dict(engine.rover),
+        "gap": engine.gap,
+        "start_min": engine.start_min,
         "fired": sorted(engine.fired),
         "fired_at": dict(engine.fired_at),
         "warned": [list(key) for key in engine._warned],
@@ -62,9 +64,11 @@ def usable(state: dict | None, mission_id: str) -> bool:
 
 def restore(engine: EvaEngine, state: dict) -> None:
     """Odtwarza stan zapisany przez `capture` na świeżo wyczyszczonym silniku. Wyjście zostaje wstrzymane."""
-    crew_ids = [member["cfg"]["id"] for member in engine.crew]
-    if [saved["id"] for saved in state["crew"]] != crew_ids:
+    known = {c["id"]: c for c in engine.cfg["crew"]}
+    saved_ids = [saved["id"] for saved in state["crew"]]
+    if not saved_ids or any(i not in known for i in saved_ids):
         raise ValueError("skład załogi w punkcie kontrolnym nie zgadza się z konfiguracją misji")
+    engine.crew = [engine.new_member(known[i]) for i in saved_ids]  # załoga wyjścia, nawet gdy harmonogram się zmienił
     for name in _LISTS:
         setattr(engine, name, list(state[name]))
     engine.fired = set(state["fired"])
@@ -79,6 +83,8 @@ def restore(engine: EvaEngine, state: dict) -> None:
     engine._set_route(state["route"], state["waypoints"])
     for name in _SCALARS:
         setattr(engine, name, state[name])
+    engine.gap = state.get("gap", engine.gap)  # starsze punkty kontrolne nie mają tych pól
+    engine.start_min = state.get("start_min", engine.start_min)
     engine.route_version = version
     engine.route["version"] = version
     engine.running = False

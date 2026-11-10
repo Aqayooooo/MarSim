@@ -303,3 +303,52 @@ test('wizjer nadaje pierwszeństwo zagrożeniom i rozróżnia brak pomiaru bater
   assert.equal(helmetStatus({ ...good, oxygen: 18, sep: true }).key, 'visor.shelter');
   assert.equal(helmetStatus({ ...good, oxygen: 18, offline: true }).key, 'visor.offline');
 });
+
+test('wyjście kończy się, gdy do habitatu dojdzie cała załoga (tryb lokalny)', async () => {
+  const { app } = fixture();
+  app.m.habitat = { x: app.m.rover.x - 60, y: app.m.rover.y };
+  await app.planInitial({ animate: false });
+  app.startEva(60);
+  for (let k = 0; k < 400 && app.sim.crewS < 30; k++) app.update(0.1);
+  await app.returnToHabitat();
+  app.sim.running = true;
+  for (let k = 0; k < 20000 && !app.sim.finished; k++) app.update(0.1);
+  assert.equal(app.sim.finished, true);
+  for (const i of [0, 1]) {
+    const p = app.sim.crewPos(i);
+    assert.ok(Math.hypot(p.x - app.m.habitat.x, p.y - app.m.habitat.y) < 0.5, `EV${i + 1}`);
+  }
+});
+
+test('tryb lokalny zgłasza alarm tlenu raz i liczy zapas do habitatu', async () => {
+  const { app } = fixture();
+  const alerts = [];
+  app.on('alert', () => { if (app.state.alert) alerts.push(app.state.alert.text); });
+  await app.planInitial({ animate: false });
+  app.sim.rasters = { timeToHabitat: { sample: () => 1800 } };   // pół godziny do habitatu
+  app.sim.crew[1].o2 = app.m.eva.o2ReservePct + 1;
+  const expected = (app.sim.crew[1].o2 - app.m.eva.o2ReservePct) / app.sim.crew[1].o2RatePctH - 0.5;
+  assert.ok(Math.abs(app.sim.reserveH() - expected) < 1e-9);
+  app.startEva(470);
+  for (let k = 0; k < 50; k++) app.update(0.1);
+  const o2 = alerts.filter((a) => a.startsWith('EV2: '));
+  assert.ok(o2.includes('EV2: za mało tlenu na powrót pieszo — wezwij łazik'), o2.join(' | '));
+  assert.ok(o2.includes(`EV2: tlen poniżej rezerwy ${app.m.eva.o2ReservePct}%`), o2.join(' | '));
+  assert.equal(new Set(o2).size, o2.length);
+});
+
+test('wizjer: próg tlenu z rezerwy misji', () => {
+  const good = { oxygen: 22, battery: 80, reserve: 2, zone: 0, sep: false, offline: false, planned: true };
+  assert.equal(helmetStatus({ ...good, reservePct: 20 }).key, 'visor.nominal');
+  assert.equal(helmetStatus({ ...good, reservePct: 25 }).key, 'visor.returnNow');
+});
+
+test('litera trasy po Z wraca do A (tryb lokalny)', async () => {
+  const { app } = fixture();
+  await app.planInitial({ animate: false });
+  app.state.route.letter = 'Z';
+  app.startEva(60);
+  app.update(0.1);
+  await app.reportObservation({ kind: 'glazy', x: 100, y: 100, radiusM: 30 });
+  assert.equal(app.state.route.letter, 'A');
+});

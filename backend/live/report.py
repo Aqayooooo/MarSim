@@ -9,6 +9,7 @@ import re
 import numpy as np
 
 from backend import planning
+from backend.live.engine import WALKBACK_WARNING_H
 from backend.models.physiology import G_MARS
 from backend.models.sun import fmt_ltst
 
@@ -125,14 +126,29 @@ def build(e) -> dict:
         f"{no_comms:.0f} m trasy bez zasięgu ({no_comms / max(seg.sum(), 1) * 100:.0f}%)",
     )
     margin = cap - reserve - o2_need
+    o2_likelihood = 1 if margin > 200 else 3 if margin > 50 else 5
+    o2_value = f"potrzeba {o2_need:.0f} L, dostępne {cap - reserve:.0f} L ponad rezerwę"
+    if e.t > 0 and not e.finished:  # trwające wyjście: liczy się bieżący tlen najsłabszej osoby, nie sam plan
+        walkbacks = [(member, e._walkback(member, e.crew_pos(k))) for k, member in enumerate(e.crew)]
+        member, walkback = min(walkbacks, key=lambda mw: mw[1]["marginH"])
+        person = member["person"]
+        if person.o2_l <= eva["o2ReservePct"] / 100 * person.o2_capacity_l or not walkback["ok"]:
+            o2_likelihood = 5
+        elif walkback["marginH"] < WALKBACK_WARNING_H:
+            o2_likelihood = max(o2_likelihood, 4)
+        margin = min(margin, walkback["availL"] - walkback["needL"])
+        o2_value = (
+            f"{member['cfg']['id']}: {person.o2_l / person.o2_capacity_l * 100:.0f}% O₂, "
+            f"na powrót potrzeba {walkback['needL']:.0f} L, dostępne {walkback['availL']:.0f} L ponad rezerwę"
+        )
     add(
         "H5",
         "Niewystarczający zapas tlenu",
-        1 if margin > 200 else 3 if margin > 50 else 5,
+        o2_likelihood,
         5,
         "model wysiłku Pandolfa (0,38 g) dopasowany do średniego wysiłku w EVA Apollo",
         f"granica powrotu pieszego na mapie; rezerwa {eva['o2ReservePct']:g}%",
-        f"potrzeba {o2_need:.0f} L, dostępne {cap - reserve:.0f} L ponad rezerwę",
+        o2_value,
     )
     add(
         "H6",

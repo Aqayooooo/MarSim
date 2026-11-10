@@ -6,11 +6,14 @@ import { parseClock } from './format.js';
 export const HABITAT_ID = 'HAB';
 const CREW_SPACING_M = 14;      // EV2 idzie tyle metrów za EV1
 const ROVER_STANDOFF_M = 110;   // łazik zatrzymuje się tyle metrów za załogą
+const WALKBACK_WARNING_H = 0.25; // jak w backendzie: ostrzeżenie przy zapasie na powrót poniżej 15 min
 
 export class Sim {
-  constructor(mission, hooks = {}) {
+  /** rasters: warstwy misji (timeToHabitat — czas dojścia pieszo do habitatu w sekundach). */
+  constructor(mission, hooks = {}, rasters = {}) {
     this.m = mission;
     this.hooks = hooks;
+    this.rasters = rasters;
     this.reset();
   }
 
@@ -34,6 +37,7 @@ export class Sim {
     this.fired = new Set();
     this.firedAt = {};
     this.route = null;
+    this.warned = new Set();                    // alarmy tlenu już zgłoszone w tej sesji
   }
 
   setRoute(route) { this.route = route; }
@@ -64,14 +68,17 @@ export class Sim {
     return this.route.poly.at(this.rover.s);
   }
 
-  /** Zapas na powrót (h): czas do osiągnięcia rezerwy O₂ minus czas dojścia do łazika. */
-  reserveH() {
-    const f = this.sep ? this.m.eva.sepO2Factor : 1;
-    let h = Infinity;
-    for (const c of this.crew) h = Math.min(h, (c.o2 - this.m.eva.o2ReservePct) / (c.o2RatePctH * f));
-    const back = Math.max(0, this.crewS - this.rover.s) / (this.walkMpm * 60);
-    return h - back;
+  /** Zapas na powrót osoby i (h): czas do osiągnięcia rezerwy O₂ minus czas dojścia pieszo do habitatu (jak w backendzie). */
+  memberReserveH(i) {
+    const c = this.crew[i], f = this.sep ? this.m.eva.sepO2Factor : 1;
+    const toHab = this.rasters.timeToHabitat;
+    const p = this.crewPos(i);
+    const backH = toHab ? toHab.sample(p.x, p.y) / 3600 : Math.max(0, this.crewS - i * this.gap - this.rover.s) / (this.walkMpm * 60);
+    return (c.o2 - this.m.eva.o2ReservePct) / (c.o2RatePctH * f) - backH;
   }
+
+  /** Zapas na powrót (h) najsłabszej osoby. */
+  reserveH() { return Math.min(...this.crew.map((_, i) => this.memberReserveH(i))); }
 
   /** Krok symulacji; dtReal w sekundach. */
   step(dtReal) {
@@ -80,6 +87,7 @@ export class Sim {
     this.min += dMin;
     const f = this.sep ? this.m.eva.sepO2Factor : 1;
     for (const c of this.crew) c.o2 = Math.max(0, c.o2 - c.o2RatePctH / 60 * dMin * f);
+    if (this.route) this.#checkOxygen();
 
     const r = this.route;
     if (r) {
@@ -95,9 +103,17 @@ export class Sim {
   }
 
   #walk(route, dMin) {
-    const target = route.wpS[this.nextWp];
-    this.crewS = Math.min(target, this.crewS + this.walkMpm * dMin);
-    if (this.crewS < target - 0.01) return;
+    const target = route.wpS[this.nextWp], step = this.walkMpm * dMin;
+    if (this.crewS < target - 0.01) {
+      const advance = Math.min(target - this.crewS, step);
+      this.crewS += advance;
+      this.gap = Math.min(CREW_SPACING_M, this.gap + advance);   // po postoju reszta załogi rusza, gdy odstęp wróci do normy
+      return;
+    }
+    // prowadzący stoi w punkcie, reszta dochodzi; punkt jest osiągnięty, gdy dojdzie ostatnia osoba
+    this.gap = Math.max(0, this.gap - step);
+    if (this.gap > 0.01 && this.crew.length > 1) return;
+    this.gap = 0;
     const wp = this.waypoints[this.nextWp];
     this.reached.push(wp.id);
     this.nextWp++;
@@ -110,6 +126,24 @@ export class Sim {
     }
     this.stopUntil = this.min + (wp.stopMin ?? 0);
     this.hooks.onWaypoint?.(wp, this.nextWp === route.wpS.length);
+  }
+
+  /** Alarmy tlenu jak w backendzie: poniżej rezerwy, brak zapasu na powrót, mały zapas na powrót (każdy raz na sesję). */
+  #checkOxygen() {
+    const reserve = this.m.eva.o2ReservePct;
+    this.crew.forEach((c, i) => {
+      const margin = this.memberReserveH(i);
+      if (c.o2 <= reserve) this.#warnOnce(c.id, 'reserve', `${c.id}: tlen poniżej rezerwy ${reserve}%`);
+      else if (margin < 0) this.#warnOnce(c.id, 'noReturn', `${c.id}: za mało tlenu na powrót pieszo — wezwij łazik`);
+      else if (margin < WALKBACK_WARNING_H) this.#warnOnce(c.id, 'margin', `${c.id}: zapas na powrót pieszo poniżej ${WALKBACK_WARNING_H * 60} min — zawróć`);
+    });
+  }
+
+  #warnOnce(id, kind, text) {
+    const key = `${id}|${kind}`;
+    if (this.warned.has(key)) return;
+    this.warned.add(key);
+    this.hooks.onAlert?.({ category: 'TLEN', text, highlight: 'o2' });
   }
 
   #checkEvents() {

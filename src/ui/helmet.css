@@ -48,6 +48,7 @@
 #visorDetail { margin: 5px 0 3px; font-family: var(--sans); font-size: 11px; line-height: 1.5; color: #cae4e1; }
 .visor-metric { position: relative; display: flex; align-items: baseline; justify-content: space-between; padding: 6px 0 13px; margin-bottom: 2px; }
 .visor-metric > span { font-size: 11px; color: #b4d8d6; }
+.visor-metric em { font-style: normal; opacity: .75; }
 .visor-metric b { font-size: 20px; font-weight: 400; letter-spacing: -.04em; }
 .visor-bar { position: absolute; left: 0; right: 0; bottom: 5px; height: 3px; background: #94e8e41c; }
 .visor-bar i { display: block; height: 100%; background: var(--visor); box-shadow: 0 0 8px #91f4e741; transition: width .2s; }

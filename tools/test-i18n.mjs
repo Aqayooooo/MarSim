@@ -41,7 +41,7 @@ const samples = [
   'Ryzyka średnie/wysokie: Utrata łączności z habitatem, Strome zbocze.',
   'Szansa ukończenia: 91% · zapas O₂ ponad rezerwę: 210 L.',
   'maks. 14,2° ±1,5° (2σ: 17,2°)', 'maks. prawdopodobieństwo 0,41 (pewność min. 0,33)', '7 głazów ≤15 m od trasy, największy 2,1 m',
-  '120 m trasy bez zasięgu (9%)', 'potrzeba 210 L, dostępne 416 L ponad rezerwę', 'koniec ok. 11:20 LTST, zmierzch 17:55',
+  '120 m trasy bez zasięgu (9%)', 'potrzeba 210 L, dostępne 416 L ponad rezerwę', 'EV2: 10% O₂, na powrót potrzeba 61 L, dostępne −26 L ponad rezerwę', 'koniec ok. 11:20 LTST, zmierzch 17:55',
   'dawka EVA ok. 45 μSv; Brak danych o pogodzie kosmicznej', 'grunt −40…−5 °C', '60 m trasy z < 3 nadajnikami w zasięgu',
   'Protony ≥10 MeV przy Ziemi: 0,23 pfu (burza: brak); zdarzenia DONKI z 7 dni: 0',
   'EV1: więcej niż jedno wyjście w tym samym solu', 'EVA-3: wyjście dłuższe niż 8 h', 'Tlen: plan wymaga 900 L, dostępne 4800 L (80% zapasów)',

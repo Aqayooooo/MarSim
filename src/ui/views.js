@@ -31,7 +31,7 @@ export class DeviceView {
   update() {
     const app = this.app, sim = app.sim, snap = sim.snap, c = snap?.crew?.[0], r = app.state.route;
     const set = (id, v, cls) => { const e = $(id); if (e.textContent !== v) e.textContent = v; if (cls !== undefined) e.className = `v ${cls}`; };
-    $('dvWho').textContent = `${app.m.crew[0].id} · ${t('dev.route')} ${r?.letter ?? '—'}`;
+    $('dvWho').textContent = `${sim.crew[0]?.id ?? app.m.crew[0].id} · ${t('dev.route')} ${r?.letter ?? '—'}`;
     $('dvClock').textContent = `${clock(sim.min)} LTST`;
     const o2 = c ? c.o2Pct : sim.crew[0].o2;
     set('dvO2', `${Math.round(o2)}%`, o2 > 40 ? 'ok' : o2 > 25 ? 'warnc' : 'bad');
@@ -168,7 +168,8 @@ export class ScheduleView {
         ${d.items.map((i) => `<tr><td><b>${esc(i.id)}</b></td><td>${esc(i.sol)}</td><td>${esc(i.startLtst)}–${esc(i.endLtst)}</td><td>${esc(i.crew.join(', '))}</td>
           <td class="muted">${esc(tx(i.purpose))}</td><td>${int(i.o2L)} L</td><td>${int(i.batteryWh)} Wh</td>
           <td>${i.issues.length ? `<span class="warn">${esc(i.issues.map(tx).join('; '))}</span>` : '<span class="ok">OK</span>'}</td>
-          ${sample ? '' : `<td><button class="btn" data-del="${esc(i.id)}" aria-label="${t('sc.delete')} ${esc(i.id)}">${t('sc.delete')}</button></td>`}</tr>`).join('')}</table>
+          ${sample ? '' : `<td><button class="btn" data-edit="${esc(i.id)}" aria-label="${t('sc.edit')} ${esc(i.id)}">${t('sc.edit')}</button> <button class="btn" data-del="${esc(i.id)}" aria-label="${t('sc.delete')} ${esc(i.id)}">${t('sc.delete')}</button></td>`}</tr>`).join('')}</table>
+      ${sample ? '' : `<p class="note">${t('sc.liveNote')}</p>`}
       <h2>${t('sc.stores')}</h2>
       <div class="kpis">
         <div class="kpi"><b>${int(d.consumables.o2NeededL)} / ${int(d.consumables.o2AvailableL)} L</b><span>${t('sc.kO2')}</span></div>
@@ -191,10 +192,18 @@ export class ScheduleView {
     this.el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
       try { this.render(await this.app.ds.del(`schedule/${encodeURIComponent(b.dataset.del)}`)); } catch (e) { this.render(d, e.message); }
     }));
+    this.el.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
+      const i = d.items.find((x) => x.id === b.dataset.edit);
+      if (!i) return;
+      $('scId').value = i.id; $('scSol').value = i.sol; $('scStart').value = i.startLtst; $('scDur').value = i.durationH; $('scPurpose').value = i.purpose;
+      this.el.querySelectorAll('.scCrew').forEach((x) => { x.checked = i.crew.includes(x.value); });
+      $('scId').focus();
+    }));
     $('scAdd').addEventListener('click', async () => {
       const item = { id: $('scId').value || `EVA-${Math.max(0, ...d.items.map(i => Number(i.id.match(/^EVA-(\d+)$/)?.[1]) || 0)) + 1}`, sol: +$('scSol').value, startLtst: $('scStart').value, durationH: +$('scDur').value,
         crew: [...this.el.querySelectorAll('.scCrew:checked')].map((x) => x.value), purpose: $('scPurpose').value || t('sc.defaultPurpose') };
-      try { this.render(await this.app.ds.post('schedule', item)); } catch (e) { this.render(d, e.message); }
+      const exists = d.items.some((i) => i.id === item.id);   // istniejący identyfikator — zmiana wpisu (PUT)
+      try { this.render(await (exists ? this.app.ds.put(`schedule/${encodeURIComponent(item.id)}`, item) : this.app.ds.post('schedule', item))); } catch (e) { this.render(d, e.message); }
     });
   }
 }

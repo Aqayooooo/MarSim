@@ -180,7 +180,7 @@ def test_broken_checkpoint_falls_back_to_new_session(tmp_path):
     engine = walking_engine(Store(path))
     engine.pause()
     state = engine.store.checkpoint_load()
-    state["crew"] = state["crew"][:1]  # inny skład załogi niż w konfiguracji
+    state["crew"][0]["id"] = "EV9"  # osoby nie ma w konfiguracji misji
     engine.store.checkpoint_save(state)
     recovered = make_engine("mount-sharp", Store(path))
     assert not recovered.resumed and recovered.phase == "idle" and recovered.t == 0

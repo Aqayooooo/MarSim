@@ -301,6 +301,8 @@ def create_app(
     def plan(body: PlanRequest | None = None):
         body = body or PlanRequest()
         eng = active()
+        if eng.t > 0 or eng.finished:  # trasę wyjścia wyznacza się przed startem; w trakcie: zgłoszenia i powrót
+            raise HTTPException(409, "Trasę można wyznaczyć tylko przed startem EVA. Zresetuj symulację, aby zaplanować nowe wyjście.")
         for point in [body.start, *(body.waypoints or [])]:
             if point is not None:
                 require_inside(eng, point.x, point.y)
@@ -382,6 +384,10 @@ def create_app(
             raise HTTPException(422, "Pozycja wymaga x i y")
         if "x" in values:
             require_inside(eng, body.x, body.y)
+        member = next((c for c in eng.cfg["crew"] if c["id"] == body.id), None)
+        if member and body.o2L is not None and body.o2L > member["o2CapacityL"]:
+            limit = member["o2CapacityL"]
+            raise HTTPException(422, f"Błędne dane zapytania — o2L: {body.o2L:g} L przekracza pojemność butli {body.id} ({limit:g} L)")
         if not eng.apply_telemetry(body.id, values):
             raise HTTPException(404, f"Nieznany członek załogi: {body.id}")
         return {"ok": True}

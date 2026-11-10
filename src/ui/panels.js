@@ -92,7 +92,7 @@ export class Panels {
       r.innerHTML = `<div class="o2top"><b></b><div class="bar"><i></i></div><span></span></div><div class="tele"></div>`;
       r.querySelector('b').textContent = c.id;
       box.appendChild(r);
-      return { bar: r.querySelector('.bar'), fill: r.querySelector('i'), val: r.querySelector('span'), tele: r.querySelector('.tele') };
+      return { row: r, bar: r.querySelector('.bar'), fill: r.querySelector('i'), val: r.querySelector('span'), tele: r.querySelector('.tele') };
     });
   }
 
@@ -122,14 +122,19 @@ export class Panels {
     setText($('cDoseSub'), on && career !== null ? t('card.career', { p: num(career * 100, 0) }) : '');
     setClass($('cDose'), 'hi', st.doseHi);
     // tlen i zapas
-    sim.crew.forEach((c, i) => {
+    // wiersze według identyfikatora: harmonogram może wysłać tylko część załogi
+    const present = new Set(sim.crew.map((c) => c.id));
+    m.crew.forEach((c, k) => { this.o2[k].row.hidden = !present.has(c.id); });
+    sim.crew.forEach((c, j) => {
+      const i = m.crew.findIndex((x) => x.id === c.id);
+      if (i < 0) return;
       const p = Math.round(c.o2);
       const w = `${(c.o2 / 100) * O2_BAR_PX}px`;
       if (this.o2[i].fill.style.width !== w) this.o2[i].fill.style.width = w;
       setClass(this.o2[i].bar, 'low', p <= O2_LOW_PCT && p > O2_CRITICAL_PCT);
       setClass(this.o2[i].bar, 'crit', p <= O2_CRITICAL_PCT);
       setText(this.o2[i].val, `${p}%`);
-      const tl = snap?.crew?.[i];
+      const tl = snap?.crew?.[j];
       setText(this.o2[i].tele, tl ? t('tele', { co2: num(tl.co2mmHg, 1), bat: int(tl.batteryPct), hr: tl.hr, kpa: num(tl.pressureKPa, 1) }) : '');
     });
     const reserveH = sim.reserveH(), underway = app.phase !== 'idle' && app.phase !== 'done';

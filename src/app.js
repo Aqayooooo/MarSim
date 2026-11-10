@@ -36,7 +36,7 @@ export class App {
       onOngoing: (s) => this.#onOngoing(s),
       onLink: (up) => { this.offline = !up; this.emit('net', up); },
     };
-    this.sim = this.remote ? new RemoteSim(this.m, ds, hooks) : new Sim(this.m, hooks);
+    this.sim = this.remote ? new RemoteSim(this.m, ds, hooks) : new Sim(this.m, hooks, world.rasters);
     this.reset(false);
   }
 
@@ -190,7 +190,7 @@ export class App {
     const totalStop = wps.reduce((a, w) => a + (w.stopMin ?? 0), 0);
     const stats = routeStats(this.world.terrain, path, this.m.eva, wps.filter((w) => w.id !== HABITAT_ID).length, totalStop);
     this.state.discarded.push(old.poly.slice(s, old.poly.length));
-    const letter = String.fromCharCode(old.letter.charCodeAt(0) + 1);
+    const letter = String.fromCharCode((old.letter.charCodeAt(0) - 65 + 1) % 26 + 65);   // A → … → Z → A, jak w backendzie
     this.routeBlocked = false;
     this.state.route = this.#makeRoute(path, wpIndex, letter, { ...stats, uncertainty: old.uncertainty }, { t0: this.now, dur: 0.65, s0: s });
     this.sim.setRoute(this.state.route);

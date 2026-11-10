@@ -153,6 +153,24 @@ class EvaEngine:
             dose_msv=c["priorDoseMsv"],
         )
 
+    def new_member(self, c: dict) -> dict:
+        """Stan członka załogi na początku wyjścia."""
+        return {
+            "cfg": c,
+            "person": self.model_person(c),
+            "metabolic": 120.0,
+            "co2mmHg": 0.8,
+            "source": "model",
+            "moved": 0.0,
+            "evaDoseUsv": 0.0,
+            "est": None,
+            "sensors": {"pressureKPa": SUIT_PRESSURE_KPA, "suitTempC": 0.0, "hr": 0.0},
+        }
+
+    def scheduled_exit(self) -> dict | None:
+        """Pierwsze wyjście z harmonogramu na sol misji; zmiana wpisu działa od następnego resetu."""
+        return next((item for item in self.scheduler.items if item["sol"] == self.cfg["sol"]), None)
+
     def _cost_model(self) -> planning.CostModel:
         return planning.CostModel(self.layers, self.cell, self.cfg["eva"], self.model_person(self.cfg["crew"][0]))
 
@@ -239,7 +257,9 @@ class EvaEngine:
                 self.layers["hazard"] = self._hazard0.copy()
                 self.model = self._cost_model()
             self.o2_home = planning.cost_field(self.model, self.cfg["habitat"], "o2")
-            self.start_min = int(self.cfg["startLtst"][:2]) * 60 + int(self.cfg["startLtst"][3:])
+            planned = self.scheduled_exit()  # godzina startu i załoga z harmonogramu, gdy jest wpis na ten sol
+            start_ltst = planned["startLtst"] if planned else self.cfg["startLtst"]
+            self.start_min = int(start_ltst[:2]) * 60 + int(start_ltst[3:])
             self.t = 0.0  # sekundy misji od startu
             self.running = False
             self.finished = False  # załoga wróciła do habitatu
@@ -256,19 +276,9 @@ class EvaEngine:
             self.next_wp = 0
             self.stop_until = -1.0  # minuta misji, do której trwa postój
             self.reached = []
-            self.crew = [
-                {
-                    "cfg": c,
-                    "person": self.model_person(c),
-                    "metabolic": 120.0,
-                    "co2mmHg": 0.8,
-                    "source": "model",
-                    "moved": 0.0,
-                    "evaDoseUsv": 0.0,
-                    "est": None,
-                    "sensors": {"pressureKPa": SUIT_PRESSURE_KPA, "suitTempC": 0.0, "hr": 0.0},
-                }
-                for c in self.cfg["crew"]
+            ids = set(planned["crew"]) if planned else None
+            self.crew = [self.new_member(c) for c in self.cfg["crew"] if ids is None or c["id"] in ids] or [
+                self.new_member(c) for c in self.cfg["crew"]
             ]
             self.rover = {"s": 0.0, "mode": "parked", "x": self.cfg["rover"]["x"], "y": self.cfg["rover"]["y"]}
             self.sep = False
@@ -562,12 +572,22 @@ class EvaEngine:
         if self.layers["hazard"][cell] == 1:
             speed /= planning.CAUTION_FACTOR
         target = self.wp_s[self.next_wp]
-        advance = min(target - self.crew_s, speed * dt)
-        self.crew_s += advance
-        for member in self.crew:
-            member["moved"] += advance
         if self.crew_s >= target - 0.01:
-            self._arrive(self.waypoints[self.next_wp])
+            # prowadzący stoi w punkcie, reszta załogi dochodzi; punkt jest osiągnięty, gdy dojdzie ostatnia osoba
+            close = min(self.gap, speed * dt)
+            self.gap -= close
+            for k, member in enumerate(self.crew):
+                member["moved"] += k * close
+            if self.gap <= 0.01 or len(self.crew) < 2:
+                self.gap = 0.0
+                self._arrive(self.waypoints[self.next_wp])
+            return True
+        advance = min(target - self.crew_s, speed * dt)
+        grow = min(CREW_SPACING_M - self.gap, advance)  # po postoju reszta załogi rusza, gdy odstęp wróci do normy
+        self.crew_s += advance
+        self.gap += grow
+        for k, member in enumerate(self.crew):
+            member["moved"] += max(0.0, advance - k * grow)
         return True
 
     def _arrive(self, wp: dict):
@@ -670,8 +690,9 @@ class EvaEngine:
                 continue
             trigger = event["trigger"]
             due = False
-            if trigger.get("afterWaypoint") in self.reached:
-                index = [w["id"] for w in self.waypoints].index(trigger["afterWaypoint"])
+            ids = [w["id"] for w in self.waypoints]
+            if trigger.get("afterWaypoint") in self.reached and trigger["afterWaypoint"] in ids:  # punktu może nie być na bieżącej trasie
+                index = ids.index(trigger["afterWaypoint"])
                 due = self.crew_s >= self.wp_s[index] + trigger.get("afterM", 0)
             if trigger.get("afterEvent") in self.fired:
                 due = self.t / 60 >= self.fired_at[trigger["afterEvent"]] + trigger.get("afterMin", 0)
@@ -759,6 +780,7 @@ class EvaEngine:
                 "sol": self.cfg["sol"],
                 "running": self.running,
                 "phase": self.phase,
+                "paused": not self.running and self.t > 0 and not self.finished,
                 "finished": self.finished,
                 "resumed": self.resumed,
                 "timeScale": self.time_scale,

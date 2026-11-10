@@ -165,6 +165,9 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
       return json(await fetch(API(path), { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-MarSim-Mission': ctx?.mission.mission.id || '' }, body: JSON.stringify(body) }));
     },
     async get(path) { return json(await fetch(API(path), { cache: 'no-store' })); },
+    async put(path, body = {}) {
+      return json(await fetch(API(path), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-MarSim-Mission': ctx?.mission.mission.id || '' }, body: JSON.stringify(body) }));
+    },
     async del(path) { return json(await fetch(API(path), { method: 'DELETE', headers: { 'X-MarSim-Mission': ctx?.mission.mission.id || '' } })); },
     /** Strumień stanu EVA. onLink(false) po utracie połączenia; przeglądarka sama łączy się ponownie. */
     stream(onData, onLink = () => {}) {
