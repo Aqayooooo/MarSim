@@ -56,6 +56,7 @@ export class EvaControls {
     const app = this.app, phase = app.phase, demo = this.director.playing;
     const label = phase === 'done' ? 'eva.new' : app.sim.running ? 'eva.pause' : phase === 'idle' ? 'eva.start' : 'eva.resume';
     setText(this.btn, t(label));
+    this.btn.title = t(phase === 'idle' ? 'eva.title' : label);
     this.btn.disabled = demo || this.starting;
     this.btn.classList.toggle('primary', phase === 'idle' || phase === 'done' || app.paused);
     setHidden(this.returnBtn, demo || !CAN_RETURN.includes(phase));

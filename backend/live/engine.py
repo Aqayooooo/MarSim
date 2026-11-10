@@ -130,7 +130,7 @@ class EvaEngine:
             start_ltst=cfg["startLtst"],
         )
         self.lock = threading.RLock()
-        self.spaceweather = None
+        self.spaceweather = None if live_feeds else {"available": False, "summary": "Brak danych o pogodzie kosmicznej"}
         if live_feeds:  # pogoda kosmiczna z sieci (w testach wyłączona)
             threading.Thread(target=self._refresh_spaceweather, daemon=True).start()
         self.resumed = False  # wyjście odtworzone z punktu kontrolnego po restarcie serwera
@@ -358,6 +358,8 @@ class EvaEngine:
                 member["co2mmHg"] = values["co2mmHg"]
             if "batteryPct" in values:
                 person.battery_left_wh = person.battery_wh * values["batteryPct"] / 100
+            if not self.running and self.t > 0:
+                self.save_checkpoint()
             return True
 
     # ---------- trasa ----------
@@ -374,6 +376,8 @@ class EvaEngine:
             self.add_log(
                 "trasa", f"Trasa {letter}: {r['lengthM']:.0f} m, {r['durationH'] * 60:.0f} min, {r['o2L']:.0f} L O₂, {r['rating']}"
             )
+            if not self.running and self.t > 0:
+                self.save_checkpoint()
             return self.route
 
     def _set_route(self, r, waypoints):
@@ -444,6 +448,8 @@ class EvaEngine:
             route = self._extend_route(onward, [habitat], "powrót do habitatu")
             self.returning = True
             self.stop_until = -1.0
+            if not self.running and self.t > 0:
+                self.save_checkpoint()
             return route
 
     # ---------- zdarzenia ----------
@@ -472,6 +478,8 @@ class EvaEngine:
             route = None
             if self.route and kind != "bezpieczne" and self._route_hits(obs["x"], obs["y"], radius):
                 route = self.replan_from_crew(f"zgłoszenie: {kind}")
+            if not self.running and self.t > 0:
+                self.save_checkpoint()
             return {"observation": obs, "replanned": route is not None, "route": route}
 
     def _route_hits(self, x, y, radius) -> bool:
@@ -499,6 +507,8 @@ class EvaEngine:
                 self.add_log("łączność", f"Przerwa łącza z Ziemią na {LINK_OUTAGE_S / 60:.0f} min", to_earth=False)
             else:
                 return {"ok": False, "error": f"Nieznane zdarzenie: {kind}"}
+            if not self.running and self.t > 0:
+                self.save_checkpoint()
             return {"ok": True}
 
     def _inject_boulders(self) -> dict:

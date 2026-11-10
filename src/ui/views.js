@@ -53,10 +53,14 @@ export class DeviceView {
       rel = brg - hdg;
       $('dvTgt').textContent = wp.reached ? `${wp.id} ✓` : wp.id;
       $('dvDist').textContent = String(Math.round(Math.hypot(wp.x - p.x, wp.y - p.y)));
+    } else {
+      $('dvTgt').textContent = t('dev.target');
+      $('dvDist').textContent = '—';
     }
     $('dvArrow').setAttribute('transform', `rotate(${rel})`);
     // jeden komunikat — najważniejszy
-    let msg = `OK · ${app.phase === 'walking' || app.phase === 'returning' ? t('dev.walk') : t('dev.stop')}`, cls = 'ok';
+    const walking = sim.running && (app.phase === 'walking' || app.phase === 'returning');
+    let msg = `OK · ${walking ? t('dev.walk') : t('dev.stop')}`, cls = 'ok';
     if (c && !c.walkback.ok) { msg = t('dev.goBack'); cls = 'bad'; }
     else if (sim.sep) { msg = t('dev.sep'); cls = 'bad'; }
     else if (c && c.zone === 2) { msg = t('dev.nogo'); cls = 'bad'; }

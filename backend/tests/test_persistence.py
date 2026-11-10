@@ -252,3 +252,28 @@ def test_command_line_options(monkeypatch):
     assert parse_args([]).port == 8123
     with pytest.raises(SystemExit):
         parse_args(["--log-level", "głośno"])
+
+
+@pytest.mark.parametrize("mission_id", ["mount-sharp", "jezero"])
+def test_changes_made_during_pause_survive_restart(tmp_path, mission_id):
+    path = tmp_path / "paused.db"
+    before = make_engine(mission_id, Store(path))
+    assert before.start(600) is None
+    run(before, 600)
+    before.pause()
+    saved_time = before.t
+    assert before.return_to_habitat()["ok"]
+    pos = before.crew_pos(0)
+    before.add_observation({"kind": "bezpieczne", "x": pos["x"], "y": pos["y"], "radiusM": 1, "source": "załoga"})
+    before.inject("sep")
+    before.apply_telemetry("EV1", {"o2L": 250.0})
+    expected_path = before.route["path"]
+    before.store.close()  # bez ponownej pauzy i bez kroku symulacji po zmianach
+
+    after = make_engine(mission_id, Store(path))
+    assert after.t == saved_time and not after.running and after.resumed
+    assert after.phase == "returning" and after.returning
+    assert after.route["path"] == expected_path
+    assert after.waypoints[-1]["id"] == "HAB"
+    assert len(after.observations) == 1 and after.sep
+    assert after.crew[0]["person"].o2_l == 250.0

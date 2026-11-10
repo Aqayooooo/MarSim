@@ -15,9 +15,9 @@ MarSim pokazuje teren z prawdziwych danych NASA i wyznacza bezpieczną trasę pi
 
 Wersja 1.4 zapisuje przebieg EVA i odtwarza go po restarcie w stanie pauzy. Dziennik ma kontrolę integralności i eksport CSV. Interfejs obsługuje powrót do habitatu, profil wysokości trasy, pomoc klawiaturową i sygnalizację utraty połączenia. Poprawiono obsługę błędów sterowania, przeliczanie trasy podczas pauzy i synchronizację sesji między kartami.
 
-Weryfikacja: 269 testów backendu, 19 testów sterowania EVA (w tym pełne przebiegi demo, Mount Sharp i Jezero), trzy testy planera, 318 kluczy tłumaczeń PL/EN oraz kontrola kodu Ruff. Test działającego serwera sprawdził strumień stanu, 360 równoległych zapytań i powrót do habitatu. Kontrola CI obejmuje też gałąź `pages-demo`.
+Weryfikacja: 271 testów backendu, 20 testów sterowania EVA (w tym pełne przebiegi demo, Mount Sharp i Jezero), trzy testy planera, 318 kluczy tłumaczeń PL/EN oraz kontrola kodu Ruff. Test działającego serwera sprawdził strumień stanu, 360 równoległych zapytań i powrót do habitatu. Kontrola CI obejmuje też gałąź `pages-demo`.
 
-Nie wykonano ponownego sprawdzenia ekranu w przeglądarce: narzędzie dostępu do przeglądarki zablokowało próbę. Docker pozostaje niesprawdzony; nie jest zainstalowany na tym komputerze.
+Niezależne próby w przeglądarce objęły oba obszary NASA, PL/EN, wersję z backendem i bez niego, widoki 3D, jazdę łazikiem, formularze oraz pełne prezentacje. Naprawiono błędny komunikat marszu podczas pauzy, stary cel na urządzeniu po resecie i utratę zmian wprowadzonych podczas pauzy po restarcie serwera. [Zakres i wynik prób](docs/WERYFIKACJA-UI.md). Docker pozostaje niesprawdzony; nie jest zainstalowany na tym komputerze.
 
 ![Mapa MarSim z warstwą zagrożeń](docs/img/mapa.jpg)
 
@@ -100,7 +100,7 @@ data-sources.json          wykaz użytych danych
 docs/                      plan, kontrakt danych, bezpieczeństwo
 ```
 
-**Zapis stanu.** Baza SQLite `marsim-<misja>.db` przechowuje dziennik, zgłoszenia, harmonogram oraz punkt kontrolny trwającej EVA. Serwer zapisuje go co 5 sekund i przy pauzie. Po restarcie odtwarza trasę, zasoby i pozycję załogi w stanie pauzy. Wiadomości DTN w drodze i chwilowe odczyty czujników nie wchodzą do punktu kontrolnego. Nowe wyjście usuwa ten punkt i tworzy nową sesję.
+**Zapis stanu.** Baza SQLite `marsim-<misja>.db` przechowuje dziennik, zgłoszenia, harmonogram oraz punkt kontrolny trwającej EVA. Serwer zapisuje go co 5 sekund, przy pauzie oraz po zmianach wprowadzonych podczas pauzy. Po restarcie odtwarza trasę, zasoby i pozycję załogi w stanie pauzy. Wiadomości DTN w drodze i chwilowe odczyty czujników nie wchodzą do punktu kontrolnego. Nowe wyjście usuwa ten punkt i tworzy nową sesję.
 
 **Uruchamianie serwera.** `python backend/server.py --help` pokazuje port, adres nasłuchu, misję startową i katalog baz. `--no-live-feeds` wyłącza pobieranie pogody kosmicznej; `--version` podaje wersję. Opis API jest pod `/api/docs`. Raport pokazuje założenia obliczeń i wynik kontroli dziennika; eksport CSV jest pod `/api/log/export`.
 

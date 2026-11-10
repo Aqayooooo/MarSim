@@ -355,6 +355,8 @@ def create_app(
         eng = active()
         with eng.lock:
             eng.time_scale = body.timeScale
+            if not eng.running and eng.t > 0:
+                eng.save_checkpoint()
         return status(eng)
 
     @app.post("/api/eva/return", tags=["Przebieg EVA"])

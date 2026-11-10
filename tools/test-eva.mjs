@@ -5,6 +5,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { App } from '../src/app.js';
 import { Director } from '../src/demo.js';
+import { DeviceView } from '../src/ui/views.js';
+import { t } from '../src/i18n.js';
 import { EvaControls } from '../src/ui/evaControls.js';
 import { Terrain, Raster } from '../src/core/terrain.js';
 import { decodePngGray } from '../src/core/png.js';
@@ -261,3 +263,28 @@ for (const folder of ['demo', 'missions/mount-sharp', 'missions/jezero']) {
     assert.ok(app.sim.crew.every((c) => c.o2 > 0));
   });
 }
+
+test('urządzenie pokazuje postój podczas pauzy i usuwa cel po nowym wyjściu', async () => {
+  const { app } = fixture();
+  const saved = globalThis.document;
+  const elements = new Map();
+  globalThis.document = { getElementById: (id) => {
+    if (!elements.has(id)) elements.set(id, { textContent: '', className: '', setAttribute() {} });
+    return elements.get(id);
+  } };
+  try {
+    const device = new DeviceView(app);
+    await app.planInitial({ animate: false });
+    app.startEva();
+    app.update(0.1);
+    device.update();
+    assert.equal(elements.get('dvMsg').textContent, `OK · ${t('dev.walk')}`);
+    app.pauseEva(true);
+    device.update();
+    assert.equal(elements.get('dvMsg').textContent, `OK · ${t('dev.stop')}`);
+    app.reset();
+    device.update();
+    assert.equal(elements.get('dvTgt').textContent, t('dev.target'));
+    assert.equal(elements.get('dvDist').textContent, '—');
+  } finally { globalThis.document = saved; }
+});
