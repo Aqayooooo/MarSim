@@ -12,6 +12,7 @@ zagrożeń ani na trasę (piasek wykrywamy osobno, z 5 niezależnych wskaźnikó
 piasek bazaltowy bogaty w oliwin (Lapotre i in. 2017), a na dnie krateru Jezero skały bogate w oliwin (formacja Séítah,
 Liu i in. 2022), więc OLINDEX3 jest w obu obszarach głównym sygnałem.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,7 +28,11 @@ CLASSES = {
     1: {"color": "#7CC36E", "text": "oliwin wyraźny (bazalt lub piasek bazaltowy)", "rule": "OLINDEX3 > 0,08"},
     2: {"color": "#3E7A4B", "text": "oliwin słaby / materiał mieszany", "rule": "0,05 < OLINDEX3 ≤ 0,08"},
     3: {"color": "#C9A3FF", "text": "piroksen", "rule": "max(LCPINDEX2, HCPINDEX2) > 0,01"},
-    4: {"color": "#31D7B6", "text": "uwodnienie / siarczany (słaby sygnał)", "rule": "BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02"},
+    4: {
+        "color": "#31D7B6",
+        "text": "uwodnienie / siarczany (słaby sygnał)",
+        "rule": "BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02",
+    },
     5: {"color": "#4FA3FF", "text": "krzemiany warstwowe Fe/Mg", "rule": "D2300 > 0,01"},
 }
 
@@ -68,7 +73,9 @@ def classify(p: dict[str, np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
 
 def stats(cls: np.ndarray, p: dict[str, np.ndarray]) -> dict:
     n = cls.size
-    return {"coverage": round(float(np.isfinite(p["OLINDEX3"]).mean()), 3),
-            "fractions": {str(k): round(float((cls == k).mean()), 3) for k in CLASSES if (cls == k).any()},
-            "olindex3Median": round(float(np.nanmedian(p["OLINDEX3"])), 4),
-            "pixels": int(n)}
+    return {
+        "coverage": round(float(np.isfinite(p["OLINDEX3"]).mean()), 3),
+        "fractions": {str(k): round(float((cls == k).mean()), 3) for k in CLASSES if (cls == k).any()},
+        "olindex3Median": round(float(np.nanmedian(p["OLINDEX3"])), 4),
+        "pixels": int(n),
+    }

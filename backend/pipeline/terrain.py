@@ -9,6 +9,7 @@ Rzeczywiste błędy DTM są skorelowane i większe na stokach — dlatego przyjm
 
 Niepewność nachylenia z różnic centralnych na bazie d: σ_g = σz / (√2 · d), σ_nachylenia = σ_g / (1 + g²).
 """
+
 from __future__ import annotations
 
 import math

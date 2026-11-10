@@ -10,6 +10,7 @@ Algorytm: Dijkstra (scipy.sparse.csgraph) na grafie 8 sąsiadów. Waga krawędzi
 kroku. Łamana z siatki jest potem prostowana: odcinek zastępuje jej fragment tylko wtedy, gdy nie wchodzi w strefę
 zakazaną i nie kosztuje więcej niż ten fragment.
 """
+
 from __future__ import annotations
 
 import math
@@ -20,14 +21,16 @@ from scipy.sparse.csgraph import dijkstra
 
 from backend.models.physiology import Person, metabolic_w, o2_l_per_min
 
-CAUTION_FACTOR = 1.6            # mnożnik kosztu i czasu w strefie „uwaga”
-SAND_TERRAIN_THRESHOLD = 0.35   # od tego prawdopodobieństwa piasku podłoże liczymy jak piasek
+CAUTION_FACTOR = 1.6  # mnożnik kosztu i czasu w strefie „uwaga”
+SAND_TERRAIN_THRESHOLD = 0.35  # od tego prawdopodobieństwa piasku podłoże liczymy jak piasek (i strefa „uwaga”)
+SAND_FORBIDDEN_THRESHOLD = 0.6  # od tego prawdopodobieństwa piasek jest strefą zakazaną
+SLOPE_SIGMA_MARGIN = 2.0  # nachylenie liczone ostrożnie: wartość + tyle odchyleń standardowych
 MIN_SPEED_MS = 0.15
-OBSTACLE_BUFFER_M = 6.0         # zapas wokół zgłoszonej przeszkody
-UNREACHABLE = 9999.0            # wartość pola kosztu tam, dokąd nie da się dojść
-EXPANDED_STRIDE = 10            # co która komórka trafia do animacji „przeszukiwania”
+OBSTACLE_BUFFER_M = 6.0  # zapas wokół zgłoszonej przeszkody
+UNREACHABLE = 9999.0  # wartość pola kosztu tam, dokąd nie da się dojść
+EXPANDED_STRIDE = 10  # co która komórka trafia do animacji „przeszukiwania”
 EXPANDED_LIMIT = 600
-STRAIGHTEN_LOOKAHEAD = 80       # ile wierzchołków naprzód sprawdza prostowanie trasy
+STRAIGHTEN_LOOKAHEAD = 80  # ile wierzchołków naprzód sprawdza prostowanie trasy
 _GRAPH_CACHE_SIZE = 4
 
 
@@ -50,7 +53,7 @@ class CostModel:
         self.cell = cell
         self.eva = eva
         hazard = layers["hazard"]
-        self.slope_up = layers["slope"] + 2 * layers["slopeSigma"]
+        self.slope_up = layers["slope"] + SLOPE_SIGMA_MARGIN * layers["slopeSigma"]
         speed = np.maximum(walk_speed_ms(self.slope_up, eva["walkKmh"]), MIN_SPEED_MS)
         terrain = np.where(layers["sand"] > SAND_TERRAIN_THRESHOLD, "sand", np.where(hazard == 1, "rough", "rock"))
         grade_pct = np.tan(np.radians(self.slope_up)) * 100
@@ -61,8 +64,8 @@ class CostModel:
                 metabolic[mask] = metabolic_w(person, speed[mask], grade_pct[mask], kind)
         factor = np.where(hazard == 1, CAUTION_FACTOR, 1.0)
         self.metabolic = metabolic
-        self.time_per_m = factor / speed                                  # s/m
-        self.o2_per_m = o2_l_per_min(metabolic) / 60.0 / speed * factor   # L/m
+        self.time_per_m = factor / speed  # s/m
+        self.o2_per_m = o2_l_per_min(metabolic) / 60.0 / speed * factor  # L/m
         self.blocked = hazard == 2
         self.caution = hazard == 1
         self._searches: dict[tuple, _Search] = {}
@@ -91,7 +94,7 @@ def obstacle_mask(shape, cell: float, obstacles: list[dict], buffer_m: float = O
     mask = np.zeros(shape, bool)
     if not obstacles:
         return mask
-    yy, xx = (np.mgrid[0:shape[0], 0:shape[1]] + 0.5) * cell
+    yy, xx = (np.mgrid[0 : shape[0], 0 : shape[1]] + 0.5) * cell
     for o in obstacles:
         mask |= np.hypot(xx - o["x"], yy - o["y"]) < o["radiusM"] + buffer_m
     return mask
@@ -105,10 +108,10 @@ def _grid_graph(cost: np.ndarray) -> csr_matrix:
     free = np.isfinite(cost)
     square_free = free[:-1, :-1] & free[1:, 1:] & free[:-1, 1:] & free[1:, :-1]
     moves = (
-        (index[:, :-1], index[:, 1:], free[:, :-1] & free[:, 1:], 1.0),      # wschód
-        (index[:-1, :], index[1:, :], free[:-1, :] & free[1:, :], 1.0),      # południe
-        (index[:-1, :-1], index[1:, 1:], square_free, math.sqrt(2)),         # południowy wschód
-        (index[:-1, 1:], index[1:, :-1], square_free, math.sqrt(2)),         # południowy zachód
+        (index[:, :-1], index[:, 1:], free[:, :-1] & free[:, 1:], 1.0),  # wschód
+        (index[:-1, :], index[1:, :], free[:-1, :] & free[1:, :], 1.0),  # południe
+        (index[:-1, :-1], index[1:, 1:], square_free, math.sqrt(2)),  # południowy wschód
+        (index[:-1, 1:], index[1:, :-1], square_free, math.sqrt(2)),  # południowy zachód
     )
     flat = cost.ravel()
     src, dst, weight = [], [], []
@@ -226,15 +229,18 @@ def _drop_collinear(pts: list[dict], keep: set[int]) -> tuple[list[dict], dict[i
     return out, new_index
 
 
-def _straighten(model: CostModel, pts: list[dict], wp_idx: list[int], per_m: np.ndarray, blocked: np.ndarray) -> tuple[list[dict], list[int]]:
+def _straighten(
+    model: CostModel, pts: list[dict], wp_idx: list[int], per_m: np.ndarray, blocked: np.ndarray
+) -> tuple[list[dict], list[int]]:
     """Prostuje łamaną z siatki. Punkty trasy (WP) zostają; skrót musi być wolny od zakazu i nie droższy od oryginału."""
     pts, remap = _drop_collinear(pts, set(wp_idx))
     anchors = [remap[i] for i in wp_idx]
     spent = np.concatenate(([0.0], np.cumsum([_segment_cost(model, per_m, a, b) for a, b in zip(pts[:-1], pts[1:])])))
 
     def shortcut_ok(i: int, j: int) -> bool:
-        return (_segment_clear(model, pts[i], pts[j], blocked)
-                and _segment_cost(model, per_m, pts[i], pts[j]) <= (spent[j] - spent[i]) * (1 + 1e-9))
+        return _segment_clear(model, pts[i], pts[j], blocked) and _segment_cost(model, per_m, pts[i], pts[j]) <= (spent[j] - spent[i]) * (
+            1 + 1e-9
+        )
 
     chosen = [0]
     for anchor in anchors:
@@ -242,8 +248,8 @@ def _straighten(model: CostModel, pts: list[dict], wp_idx: list[int], per_m: np.
         while i < anchor:
             far = min(anchor, i + STRAIGHTEN_LOOKAHEAD)
             if far > i + 1 and not shortcut_ok(i, far):
-                low = i + 1                  # sąsiedni wierzchołek jest zawsze osiągalny
-                while far - low > 1:         # najdalszy wierzchołek, do którego da się pójść prosto
+                low = i + 1  # sąsiedni wierzchołek jest zawsze osiągalny
+                while far - low > 1:  # najdalszy wierzchołek, do którego da się pójść prosto
                     mid = (low + far) // 2
                     low, far = (mid, far) if shortcut_ok(i, mid) else (low, mid)
                 far = low
@@ -254,8 +260,15 @@ def _straighten(model: CostModel, pts: list[dict], wp_idx: list[int], per_m: np.
 
 
 # ---------------- plan trasy ----------------
-def plan(model: CostModel, start: dict, waypoints: list[dict], obstacles: list[dict] | None = None,
-         layers: dict | None = None, kind: str = "o2", strict: bool = False) -> dict:
+def plan(
+    model: CostModel,
+    start: dict,
+    waypoints: list[dict],
+    obstacles: list[dict] | None = None,
+    layers: dict | None = None,
+    kind: str = "o2",
+    strict: bool = False,
+) -> dict:
     """Trasa start → kolejne punkty o najmniejszym koszcie `kind`. strict=True: strefy „uwaga” też są nieprzekraczalne."""
     prev = model.to_rc(start)
     search = _search(model, kind, obstacles, strict, prev)
@@ -285,10 +298,18 @@ def plan(model: CostModel, start: dict, waypoints: list[dict], obstacles: list[d
     pts, wp_idx = _straighten(model, pts, wp_idx, model.per_metre(kind), search.blocked)
     stats = path_stats(model, pts, layers)
     stop_min = sum(w.get("stopMin", 0) for w in waypoints)
-    return {"ok": True, "path": pts, "waypointIndex": wp_idx, "lengthM": stats["lengthM"],
-            "durationH": stats["walkH"] + stop_min / 60, "o2L": stats["o2L"] + stop_min * resting_o2_l_min(model.person),
-            "stops": len(waypoints), "rating": stats["rating"], "uncertainty": stats["uncertainty"],
-            "expanded": expanded[:EXPANDED_LIMIT]}
+    return {
+        "ok": True,
+        "path": pts,
+        "waypointIndex": wp_idx,
+        "lengthM": stats["lengthM"],
+        "durationH": stats["walkH"] + stop_min / 60,
+        "o2L": stats["o2L"] + stop_min * resting_o2_l_min(model.person),
+        "stops": len(waypoints),
+        "rating": stats["rating"],
+        "uncertainty": stats["uncertainty"],
+        "expanded": expanded[:EXPANDED_LIMIT],
+    }
 
 
 def path_stats(model: CostModel, pts: list[dict], layers: dict | None) -> dict:
@@ -300,14 +321,21 @@ def path_stats(model: CostModel, pts: list[dict], layers: dict | None) -> dict:
     if layers is not None and len(rows):
         steepest = int(np.argmax(layers["slope"][rows, cols]))
         caution_m = float(step[layers["hazard"][rows, cols] == 1].sum())
-        uncertainty = {"maxSlopeDeg": round(float(layers["slope"][rows[steepest], cols[steepest]]), 1),
-                       "maxSlopeSigmaDeg": round(float(layers["slopeSigma"][rows[steepest], cols[steepest]]), 1),
-                       "maxSandProb": round(float(layers["sand"][rows, cols].max()), 2),
-                       "minSandConfidence": round(float(layers["sandConfidence"][rows, cols].min()), 2),
-                       "cautionM": round(caution_m)}
+        uncertainty = {
+            "maxSlopeDeg": round(float(layers["slope"][rows[steepest], cols[steepest]]), 1),
+            "maxSlopeSigmaDeg": round(float(layers["slopeSigma"][rows[steepest], cols[steepest]]), 1),
+            "maxSandProb": round(float(layers["sand"][rows, cols].max()), 2),
+            "minSandConfidence": round(float(layers["sandConfidence"][rows, cols].min()), 2),
+            "cautionM": round(caution_m),
+        }
     rating = "bezpieczna" if caution_m < 0.1 * max(length, 1) else "bezpieczna z uwagami"
-    return {"lengthM": length, "walkH": float((model.time_per_m[rows, cols] * step).sum()) / 3600,
-            "o2L": float((model.o2_per_m[rows, cols] * step).sum()), "rating": rating, "uncertainty": uncertainty}
+    return {
+        "lengthM": length,
+        "walkH": float((model.time_per_m[rows, cols] * step).sum()) / 3600,
+        "o2L": float((model.o2_per_m[rows, cols] * step).sum()),
+        "rating": rating,
+        "uncertainty": uncertainty,
+    }
 
 
 def cost_field(model: CostModel, origin: dict, kind: str = "o2", obstacles: list[dict] | None = None) -> np.ndarray:
@@ -348,18 +376,26 @@ def evaluate(model: CostModel, pts: list, layers: dict, comms=None) -> dict:
 
 
 def _summary(variant_id: str, acc: dict, stop_h: float, path, ok: bool = True) -> dict:
-    return {"id": variant_id, "ok": ok, "path": path or [],
-            "lengthM": round(acc["lengthM"]), "durationH": round(acc["walkS"] / 3600 + stop_h, 3), "o2L": round(acc["o2L"], 1),
-            "cautionM": round(acc["cautionM"]), "forbiddenM": round(acc["forbiddenM"]),
-            "forbidden": {k: round(acc[k]) for k in ("steep", "sand", "boulders")},
-            "maxSlopeUpDeg": round(acc["maxSlopeUpDeg"], 1), "maxSand": round(acc["maxSand"], 2), "noCommsM": round(acc["noCommsM"])}
+    return {
+        "id": variant_id,
+        "ok": ok,
+        "path": path or [],
+        "lengthM": round(acc["lengthM"]),
+        "durationH": round(acc["walkS"] / 3600 + stop_h, 3),
+        "o2L": round(acc["o2L"], 1),
+        "cautionM": round(acc["cautionM"]),
+        "forbiddenM": round(acc["forbiddenM"]),
+        "forbidden": {k: round(acc[k]) for k in ("steep", "sand", "boulders")},
+        "maxSlopeUpDeg": round(acc["maxSlopeUpDeg"], 1),
+        "maxSand": round(acc["maxSand"], 2),
+        "noCommsM": round(acc["noCommsM"]),
+    }
 
 
 def _compare(variant: dict, best: dict, max_slope_deg: float) -> tuple[str, list[dict]]:
     """Werdykt wariantu względem wybranej trasy i powody jako kody z liczbami (zdania składa interfejs, PL/EN)."""
     reasons = []
-    same = (abs(variant["lengthM"] - best["lengthM"]) <= 0.01 * best["lengthM"]
-            and abs(variant["o2L"] - best["o2L"]) <= 0.01 * best["o2L"])
+    same = abs(variant["lengthM"] - best["lengthM"]) <= 0.01 * best["lengthM"] and abs(variant["o2L"] - best["o2L"]) <= 0.01 * best["o2L"]
     if variant["forbiddenM"] > 0:
         verdict = "unsafe"
         reasons.append({"code": "forbidden", "m": variant["forbiddenM"], **variant["forbidden"]})
@@ -402,10 +438,15 @@ def alternatives(model: CostModel, start: dict, waypoints: list, obstacles, laye
     stop_o2 = stop_h * 60 * resting_o2_l_min(model.person)
     best = _summary("chosen", assess(chosen["path"]), stop_h, chosen["path"])
     best["verdict"] = "chosen"
-    best["reasons"] = [{"code": "minO2", "o2": round(best["o2L"] + stop_o2, 1)}, {"code": "noForbidden"},
-                       {"code": "margin2s", "deg": model.eva["maxSlopeDeg"]}]
+    best["reasons"] = [
+        {"code": "minO2", "o2": round(best["o2L"] + stop_o2, 1)},
+        {"code": "noForbidden"},
+        {"code": "margin2s", "deg": model.eva["maxSlopeDeg"]},
+    ]
     if best["cautionM"]:
-        best["reasons"].append({"code": "cautionShare", "m": best["cautionM"], "pct": round(100 * best["cautionM"] / max(best["lengthM"], 1))})
+        best["reasons"].append(
+            {"code": "cautionShare", "m": best["cautionM"], "pct": round(100 * best["cautionM"] / max(best["lengthM"], 1))}
+        )
 
     straight = [{"x": start["x"], "y": start["y"]}] + [{"x": w["x"], "y": w["y"]} for w in waypoints]
     shortest = plan(model, start, waypoints, obstacles, layers, kind="dist")

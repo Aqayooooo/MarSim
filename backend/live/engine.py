@@ -5,9 +5,11 @@ pola przez POST /api/telemetry — wtedy model jest pomijany dla tej osoby (pole
 
 Fazy wyjścia (pole `phase` w stanie): idle → walking/stop → atTarget → returning → done.
 """
+
 from __future__ import annotations
 
 import json
+import logging
 import math
 import random
 import threading
@@ -19,7 +21,7 @@ import numpy as np
 from PIL import Image
 
 from backend import planning
-from backend.live import spaceweather
+from backend.live import checkpoint, spaceweather
 from backend.live.dtn import FROM_EARTH, DtnLink
 from backend.live.positioning import Positioner
 from backend.live.schedule import Scheduler
@@ -28,20 +30,22 @@ from backend.models import radiation, sun
 from backend.models.physiology import Person, co2_l_per_min, heart_rate, metabolic_w, o2_l_per_min
 from backend.pipeline.environment import surface_temperature
 
-MAX_SUBSTEP_S = 10.0             # najdłuższy krok fizyki; przy dużym przyspieszeniu czasu krok jest dzielony
-EMERGENCY_REFRESH_S = 120.0      # co ile sekund misji przeliczamy trasy awaryjne
-TELEMETRY_TTL_S = 60.0           # po tym czasie bez nowych pomiarów wracamy do modelu
+log = logging.getLogger("marsim.engine")
+MAX_SUBSTEP_S = 10.0  # najdłuższy krok fizyki; przy dużym przyspieszeniu czasu krok jest dzielony
+EMERGENCY_REFRESH_S = 120.0  # co ile sekund misji przeliczamy trasy awaryjne
+TELEMETRY_TTL_S = 60.0  # po tym czasie bez nowych pomiarów wracamy do modelu
 POSITION_REFRESH_S = 2.0
 SPACEWEATHER_REFRESH_S = 900
 LINK_OUTAGE_S = 1800.0
-SEP_SIM_PFU = 500.0              # strumień protonów w symulowanym zdarzeniu SEP (burza S2)
-SEP_EFFORT_FACTOR = 1.12         # pośpiech do schronu: większy wysiłek
-ROVER_STANDOFF_M = 110.0         # łazik zatrzymuje się tyle metrów za załogą
+SEP_SIM_PFU = 500.0  # strumień protonów w symulowanym zdarzeniu SEP (burza S2)
+SEP_EFFORT_FACTOR = 1.12  # pośpiech do schronu: większy wysiłek
+ROVER_STANDOFF_M = 110.0  # łazik zatrzymuje się tyle metrów za załogą
 CREW_SPACING_M = 14.0
-WALKBACK_WARNING_H = 0.25        # ostrzeżenie, gdy zapas czasu na powrót pieszo spada poniżej 15 min
+WALKBACK_WARNING_H = 0.25  # ostrzeżenie, gdy zapas czasu na powrót pieszo spada poniżej 15 min
 SUIT_BASE_POWER_W = 80.0
 SUIT_PRESSURE_KPA = 29.6
 HABITAT_ID = "HAB"
+CHECKPOINT_INTERVAL_S = 5.0  # co ile sekund (czas rzeczywisty) trwające wyjście trafia do bazy
 
 
 def _f32(p: Path, h: int, w: int) -> np.ndarray:
@@ -86,8 +90,7 @@ class Polyline:
 
 
 class EvaEngine:
-    def __init__(self, mission_dir: Path, cfg: dict, store: Store | None = None, live_feeds: bool = True,
-                 seed: int | None = None):
+    def __init__(self, mission_dir: Path, cfg: dict, store: Store | None = None, live_feeds: bool = True, seed: int | None = None):
         """seed: ziarno szumu czujników (testy i powtarzalne pokazy); None — losowe."""
         self.dir = mission_dir
         self.cfg = cfg
@@ -106,28 +109,49 @@ class EvaEngine:
             "hazard": _png(mission_dir / "hazards.png"),
         }
         self.comms = _png(mission_dir / "comms.png")
-        self._hazard0 = self.layers["hazard"].copy()   # mapa z potoku; zgłoszenia „bezpieczne” zmieniają tylko bieżącą sesję
+        self._hazard0 = self.layers["hazard"].copy()  # mapa z potoku; zgłoszenia „bezpieczne” zmieniają tylko bieżącą sesję
         self.boulders = json.loads((mission_dir / "boulders.json").read_text(encoding="utf-8"))["boulders"]
         self.lat, self.lon = self.mission["area"]["center"]["lat"], self.mission["area"]["center"]["lon"]
         self.date = datetime.fromisoformat(cfg["missionDateUtc"].replace("Z", "+00:00"))
         self.mt = sun.mars_time(self.date)
         reference = cfg["crew"][0]
-        self._ref_mass_kg = reference["bodyKg"] + reference["loadKg"]   # pole kosztu powrotu liczymy dla tej osoby
+        self._ref_mass_kg = reference["bodyKg"] + reference["loadKg"]  # pole kosztu powrotu liczymy dla tej osoby
         self.model = self._cost_model()
         self.positioner = Positioner(cfg["uwbBeacons"], self.dem, self.cell, rng=self.rng)
         typical_o2_lh = float(o2_l_per_min(metabolic_w(self.model_person(reference), 0.6, 3))) * 60 + 1.2
-        self.scheduler = Scheduler(self.store, cfg["crew"], cfg["habitatStores"], self.lat, self.mt.decl,
-                                   o2_rate_lh=typical_o2_lh, first_sol=cfg["sol"], start_ltst=cfg["startLtst"])
+        self.scheduler = Scheduler(
+            self.store,
+            cfg["crew"],
+            cfg["habitatStores"],
+            self.lat,
+            self.mt.decl,
+            o2_rate_lh=typical_o2_lh,
+            first_sol=cfg["sol"],
+            start_ltst=cfg["startLtst"],
+        )
         self.lock = threading.RLock()
         self.spaceweather = None
-        if live_feeds:   # pogoda kosmiczna z sieci (w testach wyłączona)
+        if live_feeds:  # pogoda kosmiczna z sieci (w testach wyłączona)
             threading.Thread(target=self._refresh_spaceweather, daemon=True).start()
-        self.reset()
+        self.resumed = False  # wyjście odtworzone z punktu kontrolnego po restarcie serwera
+        self._checkpoint_at = 0.0
+        saved = self.store.checkpoint_load()
+        if not (checkpoint.usable(saved, cfg["id"]) and self._resume(saved)):
+            self.reset()
 
     # ---------- pomocnicze ----------
     def model_person(self, c: dict) -> Person:
-        return Person(c["id"], c["bodyKg"], c["loadKg"], c["o2CapacityL"], c["o2CapacityL"], battery_wh=c["batteryWh"],
-                      battery_left_wh=c["batteryWh"], co2_capacity_l=c["co2CapacityL"], dose_msv=c["priorDoseMsv"])
+        return Person(
+            c["id"],
+            c["bodyKg"],
+            c["loadKg"],
+            c["o2CapacityL"],
+            c["o2CapacityL"],
+            battery_wh=c["batteryWh"],
+            battery_left_wh=c["batteryWh"],
+            co2_capacity_l=c["co2CapacityL"],
+            dose_msv=c["priorDoseMsv"],
+        )
 
     def _cost_model(self) -> planning.CostModel:
         return planning.CostModel(self.layers, self.cell, self.cfg["eva"], self.model_person(self.cfg["crew"][0]))
@@ -149,7 +173,7 @@ class EvaEngine:
 
     def temperature_at(self, p: dict, ltst_h: float) -> float:
         sand = self.layers["sand"][self.rc(p)]
-        thermal_inertia = 250 + (1 - sand) * 200      # piasek ~250, skała ~450 J m⁻² K⁻¹ s⁻½ (szacunek)
+        thermal_inertia = 250 + (1 - sand) * 200  # piasek ~250, skała ~450 J m⁻² K⁻¹ s⁻½ (szacunek)
         albedo = 0.12 + (1 - sand) * 0.1
         return surface_temperature(ltst_h, self.lat, self.mt.decl, sun.solar_flux_top(self.mt.r_au), albedo, thermal_inertia)
 
@@ -164,37 +188,94 @@ class EvaEngine:
 
     # ---------- stan ----------
     def reset(self):
+        """Nowa sesja EVA: czysty stan, nowy numer sesji w dzienniku."""
         with self.lock:
-            if not np.array_equal(self.layers["hazard"], self._hazard0):   # nowa sesja: mapa zagrożeń bez zgłoszeń z poprzedniej
+            self._clear()
+            self.resumed = False
+            self.store.checkpoint_clear()
+            session = self.store.new_session()
+            self.add_log("EVA", f"Nowa sesja EVA nr {session}", to_earth=False)
+
+    def _resume(self, saved: dict) -> bool:
+        """Odtwarza wyjście przerwane restartem serwera. Zwraca False, gdy punkt kontrolny jest nie do użycia."""
+        with self.lock:
+            self._clear()
+            try:
+                checkpoint.restore(self, saved)
+            except (KeyError, TypeError, ValueError, IndexError) as e:
+                log.warning("Punkt kontrolny EVA odrzucony: %s", e)
+                return False
+            self.store.resume_session(saved["session"])
+            self.resumed = True
+            self.add_log("EVA", f"Wznowiono sesję EVA nr {saved['session']} po restarcie serwera (wstrzymana)", to_earth=False)
+            return True
+
+    def save_checkpoint(self):
+        """Zapisuje trwające wyjście do bazy; po zakończeniu albo przed startem nie ma czego wznawiać."""
+        with self.lock:
+            self._checkpoint_at = time.monotonic()
+            if self.finished or self.t <= 0 or not self.route:
+                self.store.checkpoint_clear()
+            else:
+                self.store.checkpoint_save(checkpoint.capture(self))
+
+    def rebuild_hazards(self):
+        """Mapa zagrożeń z potoku + zgłoszenia „bezpieczne” z bieżącej sesji; przelicza model kosztu i pole powrotu."""
+        self.layers["hazard"] = self._hazard0.copy()
+        for obs in self.observations:
+            if obs.get("kind") == "bezpieczne":
+                self._mark_safe(obs)
+        self.model = self._cost_model()
+        self.o2_home = planning.cost_field(self.model, self.cfg["habitat"], "o2", self.obstacles)
+
+    def _mark_safe(self, obs: dict):
+        yy, xx = (np.mgrid[0 : self.dem.shape[0], 0 : self.dem.shape[1]] + 0.5) * self.cell
+        inside = np.hypot(xx - obs["x"], yy - obs["y"]) < float(obs.get("radiusM", 20))
+        self.layers["hazard"][inside & (self.layers["hazard"] == 1)] = 0
+
+    def _clear(self):
+        with self.lock:
+            if not np.array_equal(self.layers["hazard"], self._hazard0):  # nowa sesja: mapa zagrożeń bez zgłoszeń z poprzedniej
                 self.layers["hazard"] = self._hazard0.copy()
                 self.model = self._cost_model()
             self.o2_home = planning.cost_field(self.model, self.cfg["habitat"], "o2")
             self.start_min = int(self.cfg["startLtst"][:2]) * 60 + int(self.cfg["startLtst"][3:])
-            self.t = 0.0                    # sekundy misji od startu
+            self.t = 0.0  # sekundy misji od startu
             self.running = False
-            self.finished = False           # załoga wróciła do habitatu
-            self.returning = False          # trwa powrót do habitatu
+            self.finished = False  # załoga wróciła do habitatu
+            self.returning = False  # trwa powrót do habitatu
             self.route_blocked = False
             self.time_scale = 60.0
             self.route = None
             self.route_version = 0
             self.poly = None
             self.wp_s = []
-            self.waypoints = list(self.cfg["waypoints"])   # punkty bieżącej trasy (POST /api/plan może podać własne)
+            self.waypoints = list(self.cfg["waypoints"])  # punkty bieżącej trasy (POST /api/plan może podać własne)
             self.crew_s = 0.0
             self.gap = CREW_SPACING_M
             self.next_wp = 0
-            self.stop_until = -1.0          # minuta misji, do której trwa postój
+            self.stop_until = -1.0  # minuta misji, do której trwa postój
             self.reached = []
-            self.crew = [{"cfg": c, "person": self.model_person(c), "metabolic": 120.0, "co2mmHg": 0.8, "source": "model",
-                          "moved": 0.0, "evaDoseUsv": 0.0, "est": None,
-                          "sensors": {"pressureKPa": SUIT_PRESSURE_KPA, "suitTempC": 0.0, "hr": 0.0}} for c in self.cfg["crew"]]
+            self.crew = [
+                {
+                    "cfg": c,
+                    "person": self.model_person(c),
+                    "metabolic": 120.0,
+                    "co2mmHg": 0.8,
+                    "source": "model",
+                    "moved": 0.0,
+                    "evaDoseUsv": 0.0,
+                    "est": None,
+                    "sensors": {"pressureKPa": SUIT_PRESSURE_KPA, "suitTempC": 0.0, "hr": 0.0},
+                }
+                for c in self.cfg["crew"]
+            ]
             self.rover = {"s": 0.0, "mode": "parked", "x": self.cfg["rover"]["x"], "y": self.cfg["rover"]["y"]}
             self.sep = False
             self.sim_pfu = 0.0
             self.wind_noise = 0.0
             self.alerts = []
-            self._warned = set()            # ostrzeżenia o tlenie już wysłane w tej sesji
+            self._warned = set()  # ostrzeżenia o tlenie już wysłane w tej sesji
             self.obstacles = []
             self.positioner.reset()
             self.observations = []
@@ -206,8 +287,6 @@ class EvaEngine:
             self._emerg_t = -1e9
             self.link = DtnLink(self.date)
             self.log = []
-            session = self.store.new_session()
-            self.add_log("EVA", f"Nowa sesja EVA nr {session}", to_earth=False)
 
     @property
     def clock_min(self) -> float:
@@ -260,6 +339,7 @@ class EvaEngine:
     def pause(self):
         with self.lock:
             self.running = False
+            self.save_checkpoint()
 
     def apply_telemetry(self, crew_id: str, values: dict) -> bool:
         """Pomiary z prawdziwego skafandra zastępują model dla tej osoby. False: nie ma takiej osoby."""
@@ -269,7 +349,7 @@ class EvaEngine:
                 return False
             member["source"] = "skafander"
             member.setdefault("telemetry", {}).update(values)
-            member.setdefault("telemetryTimes", {}).update({key: self.t for key in values})
+            member.setdefault("telemetryTimes", {}).update(dict.fromkeys(values, self.t))
             member["telemetryAt"] = self.t
             person = member["person"]
             if "o2L" in values:
@@ -291,7 +371,9 @@ class EvaEngine:
             r["alternatives"] = planning.alternatives(self.model, start, waypoints, self.obstacles, self.layers, self.comms, r)
             self._set_route({**r, "letter": letter}, waypoints)
             self.returning = False
-            self.add_log("trasa", f"Trasa {letter}: {r['lengthM']:.0f} m, {r['durationH'] * 60:.0f} min, {r['o2L']:.0f} L O₂, {r['rating']}")
+            self.add_log(
+                "trasa", f"Trasa {letter}: {r['lengthM']:.0f} m, {r['durationH'] * 60:.0f} min, {r['o2L']:.0f} L O₂, {r['rating']}"
+            )
             return self.route
 
     def _set_route(self, r, waypoints):
@@ -308,24 +390,32 @@ class EvaEngine:
         old = self.route
         walked = self.poly.slice(0, self.crew_s)
         self.discarded.append(self.poly.slice(self.crew_s, self.poly.length))
-        done = self.waypoints[:self.next_wp]
+        done = self.waypoints[: self.next_wp]
         nearest = [min(range(len(walked)), key=lambda k: math.hypot(walked[k]["x"] - w["x"], walked[k]["y"] - w["y"])) for w in done]
         path = walked + onward["path"][1:]
         stats = planning.path_stats(self.model, path, self.layers)
         waypoints = done + remaining
         letter = _next_letter(old["letter"])
-        new = {**onward, "path": path, "waypointIndex": nearest + [i + len(walked) - 1 for i in onward["waypointIndex"]],
-               "lengthM": stats["lengthM"], "durationH": stats["walkH"] + sum(w.get("stopMin", 0) for w in waypoints) / 60,
-               "o2L": onward["o2L"] + planning.path_stats(self.model, walked, self.layers)["o2L"],
-               "rating": stats["rating"], "uncertainty": stats["uncertainty"], "letter": letter,
-               "replanFrom": self.crew_s, "deltaM": stats["lengthM"] - old["lengthM"]}
+        new = {
+            **onward,
+            "path": path,
+            "waypointIndex": nearest + [i + len(walked) - 1 for i in onward["waypointIndex"]],
+            "lengthM": stats["lengthM"],
+            "durationH": stats["walkH"] + sum(w.get("stopMin", 0) for w in waypoints) / 60,
+            "o2L": onward["o2L"] + planning.path_stats(self.model, walked, self.layers)["o2L"],
+            "rating": stats["rating"],
+            "uncertainty": stats["uncertainty"],
+            "letter": letter,
+            "replanFrom": self.crew_s,
+            "deltaM": stats["lengthM"] - old["lengthM"],
+        }
         self._set_route(new, waypoints)
         self.add_log("trasa", f"Nowa trasa {letter} ({reason}): {new['deltaM']:+.0f} m")
         return new
 
     def replan_from_crew(self, reason: str) -> dict | None:
         """Nowa trasa od bieżącej pozycji załogi do pozostałych punktów (np. po zgłoszeniu przeszkody)."""
-        remaining = self.waypoints[self.next_wp:]
+        remaining = self.waypoints[self.next_wp :]
         if not self.route or not remaining:
             return None
         onward = planning.plan(self.model, self.poly.at(self.crew_s), remaining, self.obstacles, self.layers)
@@ -371,9 +461,7 @@ class EvaEngine:
             radius = float(obs.get("radiusM", 20))
             source = obs.get("source", "załoga")
             if kind == "bezpieczne":
-                yy, xx = (np.mgrid[0:self.dem.shape[0], 0:self.dem.shape[1]] + 0.5) * self.cell
-                inside = np.hypot(xx - obs["x"], yy - obs["y"]) < radius
-                self.layers["hazard"][inside & (self.layers["hazard"] == 1)] = 0
+                self._mark_safe(obs)
                 self.model = self._cost_model()
             else:
                 self.obstacles.append({"x": obs["x"], "y": obs["y"], "radiusM": radius, "kind": kind, "source": source})
@@ -443,6 +531,8 @@ class EvaEngine:
             if self.t - self._emerg_t > EMERGENCY_REFRESH_S:
                 self._emerg_t = self.t
                 self.emergency = self._emergency_routes()
+            if self.finished or time.monotonic() - self._checkpoint_at > CHECKPOINT_INTERVAL_S:
+                self.save_checkpoint()
 
     def _receive_from_earth(self):
         for bundle in self.link.step(self.t):
@@ -490,8 +580,9 @@ class EvaEngine:
         self.wind_noise = self.rng.gauss(0, 0.3)
         for k, member in enumerate(self.crew):
             times = member.get("telemetryTimes", {})
-            measured = {key: value for key, value in member.get("telemetry", {}).items()
-                        if self.t - times.get(key, -1e9) <= TELEMETRY_TTL_S}
+            measured = {
+                key: value for key, value in member.get("telemetry", {}).items() if self.t - times.get(key, -1e9) <= TELEMETRY_TTL_S
+            }
             member["telemetry"] = measured
             if not measured:
                 member["source"] = "model"
@@ -514,9 +605,12 @@ class EvaEngine:
                 person.battery_left_wh = max(0.0, person.battery_left_wh - (SUIT_BASE_POWER_W + 0.06 * member["metabolic"]) * dt / 3600)
             if "co2mmHg" not in measured:
                 saturation = min(1.0, person.co2_absorbed_l / person.co2_capacity_l)
-                member["co2mmHg"] = 0.6 + 7.0 * saturation ** 4 + self.rng.gauss(0, 0.05)
-            member["sensors"] = {"pressureKPa": SUIT_PRESSURE_KPA + self.rng.gauss(0, 0.04),
-                                 "suitTempC": self.rng.gauss(0, 0.1), "hr": self.rng.gauss(0, 1.5)}
+                member["co2mmHg"] = 0.6 + 7.0 * saturation**4 + self.rng.gauss(0, 0.05)
+            member["sensors"] = {
+                "pressureKPa": SUIT_PRESSURE_KPA + self.rng.gauss(0, 0.04),
+                "suitTempC": self.rng.gauss(0, 0.1),
+                "hr": self.rng.gauss(0, 1.5),
+            }
             member["evaDoseUsv"] += dose
             person.dose_msv += dose / 1000
 
@@ -587,9 +681,16 @@ class EvaEngine:
         position = self.crew_pos(0)
         out = {}
         for name, target in (("habitat", self.cfg["habitat"]), ("rover", self.rover)):
-            r = planning.plan(self.model, position, [{"id": name, "x": target["x"], "y": target["y"], "stopMin": 0}], self.obstacles, self.layers)
+            r = planning.plan(
+                self.model, position, [{"id": name, "x": target["x"], "y": target["y"], "stopMin": 0}], self.obstacles, self.layers
+            )
             if r["ok"]:
-                out[name] = {"path": r["path"], "lengthM": round(r["lengthM"]), "timeMin": round(r["durationH"] * 60), "o2L": round(r["o2L"], 1)}
+                out[name] = {
+                    "path": r["path"],
+                    "lengthM": round(r["lengthM"]),
+                    "timeMin": round(r["durationH"] * 60),
+                    "o2L": round(r["o2L"], 1),
+                }
         out["computedAt"] = self.clock_str()
         return out
 
@@ -603,18 +704,31 @@ class EvaEngine:
         walkback = self._walkback(member, pos)
         sensors, measured = member["sensors"], member.get("telemetry", {})
         return {
-            "id": member["cfg"]["id"], "x": round(pos["x"], 1), "y": round(pos["y"], 1), "est": member["est"],
-            "source": member["source"], "telemetryFields": list(measured),
+            "id": member["cfg"]["id"],
+            "x": round(pos["x"], 1),
+            "y": round(pos["y"], 1),
+            "est": member["est"],
+            "source": member["source"],
+            "telemetryFields": list(measured),
             "telemetryAgeS": round(self.t - member.get("telemetryAt", self.t), 1),
-            "o2Pct": round(person.o2_l / person.o2_capacity_l * 100, 1), "o2L": round(person.o2_l, 1),
-            "co2mmHg": round(member["co2mmHg"], 2), "batteryPct": round(person.battery_left_wh / person.battery_wh * 100, 1),
+            "o2Pct": round(person.o2_l / person.o2_capacity_l * 100, 1),
+            "o2L": round(person.o2_l, 1),
+            "co2mmHg": round(member["co2mmHg"], 2),
+            "batteryPct": round(person.battery_left_wh / person.battery_wh * 100, 1),
             "pressureKPa": round(sensors["pressureKPa"], 2),
             "suitTempC": round(20.5 + (member["metabolic"] - 200) / 120 + sensors["suitTempC"], 1),
-            "hr": measured.get("hr", int(heart_rate(member["metabolic"]) + sensors["hr"])), "metabolicW": round(member["metabolic"]),
-            "evaDoseUsv": round(member["evaDoseUsv"], 1), "career": radiation.limit_status(person.dose_msv),
-            "walkback": {"needL": round(walkback["needL"], 1), "availL": round(walkback["availL"], 1),
-                         "marginH": round(walkback["marginH"], 2), "ok": walkback["ok"]},
-            "comms": int(self.comms[cell]), "zone": int(self.layers["hazard"][cell]),
+            "hr": measured.get("hr", int(heart_rate(member["metabolic"]) + sensors["hr"])),
+            "metabolicW": round(member["metabolic"]),
+            "evaDoseUsv": round(member["evaDoseUsv"], 1),
+            "career": radiation.limit_status(person.dose_msv),
+            "walkback": {
+                "needL": round(walkback["needL"], 1),
+                "availL": round(walkback["availL"], 1),
+                "marginH": round(walkback["marginH"], 2),
+                "ok": walkback["ok"],
+            },
+            "comms": int(self.comms[cell]),
+            "zone": int(self.layers["hazard"][cell]),
         }, walkback["marginH"]
 
     def snapshot(self) -> dict:
@@ -625,18 +739,51 @@ class EvaEngine:
             crew, margins = zip(*(self._crew_snapshot(k, member) for k, member in enumerate(self.crew)))
             weather = self.spaceweather or {}
             return {
-                "missionId": self.cfg["id"], "t": round(self.t, 1), "clockMin": self.clock_min, "clock": self.clock_str(),
-                "sol": self.cfg["sol"], "running": self.running, "phase": self.phase, "finished": self.finished,
-                "timeScale": self.time_scale, "routeVersion": self.route_version, "crewS": round(self.crew_s, 2), "gap": self.gap,
-                "nextWp": self.next_wp, "reached": self.reached, "sep": self.sep, "crew": list(crew),
-                "rover": {"x": round(self.rover["x"], 1), "y": round(self.rover["y"], 1), "s": round(self.rover["s"], 1), "mode": self.rover["mode"]},
+                "missionId": self.cfg["id"],
+                "t": round(self.t, 1),
+                "clockMin": self.clock_min,
+                "clock": self.clock_str(),
+                "sol": self.cfg["sol"],
+                "running": self.running,
+                "phase": self.phase,
+                "finished": self.finished,
+                "resumed": self.resumed,
+                "timeScale": self.time_scale,
+                "routeVersion": self.route_version,
+                "crewS": round(self.crew_s, 2),
+                "gap": self.gap,
+                "nextWp": self.next_wp,
+                "reached": self.reached,
+                "sep": self.sep,
+                "crew": list(crew),
+                "rover": {
+                    "x": round(self.rover["x"], 1),
+                    "y": round(self.rover["y"], 1),
+                    "s": round(self.rover["s"], 1),
+                    "mode": self.rover["mode"],
+                },
                 "reserveH": round(min(margins), 2),
-                "env": {"doseUsvh": round(self.dose_rate(), 1), "windMs": round(6 + 1.5 * math.sin(self.t / 300) + self.wind_noise, 1),
-                        "groundTempC": round(self.temperature_at(self.crew_pos(0), hour) - 273.15, 1), "tau": 0.5,
-                        "sunElevDeg": round(elevation, 1), "sunAzDeg": round(azimuth, 1),
-                        "daylightLeftH": round(sunset - hour, 2), "sunsetLtst": round(sunset, 2)},
-                "spaceWeather": {"pfuEarth": weather.get("pfu"), "level": weather.get("stormLevel"), "summary": weather.get("summary"),
-                                 "source": weather.get("source"), "simulatedPfu": self.sim_pfu if self.sep else 0},
-                "alerts": self.alerts[-3:], "obstacles": self.obstacles, "observations": self.observations[-20:],
-                "emergency": self.emergency, "link": self.link.status(self.t), "log": self.log[-30:],
+                "env": {
+                    "doseUsvh": round(self.dose_rate(), 1),
+                    "windMs": round(6 + 1.5 * math.sin(self.t / 300) + self.wind_noise, 1),
+                    "groundTempC": round(self.temperature_at(self.crew_pos(0), hour) - 273.15, 1),
+                    "tau": 0.5,
+                    "sunElevDeg": round(elevation, 1),
+                    "sunAzDeg": round(azimuth, 1),
+                    "daylightLeftH": round(sunset - hour, 2),
+                    "sunsetLtst": round(sunset, 2),
+                },
+                "spaceWeather": {
+                    "pfuEarth": weather.get("pfu"),
+                    "level": weather.get("stormLevel"),
+                    "summary": weather.get("summary"),
+                    "source": weather.get("source"),
+                    "simulatedPfu": self.sim_pfu if self.sep else 0,
+                },
+                "alerts": self.alerts[-3:],
+                "obstacles": self.obstacles,
+                "observations": self.observations[-20:],
+                "emergency": self.emergency,
+                "link": self.link.status(self.t),
+                "log": self.log[-30:],
             }

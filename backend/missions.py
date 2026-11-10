@@ -2,6 +2,7 @@
 
 Wybór misji w skryptach: --mission <id>, zmienna MARSIM_MISSION albo domyślna (pierwsza na liście DEFAULT_ORDER).
 """
+
 from __future__ import annotations
 
 import json

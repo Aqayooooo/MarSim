@@ -4,6 +4,7 @@ Nadajnik jest użyteczny tylko w linii widoczności (sprawdzane na DTM). Odległ
 Gdy widać < 3 nadajniki, pozycja pochodzi z odometrii, której błąd rośnie z przebytą drogą (2% dystansu).
 Wynik: pozycja, elipsa błędu (półosie, kąt) i źródło.
 """
+
 from __future__ import annotations
 
 import math
@@ -14,8 +15,15 @@ from scipy import ndimage
 
 
 class Positioner:
-    def __init__(self, beacons: list[dict], dem: np.ndarray, cell: float, range_sigma: float = 0.3, beacon_mast: float = 2.0,
-                 rng: random.Random | None = None):
+    def __init__(
+        self,
+        beacons: list[dict],
+        dem: np.ndarray,
+        cell: float,
+        range_sigma: float = 0.3,
+        beacon_mast: float = 2.0,
+        rng: random.Random | None = None,
+    ):
         self.beacons = beacons
         self.rng = rng or random.Random()
         self.dem = dem
@@ -59,14 +67,25 @@ class Positioner:
             B = np.array([[b["x"], b["y"]] for b in vis])
             d = np.linalg.norm(B - p, axis=1) + 1e-9
             J = (p - B) / d[:, None]
-            cov = np.linalg.inv(J.T @ J + 1e-9 * np.eye(2)) * self.sigma ** 2
+            cov = np.linalg.inv(J.T @ J + 1e-9 * np.eye(2)) * self.sigma**2
             w, v = np.linalg.eigh(cov)
-            return {"x": round(float(p[0]), 2), "y": round(float(p[1]), 2), "source": f"UWB ({len(vis)} nadajniki)",
-                    "ellipse": {"a": round(float(2 * math.sqrt(max(w[1], 0))), 2), "b": round(float(2 * math.sqrt(max(w[0], 0))), 2),
-                                "angleDeg": round(math.degrees(math.atan2(v[1, 1], v[0, 1])), 1)},
-                    "beaconsVisible": [b["id"] for b in vis]}
+            return {
+                "x": round(float(p[0]), 2),
+                "y": round(float(p[1]), 2),
+                "source": f"UWB ({len(vis)} nadajniki)",
+                "ellipse": {
+                    "a": round(float(2 * math.sqrt(max(w[1], 0))), 2),
+                    "b": round(float(2 * math.sqrt(max(w[0], 0))), 2),
+                    "angleDeg": round(math.degrees(math.atan2(v[1, 1], v[0, 1])), 1),
+                },
+                "beaconsVisible": [b["id"] for b in vis],
+            }
         err = self.odo_err.get(who, 0.0) + 0.02 * delta
         self.odo_err[who] = err
-        return {"x": round(true_xy["x"] + self.rng.gauss(0, err / 3), 2), "y": round(true_xy["y"] + self.rng.gauss(0, err / 3), 2),
-                "source": f"odometria ({len(vis)} nadajn. w zasięgu)", "ellipse": {"a": round(2 * err, 2), "b": round(2 * err, 2), "angleDeg": 0},
-                "beaconsVisible": [b["id"] for b in vis]}
+        return {
+            "x": round(true_xy["x"] + self.rng.gauss(0, err / 3), 2),
+            "y": round(true_xy["y"] + self.rng.gauss(0, err / 3), 2),
+            "source": f"odometria ({len(vis)} nadajn. w zasięgu)",
+            "ellipse": {"a": round(2 * err, 2), "b": round(2 * err, 2), "angleDeg": 0},
+            "beaconsVisible": [b["id"] for b in vis],
+        }

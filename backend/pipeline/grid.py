@@ -4,6 +4,7 @@ Siatka jest w układzie DTM HiRISE (projekcja równokątna na sferze Mars 2000, 
 Lokalny układ UI: x [m] na wschód od lewego górnego rogu, y [m] na południe.
 Każdy produkt (DTM, ortoobraz, THEMIS, CTX — w różnych odwzorowaniach) trafia do tej siatki przez rasterio.warp.reproject.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,7 +20,7 @@ from rasterio.warp import reproject
 @dataclass
 class Grid:
     crs: CRS
-    x0: float          # współrzędna rzutu lewego górnego rogu
+    x0: float  # współrzędna rzutu lewego górnego rogu
     y0: float
     width_m: float
     height_m: float
@@ -33,7 +34,7 @@ class Grid:
     def transform(self) -> Affine:
         return Affine(self.res, 0, self.x0, 0, -self.res, self.y0)
 
-    def with_res(self, res: float) -> "Grid":
+    def with_res(self, res: float) -> Grid:
         return Grid(self.crs, self.x0, self.y0, self.width_m, self.height_m, res)
 
     def lonlat(self, x_local: float, y_local: float) -> tuple[float, float]:
@@ -43,8 +44,10 @@ class Grid:
         return lon % 360.0, lat
 
     def corners_lonlat(self) -> dict:
-        return {k: self.lonlat(x, y) for k, (x, y) in {
-            "nw": (0, 0), "ne": (self.width_m, 0), "sw": (0, self.height_m), "se": (self.width_m, self.height_m)}.items()}
+        return {
+            k: self.lonlat(x, y)
+            for k, (x, y) in {"nw": (0, 0), "ne": (self.width_m, 0), "sw": (0, self.height_m), "se": (self.width_m, self.height_m)}.items()
+        }
 
 
 def grid_from_center(src_crs: CRS, center_lon: float, center_lat: float, width_m: float, height_m: float, res: float) -> Grid:
@@ -53,8 +56,16 @@ def grid_from_center(src_crs: CRS, center_lon: float, center_lat: float, width_m
     return Grid(src_crs, cx - width_m / 2, cy + height_m / 2, width_m, height_m, res)
 
 
-def read_into(grid: Grid, path: str, band: int = 1, resampling=Resampling.bilinear, nodata_out=np.nan,
-              driver: str | None = None, src_nodata: float | None = None, src_crs=None) -> np.ndarray:
+def read_into(
+    grid: Grid,
+    path: str,
+    band: int = 1,
+    resampling=Resampling.bilinear,
+    nodata_out=np.nan,
+    driver: str | None = None,
+    src_nodata: float | None = None,
+    src_crs=None,
+) -> np.ndarray:
     """Czyta fragment produktu (lokalny plik lub /vsicurl/…) i przelicza go do siatki.
     driver="ENVI" (np. CRISM): plik nagłówka .hdr obok danych — wtedy GDAL musi móc czytać katalog.
     src_crs: wymuszony układ źródła (ortoobrazy HiRISE JP2: GDAL źle czyta równoleżnik standardowy z nagłówka GML)."""
@@ -62,30 +73,43 @@ def read_into(grid: Grid, path: str, band: int = 1, resampling=Resampling.biline
     env = dict(GDAL_HTTP_MAX_RETRY=5, GDAL_HTTP_RETRY_DELAY=2, CPL_VSIL_CURL_ALLOWED_EXTENSIONS=".IMG,.img,.tif,.TIF,.JP2,.jp2")
     if driver is None:
         env["GDAL_DISABLE_READDIR_ON_OPEN"] = "EMPTY_DIR"
-    with rasterio.Env(**env):
-        with rasterio.open(path, driver=driver) as src:
-            src_nodata = src.nodata if src_nodata is None else src_nodata
-            if src_crs is None:
-                reproject(
-                    source=rasterio.band(src, band), destination=out,
-                    src_transform=src.transform, src_crs=src.crs, src_nodata=src_nodata,
-                    dst_transform=grid.transform, dst_crs=grid.crs, dst_nodata=nodata_out,
-                    resampling=resampling,
-                )
-            else:
-                # przy źródle-pliku GDAL bierze układ z pliku, więc wymuszony układ wymaga odczytu fragmentu do pamięci
-                from rasterio.windows import Window, from_bounds
-                m = 4 * max(grid.res, abs(src.transform.a))
-                w = from_bounds(grid.x0 - m, grid.y0 - grid.height_m - m, grid.x0 + grid.width_m + m, grid.y0 + m,
-                                transform=src.transform).round_offsets().round_lengths()
-                w = w.intersection(Window(0, 0, src.width, src.height))
-                arr = src.read(band, window=w)
-                reproject(
-                    source=arr, destination=out,
-                    src_transform=src.window_transform(w), src_crs=rasterio.crs.CRS.from_wkt(CRS(src_crs).to_wkt()),
-                    src_nodata=src_nodata, dst_transform=grid.transform, dst_crs=grid.crs, dst_nodata=nodata_out,
-                    resampling=resampling,
-                )
+    with rasterio.Env(**env), rasterio.open(path, driver=driver) as src:
+        src_nodata = src.nodata if src_nodata is None else src_nodata
+        if src_crs is None:
+            reproject(
+                source=rasterio.band(src, band),
+                destination=out,
+                src_transform=src.transform,
+                src_crs=src.crs,
+                src_nodata=src_nodata,
+                dst_transform=grid.transform,
+                dst_crs=grid.crs,
+                dst_nodata=nodata_out,
+                resampling=resampling,
+            )
+        else:
+            # przy źródle-pliku GDAL bierze układ z pliku, więc wymuszony układ wymaga odczytu fragmentu do pamięci
+            from rasterio.windows import Window, from_bounds
+
+            m = 4 * max(grid.res, abs(src.transform.a))
+            w = (
+                from_bounds(grid.x0 - m, grid.y0 - grid.height_m - m, grid.x0 + grid.width_m + m, grid.y0 + m, transform=src.transform)
+                .round_offsets()
+                .round_lengths()
+            )
+            w = w.intersection(Window(0, 0, src.width, src.height))
+            arr = src.read(band, window=w)
+            reproject(
+                source=arr,
+                destination=out,
+                src_transform=src.window_transform(w),
+                src_crs=rasterio.crs.CRS.from_wkt(CRS(src_crs).to_wkt()),
+                src_nodata=src_nodata,
+                dst_transform=grid.transform,
+                dst_crs=grid.crs,
+                dst_nodata=nodata_out,
+                resampling=resampling,
+            )
     if src_nodata is not None and src_nodata < -1e30:
         out[out < -1e30] = np.nan
     return out
@@ -106,35 +130,64 @@ def block_mean(a: np.ndarray, k: int) -> np.ndarray:
 def cache_remote_window(url: str, grid: Grid, dest: str, margin_m: float = 200.0, retries: int = 8) -> str:
     """Pobiera fragment zdalnego rastra (z zapasem) do lokalnego GeoTIFF; ponawia przy zerwanym połączeniu.
     Zwraca ścieżkę lokalną — dalsze przetwarzanie nie zależy od sieci."""
+    import json
     import os
     import time as _t
+    from pathlib import Path
+
     from rasterio.warp import transform_bounds
     from rasterio.windows import from_bounds
-    import json
-    from pathlib import Path
-    identity = {"url": url, "crs": grid.crs.to_wkt(), "x0": grid.x0, "y0": grid.y0, "width": grid.width_m, "height": grid.height_m, "res": grid.res, "margin": margin_m}
+
+    identity = {
+        "url": url,
+        "crs": grid.crs.to_wkt(),
+        "x0": grid.x0,
+        "y0": grid.y0,
+        "width": grid.width_m,
+        "height": grid.height_m,
+        "res": grid.res,
+        "margin": margin_m,
+    }
     identity_path = Path(dest + ".identity.json")
     if os.path.exists(dest) and identity_path.exists() and json.loads(identity_path.read_text(encoding="utf-8")) == identity:
         with rasterio.open(dest) as cached:
-            bounds = transform_bounds(grid.crs, cached.crs, grid.x0, grid.y0-grid.height_m, grid.x0+grid.width_m, grid.y0)
-            if cached.bounds.left <= bounds[0] and cached.bounds.bottom <= bounds[1] and cached.bounds.right >= bounds[2] and cached.bounds.top >= bounds[3]:
+            bounds = transform_bounds(grid.crs, cached.crs, grid.x0, grid.y0 - grid.height_m, grid.x0 + grid.width_m, grid.y0)
+            if (
+                cached.bounds.left <= bounds[0]
+                and cached.bounds.bottom <= bounds[1]
+                and cached.bounds.right >= bounds[2]
+                and cached.bounds.top >= bounds[3]
+            ):
                 return dest
     last = None
     for attempt in range(retries):
         try:
-            with rasterio.Env(GDAL_HTTP_MAX_RETRY=10, GDAL_HTTP_RETRY_DELAY=3, GDAL_HTTP_TIMEOUT=120,
-                              GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR"):
-                with rasterio.open(url) as src:
-                    b = (grid.x0 - margin_m, grid.y0 - grid.height_m - margin_m, grid.x0 + grid.width_m + margin_m, grid.y0 + margin_m)
-                    sb = transform_bounds(grid.crs, src.crs, *b, densify_pts=21)
-                    w = from_bounds(*sb, transform=src.transform).round_offsets().round_lengths()
-                    inside = w.col_off >= 0 and w.row_off >= 0 and w.col_off + w.width <= src.width and w.row_off + w.height <= src.height
-                    if inside:   # odczyt „boundless” bywa zawodny dla zdalnych plików PDS — tylko gdy okno wychodzi poza raster
-                        data = src.read(1, window=w)
-                    else:
-                        data = src.read(1, window=w, boundless=True, fill_value=src.nodata if src.nodata is not None else 0)
-                    prof = {"driver": "GTiff", "height": data.shape[0], "width": data.shape[1], "count": 1, "dtype": data.dtype,
-                            "crs": src.crs, "transform": src.window_transform(w), "nodata": src.nodata, "compress": "deflate", "tiled": True}
+            with (
+                rasterio.Env(
+                    GDAL_HTTP_MAX_RETRY=10, GDAL_HTTP_RETRY_DELAY=3, GDAL_HTTP_TIMEOUT=120, GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR"
+                ),
+                rasterio.open(url) as src,
+            ):
+                b = (grid.x0 - margin_m, grid.y0 - grid.height_m - margin_m, grid.x0 + grid.width_m + margin_m, grid.y0 + margin_m)
+                sb = transform_bounds(grid.crs, src.crs, *b, densify_pts=21)
+                w = from_bounds(*sb, transform=src.transform).round_offsets().round_lengths()
+                inside = w.col_off >= 0 and w.row_off >= 0 and w.col_off + w.width <= src.width and w.row_off + w.height <= src.height
+                if inside:  # odczyt „boundless” bywa zawodny dla zdalnych plików PDS — tylko gdy okno wychodzi poza raster
+                    data = src.read(1, window=w)
+                else:
+                    data = src.read(1, window=w, boundless=True, fill_value=src.nodata if src.nodata is not None else 0)
+                prof = {
+                    "driver": "GTiff",
+                    "height": data.shape[0],
+                    "width": data.shape[1],
+                    "count": 1,
+                    "dtype": data.dtype,
+                    "crs": src.crs,
+                    "transform": src.window_transform(w),
+                    "nodata": src.nodata,
+                    "compress": "deflate",
+                    "tiled": True,
+                }
             temporary = dest + ".part"
             with rasterio.open(temporary, "w", **prof) as dst:
                 dst.write(data, 1)

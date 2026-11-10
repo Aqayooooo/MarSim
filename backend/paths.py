@@ -3,6 +3,7 @@
 Kolejność: zmienna środowiskowa MARSIM_DATA → backend/config/paths.local.json {"dataDir": "..."} → <repo>/data.
 paths.local.json nie trafia do gita — każdy komputer ma własny (np. D:/MarSim-data).
 """
+
 from __future__ import annotations
 
 import json
@@ -24,4 +25,4 @@ def data_dir() -> Path:
 
 RAW = data_dir() / "raw"
 CACHE = data_dir() / "cache"
-MISSIONS = REPO / "data" / "missions"      # wynik potoku dla UI (mały, w repozytorium)
+MISSIONS = REPO / "data" / "missions"  # wynik potoku dla UI (mały, w repozytorium)

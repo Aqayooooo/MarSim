@@ -2,6 +2,7 @@
 
 Reguły w RULES to założenia planistyczne do uzgodnienia z lekarzem lotu, nie normy NASA.
 """
+
 from __future__ import annotations
 
 from backend.models import sun
@@ -11,10 +12,10 @@ MAX_CONSECUTIVE_SOLS = 3
 WEEKLY_LIMIT_H = 24.0
 WEEK_SOLS = 7
 DAYLIGHT_MARGIN_H = 0.5
-USABLE_STORES = 0.8          # 20% zapasów habitatu zostaje jako rezerwa
-O2_MARGIN = 1.1              # +10% na nieszczelności i płukanie śluzy
-SUIT_POWER_W = 95.0          # średni pobór mocy skafandra
-WATER_L_PER_H = 0.6          # woda chłodząca i do picia na osobę
+USABLE_STORES = 0.8  # 20% zapasów habitatu zostaje jako rezerwa
+O2_MARGIN = 1.1  # +10% na nieszczelności i płukanie śluzy
+SUIT_POWER_W = 95.0  # średni pobór mocy skafandra
+WATER_L_PER_H = 0.6  # woda chłodząca i do picia na osobę
 
 RULES = [
     "jedno wyjście na sol na osobę, maks. 8 h;",
@@ -33,8 +34,10 @@ def default_schedule(first_sol: int, start_ltst: str = "09:30") -> list[dict]:
         (2, "09:30", 4.0, ["EV1"], "serwis łazika"),
         (4, "09:00", 3.5, ["EV1", "EV2"], "pobranie próbek skał"),
     ]
-    return [{"id": f"EVA-{n}", "sol": first_sol + offset, "startLtst": start, "durationH": hours, "crew": crew, "purpose": purpose}
-            for n, (offset, start, hours, crew, purpose) in enumerate(plan, start=1)]
+    return [
+        {"id": f"EVA-{n}", "sol": first_sol + offset, "startLtst": start, "durationH": hours, "crew": crew, "purpose": purpose}
+        for n, (offset, start, hours, crew, purpose) in enumerate(plan, start=1)
+    ]
 
 
 def _hours(clock: str) -> float:
@@ -47,8 +50,17 @@ def _sort_key(item: dict) -> tuple:
 
 
 class Scheduler:
-    def __init__(self, store, crew_cfg: list[dict], stores: dict, lat: float, decl: float, o2_rate_lh: float = 50.0,
-                 first_sol: int = 1, start_ltst: str = "09:30"):
+    def __init__(
+        self,
+        store,
+        crew_cfg: list[dict],
+        stores: dict,
+        lat: float,
+        decl: float,
+        o2_rate_lh: float = 50.0,
+        first_sol: int = 1,
+        start_ltst: str = "09:30",
+    ):
         """store: backend.live.store.Store — harmonogram jest zapisywany w SQLite.
         o2_rate_lh: średnie zużycie O₂ podczas EVA (L/h na osobę), z modelu wysiłku."""
         self.store = store
@@ -102,7 +114,7 @@ class Scheduler:
         by_crew: dict[str, list[dict]] = {}
         for item in self.items:
             start, hours = _hours(item["startLtst"]), item["durationH"]
-            crew = list(dict.fromkeys(item["crew"]))          # ta sama osoba wpisana dwa razy liczy się raz
+            crew = list(dict.fromkeys(item["crew"]))  # ta sama osoba wpisana dwa razy liczy się raz
             o2 = self.o2_rate_lh * hours * len(crew) * O2_MARGIN
             wh = SUIT_POWER_W * hours * len(crew)
             o2_total += o2
@@ -122,16 +134,22 @@ class Scheduler:
         for person, exits in by_crew.items():
             issues += self._crew_issues(person, exits)
         o2_available = self.stores["o2TanksL"] * USABLE_STORES
-        wh_per_sol = self.stores["batteriesWh"] * USABLE_STORES        # baterie są ładowane co sol
+        wh_per_sol = self.stores["batteriesWh"] * USABLE_STORES  # baterie są ładowane co sol
         if o2_total > o2_available:
             issues.append(f"Tlen: plan wymaga {o2_total:.0f} L, dostępne {o2_available:.0f} L (80% zapasów)")
         for sol, needed in sorted(wh_by_sol.items()):
             if needed > wh_per_sol:
                 issues.append(f"Energia: sol {sol} wymaga {needed:.0f} Wh, dostępne {wh_per_sol:.0f} Wh (80% baterii)")
-        return {"items": per_item, "issues": sorted(set(issues)),
-                "consumables": {"o2NeededL": round(o2_total), "o2AvailableL": round(o2_available),
-                                "batteryWh": round(sum(wh_by_sol.values())),
-                                "batteryAvailableWh": round(wh_per_sol * max(1, len(wh_by_sol))),
-                                "waterL": round(person_hours * WATER_L_PER_H, 1)},
-                "daylight": {"sunriseLtst": round(sunrise, 2), "sunsetLtst": round(sunset, 2)},
-                "rules": RULES}
+        return {
+            "items": per_item,
+            "issues": sorted(set(issues)),
+            "consumables": {
+                "o2NeededL": round(o2_total),
+                "o2AvailableL": round(o2_available),
+                "batteryWh": round(sum(wh_by_sol.values())),
+                "batteryAvailableWh": round(wh_per_sol * max(1, len(wh_by_sol))),
+                "waterL": round(person_hours * WATER_L_PER_H, 1),
+            },
+            "daylight": {"sunriseLtst": round(sunrise, 2), "sunsetLtst": round(sunset, 2)},
+            "rules": RULES,
+        }

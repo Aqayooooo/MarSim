@@ -1,4 +1,5 @@
 """Łączność radiowa (linia widoczności), oświetlenie i cienie terenu, temperatura powierzchni."""
+
 from __future__ import annotations
 
 import math
@@ -14,8 +15,9 @@ def _sample(dem: np.ndarray, rows: np.ndarray, cols: np.ndarray) -> np.ndarray:
     return ndimage.map_coordinates(dem, [rows, cols], order=1, mode="nearest")
 
 
-def viewshed(dem: np.ndarray, cell: float, src_xy: tuple[float, float], src_height: float, rx_height: float = 1.8,
-             steps: int = 160) -> np.ndarray:
+def viewshed(
+    dem: np.ndarray, cell: float, src_xy: tuple[float, float], src_height: float, rx_height: float = 1.8, steps: int = 160
+) -> np.ndarray:
     """Maska linii widoczności z anteny (x, y w metrach lokalnych) do odbiornika na wysokości rx_height nad gruntem.
     Zwraca zapas wysokości nad przeszkodą (m): > 0 — widoczność, < 0 — teren zasłania."""
     H, W = dem.shape
@@ -25,7 +27,8 @@ def viewshed(dem: np.ndarray, cell: float, src_xy: tuple[float, float], src_heig
     h1 = dem + rx_height
     clearance = np.full((H, W), np.inf, np.float32)
     for t in np.linspace(0.02, 0.98, steps):
-        r = sr + (rr - sr) * t; c = sc + (cc - sc) * t
+        r = sr + (rr - sr) * t
+        c = sc + (cc - sc) * t
         line = h0 + (h1 - h0) * t
         terr = _sample(dem, r.ravel(), c.ravel()).reshape(H, W)
         clearance = np.minimum(clearance, line - terr)
@@ -38,13 +41,14 @@ def shadow_mask(dem: np.ndarray, cell: float, sun_elev: float, sun_az: float, ma
     if sun_elev <= 0:
         return np.ones((H, W), bool)
     az = math.radians(sun_az)
-    dx, dy = math.sin(az), -math.cos(az)            # kierunek do Słońca w (x, y lokalnym)
+    dx, dy = math.sin(az), -math.cos(az)  # kierunek do Słońca w (x, y lokalnym)
     tan_e = math.tan(math.radians(sun_elev))
     rr, cc = np.mgrid[0:H, 0:W].astype(np.float32)
     shade = np.zeros((H, W), bool)
     dist = cell
     while dist < max_dist:
-        r = rr + dy * dist / cell; c = cc + dx * dist / cell
+        r = rr + dy * dist / cell
+        c = cc + dx * dist / cell
         inside = (r >= 0) & (r <= H - 1) & (c >= 0) & (c <= W - 1)
         if not inside.any():
             break
@@ -59,8 +63,17 @@ def shadow_mask(dem: np.ndarray, cell: float, sun_elev: float, sun_az: float, ma
     return shade | (cos_i <= 0)
 
 
-def surface_temperature(ltst_h: float, lat_deg: float, decl_deg: float, flux_top: float, albedo: float,
-                        thermal_inertia: float, tau_dust: float = 0.5, slope_cos: float = 1.0, emissivity: float = 0.95) -> float:
+def surface_temperature(
+    ltst_h: float,
+    lat_deg: float,
+    decl_deg: float,
+    flux_top: float,
+    albedo: float,
+    thermal_inertia: float,
+    tau_dust: float = 0.5,
+    slope_cos: float = 1.0,
+    emissivity: float = 0.95,
+) -> float:
     """Temperatura powierzchni [K] — rozwiązanie harmoniczne (1. harmoniczna) równania przewodzenia dla półprzestrzeni
     z linearyzowanym promieniowaniem i stałym strumieniem zwrotnym atmosfery. Uproszczenie do planowania, nie do nauki."""
     phi, d = math.radians(lat_deg), math.radians(decl_deg)
@@ -71,10 +84,10 @@ def surface_temperature(ltst_h: float, lat_deg: float, decl_deg: float, flux_top
     c1 = (2 / math.pi) * (math.cos(phi) * math.cos(d) * (hs / 2 + math.sin(2 * hs) / 4) + math.sin(phi) * math.sin(d) * math.sin(hs))
     absorbed_mean = (1 - albedo) * flux_top * trans * mean_cos * slope_cos
     absorbed_1 = (1 - albedo) * flux_top * trans * c1 * slope_cos
-    atm = 0.04 * flux_top * mean_cos + 15.0           # promieniowanie zwrotne atmosfery i pyłu (szacunek)
+    atm = 0.04 * flux_top * mean_cos + 15.0  # promieniowanie zwrotne atmosfery i pyłu (szacunek)
     T0 = ((absorbed_mean + atm) / (emissivity * SIGMA_SB)) ** 0.25
     omega = 2 * math.pi / SOL_S
-    lin = 4 * emissivity * SIGMA_SB * T0 ** 3
+    lin = 4 * emissivity * SIGMA_SB * T0**3
     cond = thermal_inertia * math.sqrt(omega)
     Z = complex(lin + cond / math.sqrt(2), cond / math.sqrt(2))
     amp = absorbed_1 / abs(Z)

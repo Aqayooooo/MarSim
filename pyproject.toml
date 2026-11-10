@@ -1,0 +1,35 @@
+[project]
+name = "marsim"
+description = "Mapa i planer wyjść (EVA) dla astronautów na Marsie, oparty na danych NASA"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dynamic = ["version", "dependencies"]
+
+[tool.setuptools.dynamic]
+version = { attr = "backend.__version__" }
+dependencies = { file = "requirements-runtime.txt" }
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-q"
+filterwarnings = ["ignore:Using `httpx` with"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py310"
+extend-exclude = ["vendor", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "RUF"]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # polskie znaki i symbole (×, –, σ) w tekstach są zamierzone
+    "E402",                        # skrypty uruchamiane wprost dopisują katalog projektu do sys.path przed importami
+    "SIM108", "B905", "RUF007", "RUF005", "RUF046", "C408", "E741", "RUF012", "RUF059",
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]

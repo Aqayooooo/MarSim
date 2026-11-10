@@ -4,9 +4,10 @@ Tło: RAD (Curiosity) zmierzył na powierzchni w kraterze Gale średnio ok. 0,64
 równoważnika dawki (Hassler i in., 2014, Science) — to ok. 27 μSv/h.
 Limit: NASA-STD-3001 Vol. 1 (rev. B) — dawka efektywna w karierze 600 mSv.
 """
+
 from __future__ import annotations
 
-GCR_SURFACE_USV_H = 640.0 / 24.0       # ≈ 26,7 μSv/h
+GCR_SURFACE_USV_H = 640.0 / 24.0  # ≈ 26,7 μSv/h
 CAREER_LIMIT_MSV = 600.0
 
 # Mnożnik dawki na powierzchni podczas SEP zależnie od strumienia protonów >10 MeV (przy Ziemi, pfu).
@@ -36,5 +37,10 @@ def dose_rate_usv_h(pfu: float = 0.0, shielded: bool = False) -> float:
 def limit_status(dose_msv: float) -> dict:
     frac = dose_msv / CAREER_LIMIT_MSV
     level = "ok" if frac < 0.5 else "uwaga" if frac < 0.8 else "krytyczne"
-    return {"doseMsv": round(dose_msv, 3), "limitMsv": CAREER_LIMIT_MSV, "fraction": round(frac, 4), "level": level,
-            "standard": "NASA-STD-3001 Vol. 1 Rev. B, limit kariery 600 mSv"}
+    return {
+        "doseMsv": round(dose_msv, 3),
+        "limitMsv": CAREER_LIMIT_MSV,
+        "fraction": round(frac, 4),
+        "level": level,
+        "standard": "NASA-STD-3001 Vol. 1 Rev. B, limit kariery 600 mSv",
+    }

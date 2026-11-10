@@ -11,6 +11,7 @@ Pogoda kosmiczna jest pobierana z sieci (NASA DONKI, NOAA SWPC); bez sieci zapis
 
 Uruchomienie z katalogu projektu:  .venv/Scripts/python.exe tools/export_backend_sample.py
 """
+
 from __future__ import annotations
 
 import json
@@ -24,21 +25,21 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 TMP = Path(tempfile.mkdtemp(prefix="marsim-sample-"))
-os.environ["MARSIM_DATA"] = str(TMP)      # przed importem backendu: bufor pogody i bazy w katalogu tymczasowym
+os.environ["MARSIM_DATA"] = str(TMP)  # przed importem backendu: bufor pogody i bazy w katalogu tymczasowym
 os.environ.pop("MARSIM_DB_DIR", None)
 sys.path.insert(0, str(REPO))
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from backend import missions as mis  # noqa: E402
-from backend import server  # noqa: E402
-from backend.live import spaceweather  # noqa: E402
+from backend import missions as mis
+from backend import server
+from backend.live import spaceweather
 
 FILES = ["plan", "report", "spaceweather", "log", "state", "schedule"]
-STEP_S = 15.0          # krok symulacji (sekundy misji)
-SEP_MIN = 20           # tyle trwa alarm SEP w scenariuszu
-EARTH_WAIT_MIN = 45    # po ostatnim punkcie: czas na odpowiedzi z Ziemi (opóźnienie światła w obie strony)
-CAP_H = 8.0            # bezpiecznik: maks. czas EVA
+STEP_S = 15.0  # krok symulacji (sekundy misji)
+SEP_MIN = 20  # tyle trwa alarm SEP w scenariuszu
+EARTH_WAIT_MIN = 45  # po ostatnim punkcie: czas na odpowiedzi z Ziemi (opóźnienie światła w obie strony)
+CAP_H = 8.0  # bezpiecznik: maks. czas EVA
 
 
 def rnd(o, nd: int = 3):
@@ -60,7 +61,7 @@ def ok(resp):
 
 def write(path: Path, data) -> int:
     text = json.dumps(rnd(data), ensure_ascii=False, separators=(",", ":"))
-    text = re.sub(r"api_key=[^&\s\"]+", "api_key=***", text)        # na wszelki wypadek: klucz NASA nie trafia do repozytorium
+    text = re.sub(r"api_key=[^&\s\"]+", "api_key=***", text)  # na wszelki wypadek: klucz NASA nie trafia do repozytorium
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text + "\n", encoding="utf-8")
     return len(text)
@@ -88,8 +89,10 @@ def export_mission(mid: str, sw: dict, generated: str) -> dict:
     E.spaceweather = sw
     m = E.mission
     # dokładnie to zapytanie wysyła interfejs przy pierwszym planowaniu (App.planInitial)
-    req = {"start": {"x": m["rover"]["x"], "y": m["rover"]["y"]},
-           "waypoints": [{k: w[k] for k in ("id", "x", "y", "stopMin") if k in w} for w in m["waypoints"]]}
+    req = {
+        "start": {"x": m["rover"]["x"], "y": m["rover"]["y"]},
+        "waypoints": [{k: w[k] for k in ("id", "x", "y", "stopMin") if k in w} for w in m["waypoints"]],
+    }
     out = {}
     with TestClient(app) as c:
         out["plan"] = {"request": req, "response": ok(c.post("/api/plan", json=req))}
@@ -100,7 +103,7 @@ def export_mission(mid: str, sw: dict, generated: str) -> dict:
         out["spaceweather"] = ok(c.get("/api/spaceweather"))
         out["log"] = ok(c.get("/api/log", params={"limit": 12}))
         snap = ok(c.get("/api/state"))
-        out["state"] = {k: snap[k] for k in ("t", "clock", "link")}     # tylko to, czego potrzebuje raport (łącze z Ziemią)
+        out["state"] = {k: snap[k] for k in ("t", "clock", "link")}  # tylko to, czego potrzebuje raport (łącze z Ziemią)
         out["schedule"] = ok(c.get("/api/schedule"))
         listing = ok(c.get("/api/missions"))
     for eng in app.state.engines.values():
@@ -108,15 +111,27 @@ def export_mission(mid: str, sw: dict, generated: str) -> dict:
 
     folder = REPO / "data" / "missions" / mid / "backend"
     sizes = {name: write(folder / f"{name}.json", out[name]) for name in FILES}
-    meta = {"generatedUtc": generated, "backendVersion": server.VERSION, "mission": mid, "files": FILES,
-            "eva": {"route": E.route["letter"] if E.route else None, "reachedMin": round(finished_at / 60) if finished_at else None,
-                    "events": sorted(E.fired), "spaceweather": sw.get("source")},
-            "note": "Zapis odpowiedzi API z prawdziwego backendu (tools/export_backend_sample.py). Interfejs bez serwera pokazuje je tylko do odczytu."}
+    meta = {
+        "generatedUtc": generated,
+        "backendVersion": server.VERSION,
+        "mission": mid,
+        "files": FILES,
+        "eva": {
+            "route": E.route["letter"] if E.route else None,
+            "reachedMin": round(finished_at / 60) if finished_at else None,
+            "events": sorted(E.fired),
+            "spaceweather": sw.get("source"),
+        },
+        "note": "Zapis odpowiedzi API z prawdziwego backendu (tools/export_backend_sample.py). "
+        "Interfejs bez serwera pokazuje je tylko do odczytu.",
+    }
     write(folder / "meta.json", meta)
     route = out["plan"]["response"]
-    print(f"  {mid}: trasa A {route['lengthM']:.0f} m / {route['o2L']:.0f} L O₂, {len(route.get('alternatives') or [])} warianty · "
-          f"EVA do trasy {meta['eva']['route']}, zdarzenia {meta['eva']['events']}, dojście po {meta['eva']['reachedMin']} min · "
-          f"{sum(sizes.values()) / 1024:.0f} KB")
+    print(
+        f"  {mid}: trasa A {route['lengthM']:.0f} m / {route['o2L']:.0f} L O₂, {len(route.get('alternatives') or [])} warianty · "
+        f"EVA do trasy {meta['eva']['route']}, zdarzenia {meta['eva']['events']}, dojście po {meta['eva']['reachedMin']} min · "
+        f"{sum(sizes.values()) / 1024:.0f} KB"
+    )
     return listing
 
 
@@ -130,8 +145,11 @@ def main():
     listing = None
     for mid in ids:
         listing = export_mission(mid, sw, generated)
-    index = {"generatedUtc": generated, "default": mis.DEFAULT if mis.DEFAULT in ids else ids[0],
-             "missions": [{k: x[k] for k in ("id", "title", "label", "center")} for x in listing["missions"]]}
+    index = {
+        "generatedUtc": generated,
+        "default": mis.DEFAULT if mis.DEFAULT in ids else ids[0],
+        "missions": [{k: x[k] for k in ("id", "title", "label", "center")} for x in listing["missions"]],
+    }
     write(REPO / "data" / "missions" / "index.json", index)
     print("Zapisano data/missions/index.json i data/missions/<id>/backend/*.json")
 

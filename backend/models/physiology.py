@@ -9,6 +9,7 @@ wartości zmierzonych w EVA Apollo (ok. 230–300 W). Po podłączeniu prawdziwe
 
 Tlen: 1 litr O₂ (warunki normalne) ≈ 20,1 kJ wydatku energii.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,9 +26,9 @@ TERRAIN_ETA = {"rock": 1.1, "rough": 1.5, "sand": 2.1}
 class Person:
     id: str
     body_kg: float
-    load_kg: float               # skafander + plecak (PLSS) + narzędzia
-    o2_capacity_l: float         # zapas tlenu w skafandrze (litry, warunki normalne)
-    o2_l: float                  # bieżący zapas
+    load_kg: float  # skafander + plecak (PLSS) + narzędzia
+    o2_capacity_l: float  # zapas tlenu w skafandrze (litry, warunki normalne)
+    o2_l: float  # bieżący zapas
     leak_l_min: float = 0.02
     calibration: float = 0.55
     suit_overhead_w: float = 60.0
@@ -35,7 +36,7 @@ class Person:
     battery_left_wh: float = 1000.0
     co2_capacity_l: float = 950.0  # pojemność pochłaniacza CO₂ (litry CO₂)
     co2_absorbed_l: float = 0.0
-    dose_msv: float = 0.0        # dawka skumulowana w karierze (mSv)
+    dose_msv: float = 0.0  # dawka skumulowana w karierze (mSv)
 
 
 def metabolic_w(p: Person, speed_ms: float, grade_pct: float, terrain: str = "rock") -> float:

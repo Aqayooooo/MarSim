@@ -1,4 +1,5 @@
 """Testy API: walidacja zapytań, zapis w SQLite po restarcie, ochrona plików.   python -m pytest backend/tests -q"""
+
 import sys
 from pathlib import Path
 
@@ -9,8 +10,8 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from backend.live.store import Store  # noqa: E402
-from backend.server import create_app  # noqa: E402
+from backend.live.store import Store
+from backend.server import create_app
 
 
 def client(db) -> TestClient:
@@ -27,17 +28,20 @@ def test_health(api):
     assert r.status_code == 200 and r.json()["ok"] is True
 
 
-@pytest.mark.parametrize("path,body,needle", [
-    ("/api/eva/inject", {}, "kind"),
-    ("/api/eva/inject", {"kind": "meteor"}, "kind"),
-    ("/api/eva/timescale", {"timeScale": -5}, "timeScale"),
-    ("/api/observations", {"kind": "glazy", "x": 99999, "y": 10}, "poza obszarem"),
-    ("/api/observations", {"kind": "lawa", "x": 10, "y": 10}, "kind"),
-    ("/api/schedule", {"id": "EVA-9", "sol": 150, "startLtst": "25:00", "durationH": 2, "crew": ["EV1"]}, "startLtst"),
-    ("/api/schedule", {"id": "EVA-9", "sol": 150, "startLtst": "10:00", "durationH": 2, "crew": ["EV7"]}, "EV7"),
-    ("/api/telemetry", {"id": "EV1", "batteryPct": 140}, "batteryPct"),
-    ("/api/plan", {"letter": "AB"}, "letter"),
-])
+@pytest.mark.parametrize(
+    "path,body,needle",
+    [
+        ("/api/eva/inject", {}, "kind"),
+        ("/api/eva/inject", {"kind": "meteor"}, "kind"),
+        ("/api/eva/timescale", {"timeScale": -5}, "timeScale"),
+        ("/api/observations", {"kind": "glazy", "x": 99999, "y": 10}, "poza obszarem"),
+        ("/api/observations", {"kind": "lawa", "x": 10, "y": 10}, "kind"),
+        ("/api/schedule", {"id": "EVA-9", "sol": 150, "startLtst": "25:00", "durationH": 2, "crew": ["EV1"]}, "startLtst"),
+        ("/api/schedule", {"id": "EVA-9", "sol": 150, "startLtst": "10:00", "durationH": 2, "crew": ["EV7"]}, "EV7"),
+        ("/api/telemetry", {"id": "EV1", "batteryPct": 140}, "batteryPct"),
+        ("/api/plan", {"letter": "AB"}, "letter"),
+    ],
+)
 def test_bad_input_gives_422_with_message(api, path, body, needle):
     r = api.post(path, json=body)
     assert r.status_code == 422, r.text
@@ -73,7 +77,7 @@ def test_state_survives_restart(tmp_path):
     assert a.post("/api/observations", json={"kind": "piasek", "x": 500, "y": 400, "radiusM": 30}).status_code == 200
     a.app.state.active().store.close()
 
-    b = client(db)   # „restart serwera”: nowy silnik na tym samym pliku bazy
+    b = client(db)  # „restart serwera”: nowy silnik na tym samym pliku bazy
     ids = [i["id"] for i in b.get("/api/schedule").json()["items"]]
     assert "EVA-9" in ids
     hist = b.get("/api/observations/history").json()["observations"]
@@ -89,14 +93,32 @@ def test_delete_missing_schedule_item_404(api):
     assert r.status_code == 404 and r.json()["ok"] is False
 
 
-@pytest.mark.parametrize("path", ["/.git/config", "/backend/config/missions/mount-sharp.json", "/backend/server.py", "/data/marsim.db",
-                                  "/missions/current/..%2F..%2F..%2Fbackend%2Fserver.py"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/.git/config",
+        "/backend/config/missions/mount-sharp.json",
+        "/backend/server.py",
+        "/data/marsim.db",
+        "/missions/current/..%2F..%2F..%2Fbackend%2Fserver.py",
+    ],
+)
 def test_project_files_not_served(api, path):
     assert api.get(path).status_code == 404
 
 
-@pytest.mark.parametrize("path", ["/", "/styles.css", "/src/main.js", "/src/i18n.js", "/vendor/three/three.module.js",
-                                  "/vendor/fonts/fonts.css", "/missions/current/mission.json"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/",
+        "/styles.css",
+        "/src/main.js",
+        "/src/i18n.js",
+        "/vendor/three/three.module.js",
+        "/vendor/fonts/fonts.css",
+        "/missions/current/mission.json",
+    ],
+)
 def test_ui_files_served(api, path):
     assert api.get(path).status_code == 200
 
@@ -129,11 +151,11 @@ def test_route_never_enters_forbidden_and_explains_alternatives(api, mission):
     r = api.post("/api/plan", json={}).json()
     alts = {a["id"]: a for a in r["alternatives"]}
     assert set(alts) == {"chosen", "straight", "shortest", "strict"}
-    assert alts["chosen"]["forbiddenM"] == 0                  # wygładzanie trasy nie może ścinać przez zakaz
+    assert alts["chosen"]["forbiddenM"] == 0  # wygładzanie trasy nie może ścinać przez zakaz
     assert alts["chosen"]["maxSlopeUpDeg"] <= 25
     for a in alts.values():
         if a["verdict"] in ("worse", "same"):
-            assert a["forbiddenM"] == 0 and a["o2L"] >= alts["chosen"]["o2L"] - 0.5   # wybrana = najmniej O₂ wśród bezpiecznych
+            assert a["forbiddenM"] == 0 and a["o2L"] >= alts["chosen"]["o2L"] - 0.5  # wybrana = najmniej O₂ wśród bezpiecznych
         assert a["reasons"], a["id"]
     assert alts["straight"]["verdict"] == "unsafe" and alts["straight"]["forbiddenM"] > 0
 
@@ -148,9 +170,9 @@ def test_safe_passage_report_does_not_outlive_eva_reset(api):
     ys, xs = np.nonzero(before == 1)
     x, y = (xs[len(xs) // 2] + 0.5) * E.cell, (ys[len(ys) // 2] + 0.5) * E.cell
     assert api.post("/api/observations", json={"kind": "bezpieczne", "x": float(x), "y": float(y), "radiusM": 150}).status_code == 200
-    assert (E.layers["hazard"] == 1).sum() < (before == 1).sum()       # w tej sesji: strefa „uwaga” zniesiona
+    assert (E.layers["hazard"] == 1).sum() < (before == 1).sum()  # w tej sesji: strefa „uwaga” zniesiona
     api.post("/api/eva/reset")
-    assert np.array_equal(E.layers["hazard"], before)                 # nowa sesja: mapa z potoku
+    assert np.array_equal(E.layers["hazard"], before)  # nowa sesja: mapa z potoku
     assert E.model.caution.sum() == (before == 1).sum()
 
 
@@ -161,7 +183,7 @@ def test_eva_follows_waypoints_from_plan_request(api):
     assert api.post("/api/plan", json={"waypoints": wps + [extra]}).status_code == 200
     api.post("/api/eva/start", json={"timeScale": 600})
     for _ in range(4000):
-        E.step(1.0)                                                   # wcześniej: IndexError na cfg["waypoints"][2]
+        E.step(1.0)  # wcześniej: IndexError na cfg["waypoints"][2]
         if E.next_wp >= len(E.wp_s):
             break
     assert E.reached == [w["id"] for w in wps] + ["WP3"]

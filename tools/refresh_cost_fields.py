@@ -6,6 +6,7 @@ i bez ponownego uruchamiania caÅ‚ego potoku. Sumy kontrolne w provenance.json sÄ
     python tools/refresh_cost_fields.py              # wszystkie zbudowane misje
     python tools/refresh_cost_fields.py jezero       # jedna misja
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,9 +17,9 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
-from backend import missions, planning  # noqa: E402
-from backend.live.engine import EvaEngine  # noqa: E402
-from backend.paths import MISSIONS  # noqa: E402
+from backend import missions, planning
+from backend.live.engine import EvaEngine
+from backend.paths import MISSIONS
 
 
 def refresh(mission_id: str) -> None:

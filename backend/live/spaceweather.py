@@ -4,6 +4,7 @@ Dane dotyczą okolic Ziemi. Mars bywa po drugiej stronie Słońca, więc to wska
 dla misji potrzebny byłby monitor przy Marsie (np. RAD, przyszłe sondy). Wyniki są buforowane na dysku,
 żeby habitat działał bez łączności (ostatni znany stan + wiek danych).
 """
+
 from __future__ import annotations
 
 import json
@@ -11,7 +12,6 @@ import os
 import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 from backend import __version__
 from backend.paths import CACHE
@@ -28,7 +28,7 @@ def _get(url: str, timeout: int = 40):
 
 
 def fetch(api_key: str | None = None, days: int = 7) -> dict:
-    api_key = api_key or os.environ.get("NASA_API_KEY", "DEMO_KEY")   # własny klucz: https://api.nasa.gov
+    api_key = api_key or os.environ.get("NASA_API_KEY", "DEMO_KEY")  # własny klucz: https://api.nasa.gov
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=days)
     out = {"fetchedUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "errors": []}
@@ -89,7 +89,20 @@ def summarize(d: dict, source: str) -> dict:
     events.sort(key=lambda e: e["time"] or "", reverse=True)
     value = pfu or 0
     level = "S4+" if value >= 10000 else "S3" if value >= 1000 else "S2" if value >= 100 else "S1" if value >= 10 else "brak"
-    return {"available": True, "source": source, "fetchedUtc": d.get("fetchedUtc"), "protonsAvailable": pfu is not None, "protonsStale": d.get("protonsStale", False), "protonsTime": d.get("protons10MeV", [{}])[-1].get("t") if d.get("protons10MeV") else None, "pfu": round(float(pfu), 3) if pfu is not None else None, "stormLevel": level if pfu is not None else "brak danych",
-            "events": events[:8], "errors": d.get("errors", []),
-            "summary": "Brak aktualnego pomiaru protonów NOAA" if pfu is None else ("Ostatni pomiar (nieaktualny): " if d.get("protonsStale") else "") + f"Protony ≥10 MeV przy Ziemi: {value:.2f} pfu (burza: {level}); zdarzenia DONKI z 7 dni: {len(events)}".replace(".", ","),
-            "note": "Pomiary przy Ziemi — dla Marsa wskaźnik orientacyjny."}
+    return {
+        "available": True,
+        "source": source,
+        "fetchedUtc": d.get("fetchedUtc"),
+        "protonsAvailable": pfu is not None,
+        "protonsStale": d.get("protonsStale", False),
+        "protonsTime": d.get("protons10MeV", [{}])[-1].get("t") if d.get("protons10MeV") else None,
+        "pfu": round(float(pfu), 3) if pfu is not None else None,
+        "stormLevel": level if pfu is not None else "brak danych",
+        "events": events[:8],
+        "errors": d.get("errors", []),
+        "summary": "Brak aktualnego pomiaru protonów NOAA"
+        if pfu is None
+        else ("Ostatni pomiar (nieaktualny): " if d.get("protonsStale") else "")
+        + f"Protony ≥10 MeV przy Ziemi: {value:.2f} pfu (burza: {level}); zdarzenia DONKI z 7 dni: {len(events)}".replace(".", ","),
+        "note": "Pomiary przy Ziemi — dla Marsa wskaźnik orientacyjny.",
+    }

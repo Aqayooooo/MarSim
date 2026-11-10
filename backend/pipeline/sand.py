@@ -8,6 +8,7 @@
 5. Małe nierówności w DTM.
 Wynik: prawdopodobieństwo piasku (średnia ważona dostępnych wskaźników) i pewność (zgodność wskaźników).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,7 +28,8 @@ def otsu(a: np.ndarray) -> float:
     v = a[np.isfinite(a)].ravel()
     hist, edges = np.histogram(v, bins=256)
     c = (edges[:-1] + edges[1:]) / 2
-    w0 = np.cumsum(hist); w1 = w0[-1] - w0
+    w0 = np.cumsum(hist)
+    w1 = w0[-1] - w0
     m0 = np.cumsum(hist * c) / np.maximum(w0, 1)
     m1 = (np.sum(hist * c) - np.cumsum(hist * c)) / np.maximum(w1, 1)
     return float(c[np.argmax(w0 * w1 * (m0 - m1) ** 2)])
@@ -48,23 +50,27 @@ def image_smoothness(img_1m: np.ndarray) -> np.ndarray:
     return (1 - _robust01(rel)).astype(np.float32)
 
 
-def ripple_score(img: np.ndarray, px_m: float, win_m: float = 32.0, step_m: float = 8.0,
-                 band_m: tuple[float, float] = (2.5, 15.0)) -> np.ndarray:
+def ripple_score(
+    img: np.ndarray, px_m: float, win_m: float = 32.0, step_m: float = 8.0, band_m: tuple[float, float] = (2.5, 15.0)
+) -> np.ndarray:
     """Udział mocy widma w paśmie zmarszczek × anizotropia, liczony w oknach i interpolowany do pełnej siatki."""
     img = np.nan_to_num(img, nan=np.nanmedian(img)).astype(np.float32)
-    n = int(round(win_m / px_m)); n += n % 2
+    n = int(round(win_m / px_m))
+    n += n % 2
     step = max(1, int(round(step_m / px_m)))
     H, W = img.shape
-    fy = np.fft.fftfreq(n, d=px_m)[:, None]; fx = np.fft.fftfreq(n, d=px_m)[None, :]
+    fy = np.fft.fftfreq(n, d=px_m)[:, None]
+    fx = np.fft.fftfreq(n, d=px_m)[None, :]
     f = np.hypot(fx, fy)
     band = (f >= 1 / band_m[1]) & (f <= 1 / band_m[0])
     ang = np.arctan2(fy, fx) * 2  # orientacja (podwojony kąt — wektor nieskierowany)
     win = np.outer(np.hanning(n), np.hanning(n)).astype(np.float32)
-    rows = list(range(0, max(1, H - n + 1), step)); cols = list(range(0, max(1, W - n + 1), step))
+    rows = list(range(0, max(1, H - n + 1), step))
+    cols = list(range(0, max(1, W - n + 1), step))
     out = np.zeros((len(rows), len(cols)), np.float32)
     for i, r in enumerate(rows):
         for j, c in enumerate(cols):
-            p = img[r:r + n, c:c + n]
+            p = img[r : r + n, c : c + n]
             p = (p - p.mean()) * win
             P = np.abs(np.fft.fft2(p)) ** 2
             P[0, 0] = 0
@@ -100,7 +106,7 @@ def combine(indicators: dict[str, np.ndarray | None]) -> tuple[np.ndarray, np.nd
     used = {k: v for k, v in indicators.items() if v is not None}
     wsum = sum(WEIGHTS[k] for k in used)
     prob = sum(WEIGHTS[k] * v for k, v in used.items()) / wsum
-    stack = np.stack([v for v in used.values()])
+    stack = np.stack(list(used.values()))
     agreement = 1 - np.clip(np.std(stack, axis=0) * 2, 0, 1)
     coverage = wsum / sum(WEIGHTS.values())
     confidence = agreement * (0.5 + 0.5 * coverage)

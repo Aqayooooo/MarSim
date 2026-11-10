@@ -1,9 +1,10 @@
 """Pobiera produkty NASA z backend/sources/<misja>.json do data/raw/ (wznawianie, SHA-256).
 
-    python backend/fetch_data.py                     # pobierz brakujące (misja domyślna)
-    python backend/fetch_data.py --mission jezero    # inna misja
-    python backend/fetch_data.py --check             # pokaż stan i sumy kontrolne
+python backend/fetch_data.py                     # pobierz brakujące (misja domyślna)
+python backend/fetch_data.py --mission jezero    # inna misja
+python backend/fetch_data.py --check             # pokaż stan i sumy kontrolne
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,8 +18,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from backend.paths import RAW  # noqa: E402  (D:/MarSim-data/raw albo ./data/raw)
-from backend import missions  # noqa: E402
+from backend import missions
+from backend.paths import RAW
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -57,7 +59,7 @@ def download_urllib(url: str, dest: Path) -> None:
     complete = False
     for attempt in range(20):
         have = tmp.stat().st_size if tmp.exists() else 0
-        if total and have > total:            # .part dłuższy niż plik (sklejony wcześniej) — pobieramy od nowa
+        if total and have > total:  # .part dłuższy niż plik (sklejony wcześniej) — pobieramy od nowa
             tmp.unlink()
             have = 0
         if total and have == total:
@@ -66,7 +68,7 @@ def download_urllib(url: str, dest: Path) -> None:
         req = urllib.request.Request(url, headers={"Range": f"bytes={have}-"} if have else {})
         try:
             with urllib.request.urlopen(req, timeout=120) as r:
-                if have and r.status != 206:      # serwer zignorował Range i wysyła cały plik — zaczynamy od zera, bez sklejania
+                if have and r.status != 206:  # serwer zignorował Range i wysyła cały plik — zaczynamy od zera, bez sklejania
                     have = 0
                 with tmp.open("ab" if have else "wb") as f:
                     last = time.time()
@@ -86,7 +88,7 @@ def download_urllib(url: str, dest: Path) -> None:
         except Exception as e:  # przerwane połączenie: wznów od miejsca przerwania
             print(f"  przerwano ({e}); ponawiam {attempt + 1}/20", flush=True)
             time.sleep(3)
-    if not complete:   # niepełny plik zostaje jako .part (do wznowienia), nigdy jako gotowy produkt z sumą kontrolną
+    if not complete:  # niepełny plik zostaje jako .part (do wznowienia), nigdy jako gotowy produkt z sumą kontrolną
         size = tmp.stat().st_size if tmp.exists() else 0
         raise RuntimeError(f"Nie udało się pobrać {dest.name}: {size} z {total or '?'} B — uruchom ponownie, pobieranie zostanie wznowione")
     tmp.replace(dest)
