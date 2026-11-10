@@ -69,3 +69,8 @@
 
 .visor-motion { padding: 10px 16px; border-left: 1px solid var(--visor-line); background: linear-gradient(90deg, #08202c88, #08202c00); text-shadow: 0 1px 3px #031014, 0 0 10px #9be8e644; }
 .visor-motion > span, .visor-motion small { color: #c1dedc; }
+/* telefon i tablet: hełm w tym samym miejscu co mapa, panele stanu zostają pod spodem */
+#stage.compact.helmet-mode #main { top: 0; width: 972px; height: calc(var(--mh, 648) * 1px); border: 1px solid var(--line); border-radius: 11px; }
+#stage.compact.helmet-mode #left, #stage.compact.helmet-mode #right { display: flex; }
+#stage.compact.helmet-mode #caption { top: auto; bottom: 13px; left: 12px; right: 12px; font-size: 16px; }
+#stage.compact .visor-summary { display: none; }   /* te same dane są w panelu stanu pod obrazem; na telefonie byłyby nieczytelne */

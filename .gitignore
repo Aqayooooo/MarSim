@@ -9,3 +9,5 @@ backend/config/paths.local.json
 # baza stanu (SQLite) i jej pliki tymczasowe
 *.db
 *.db-journal
+# zależności narzędzi testowych (npm ci)
+node_modules/

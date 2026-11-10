@@ -313,11 +313,17 @@ def create_app(
         )
         return route if route["ok"] else JSONResponse(route, status_code=409)
 
+    @app.get("/api/sensitivity", tags=["Trasa"])
+    def route_sensitivity():
+        """Co jeśli: trasa bieżącego planu przy limitach nachylenia 20–30° oraz przedział tlenu i czasu."""
+        result = active().sensitivity()
+        return result if result["ok"] else JSONResponse(result, status_code=409)
+
     @app.get("/api/route", tags=["Trasa"])
     def route():
         eng = active()
         with eng.lock:
-            return {"version": eng.route_version, "route": eng.route, "discarded": eng.discarded}
+            return {"version": eng.route_version, "route": eng.route, "discarded": eng.discarded, "waypoints": eng.waypoints}
 
     @app.get("/api/state", tags=["Przebieg EVA"])
     def state():

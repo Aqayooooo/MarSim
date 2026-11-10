@@ -19,11 +19,8 @@ export class Panels {
     setText($('locLabel'), tx(m.area.label));
     this.#buildLayers();
     this.#buildO2();
-    const wp = m.waypoints.find((w) => w.view) || m.waypoints[m.waypoints.length - 1];
-    this.viewWp = wp.id;
-    setText($('wpViewHead'), t('wp.view', { wp: wp.id }));
-    setText($('wpLocked'), t('wp.locked', { wp: wp.id }));
-    $('wpShot').querySelector('img').alt = t('wp.alt', { wp: wp.id });
+    this.#syncWpView();
+    app.on('waypoints', () => this.#syncWpView());
     app.on('layers', () => this.#syncLayers());
     app.on('reset', () => { this.#syncLayers(); $('wpView').classList.remove('open'); });
     app.on('wpview', (id) => this.#showWpView(id));
@@ -81,6 +78,15 @@ export class Panels {
       d.querySelector('span').textContent = tx(e.text);
       lg.appendChild(d);
     }
+  }
+
+  /** Punkt z widokiem terenu: wskazany w misji albo ostatni punkt planu. */
+  #syncWpView() {
+    const wps = this.app.m.waypoints, wp = wps.find((w) => w.view) || wps[wps.length - 1];
+    this.viewWp = wp.id;
+    setText($('wpViewHead'), t('wp.view', { wp: wp.id }));
+    setText($('wpLocked'), t('wp.locked', { wp: wp.id }));
+    $('wpShot').querySelector('img').alt = t('wp.alt', { wp: wp.id });
   }
 
   #buildO2() {

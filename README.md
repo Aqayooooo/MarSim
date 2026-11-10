@@ -17,9 +17,18 @@ Wersja 1.4 zapisuje przebieg EVA i odtwarza go po restarcie w stanie pauzy. Dzie
 
 Poprawki po przeglądzie (wieczór 10 listopada): wyjście i postoje w punktach trasy kończą się dopiero, gdy dojdzie cała załoga, a nie tylko prowadzący. Raport i wizjer pokazują bieżący niedobór tlenu osoby w najgorszym stanie. Wersja bez serwera ma te same alarmy tlenu co backend i liczy zapas na powrót do habitatu. Pierwsze wyjście z harmonogramu na bieżący sol ustala godzinę startu i skład załogi symulowanej EVA. API odrzuca nowe wyznaczenie trasy w trakcie wyjścia oraz telemetrię tlenu ponad pojemność butli. Szczegóły w [CHANGELOG.md](CHANGELOG.md).
 
-Weryfikacja: 281 testów backendu, 25 testów sterowania EVA (w tym pełne przebiegi demo, Mount Sharp i Jezero), trzy testy planera, 352 klucze tłumaczeń PL/EN oraz kontrola kodu Ruff. Test działającego serwera sprawdził strumień stanu, 360 równoległych zapytań i powrót do habitatu. Kontrola CI obejmuje też gałąź `pages-demo`.
+Rozwój (noc 10 listopada):
 
-Niezależne próby w przeglądarce objęły oba obszary NASA, PL/EN, wersję z backendem i bez niego, widoki 3D, jazdę łazikiem, formularze oraz pełne prezentacje. Naprawiono błędny komunikat marszu podczas pauzy, stary cel na urządzeniu po resecie i utratę zmian wprowadzonych podczas pauzy po restarcie serwera. [Zakres i wynik prób](docs/WERYFIKACJA-UI.md). Docker pozostaje niesprawdzony; nie jest zainstalowany na tym komputerze.
+- **Wygląd 3D.** Teren w barwach Marsa z cieniowaniem rzeźby i fakturą gruntu z bliska. Niebo ze słońcem według zegara misji, cienie, kamienie o nieregularnych kształtach i drobne kamyki. Do tego modele łazika ciśnieniowego i habitatu, a z orbity blok terenu z warstwami skalnymi.
+- **Własny plan wyjścia.** **Punkty EVA** na mapie: kliknięcie dodaje punkt, przeciągnięcie przesuwa; postój, kolejność i usuwanie są na liście. Trasa przelicza się od razu, a plan zostaje w przeglądarce.
+- **Telefon i tablet.** Na wąskim ekranie albo w pionie układ jest kolumnowy: mapa lub widok 3D na całą szerokość, panele pod spodem. W hełmie są przyciski marszu dla ekranu dotykowego.
+- **Niepewność i wrażliwość.** **Co jeśli?** pokazuje trasę tego samego planu przy limitach nachylenia 20–30°. Raport podaje przedział tlenu i czasu z niepewności DTM i założeń modelu.
+- **Wygoda.** Karta „Jak zacząć” przy pierwszym wejściu, pasek postępu wczytywania i odczyt terenu pod kursorem: wysokość, nachylenie, strefa, dojście do habitatu.
+- **Testy.** Testy w prawdziwej przeglądarce (Playwright) oraz budowa i uruchomienie obrazu Docker w CI.
+
+Weryfikacja: 290 testów backendu, 30 testów sterowania EVA (w tym pełne przebiegi demo, Mount Sharp i Jezero), cztery testy w przeglądarce (wersja bez serwera, telefon, backend), trzy testy planera, 407 kluczy tłumaczeń PL/EN oraz kontrola kodu Ruff. Test działającego serwera sprawdził strumień stanu, 360 równoległych zapytań i powrót do habitatu. Kontrola CI obejmuje też gałąź `pages-demo`.
+
+Niezależne próby w przeglądarce objęły oba obszary NASA, PL/EN, wersję z backendem i bez niego, widoki 3D, jazdę łazikiem, formularze oraz pełne prezentacje. Naprawiono błędny komunikat marszu podczas pauzy, stary cel na urządzeniu po resecie i utratę zmian wprowadzonych podczas pauzy po restarcie serwera. [Zakres i wynik prób](docs/WERYFIKACJA-UI.md). Obraz Docker jest budowany i sprawdzany w CI (na tym komputerze Docker nie jest zainstalowany).
 
 ![Mapa MarSim z warstwą zagrożeń](docs/img/mapa.jpg)
 
@@ -90,6 +99,10 @@ python tools/make_data_sources.py                # odświeża data-sources.json
 - **Plan wyjść**: harmonogram z kontrolą zapasów, odpoczynku i światła dziennego. Wpis można dodać, edytować i usunąć. Pierwsze wyjście na bieżący sol ustala godzinę startu i załogę EVA; zmiana działa po resecie wyjścia.
 - **Prezentacja** odtwarza scenariusz w 8 krokach. Zatrzymanie wstrzymuje EVA. Po końcu zostaje mapa z przebytą trasą.
 - **＋ Zgłoś z terenu**: kliknięcie na mapie dodaje przeszkodę albo bezpieczne przejście. Trasa przelicza się, jeśli trzeba.
+- **Punkty EVA** (na mapie, przed startem wyjścia): kliknięcie dodaje punkt (najwyżej 8), przeciągnięcie przesuwa. Na liście: postój, kolejność, usuwanie i powrót do punktów misji. Plan zostaje w przeglądarce; z backendem odtwarza się też po odświeżeniu strony.
+- **Co jeśli?**: trasa bieżącego planu przy limitach nachylenia 20–30° (suwak, linia przerywana na mapie) oraz przedział tlenu i czasu.
+- **Odczyt terenu**: wskazanie mapy myszą pokazuje wysokość względną, nachylenie, strefę, piasek i czas oraz tlen na dojście pieszo do habitatu.
+- **Telefon i tablet**: zakładki i przyciski w nagłówku, mapa na całą szerokość, panele pod spodem; w hełmie przytrzymanie ▲/▼ to marsz.
 
 ## Co jest w środku
 
@@ -127,9 +140,10 @@ Po instalacji `requirements.txt`:
 - `node tools/test-planner.mjs` oraz to samo z argumentami `data/missions/mount-sharp` i `data/missions/jezero`;
 - `node tools/test-i18n.mjs` — tłumaczenia;
 - `python -m ruff check backend tools` i `python -m ruff format --check backend tools`;
-- `python tools/smoke_http.py` — test osobnego serwera HTTP na porcie 8765, z tymczasową bazą.
+- `python tools/smoke_http.py` — test osobnego serwera HTTP na porcie 8765, z tymczasową bazą;
+- `npm ci` i `npm run test:browser` — testy w przeglądarce (Playwright): wersja bez serwera, układ telefonu i backend na tymczasowej bazie. Lokalnie bez pobierania Chromium: zmienna `PW_CHANNEL=chrome` albo `msedge`.
 
-Uruchamia je też CI (`.github/workflows/ci.yml`).
+Uruchamia je też CI (`.github/workflows/ci.yml`), razem z budową obrazu Docker i sprawdzeniem API w kontenerze.
 
 **Klucz NASA API.** DONKI działa na wspólnym kluczu `DEMO_KEY` o niskich limitach. Własny, darmowy klucz z https://api.nasa.gov ustaw w zmiennej `NASA_API_KEY`.
 
@@ -139,7 +153,8 @@ Uruchamia je też CI (`.github/workflows/ci.yml`).
 - Model tlenu (równanie Pandolfa przeliczone na 0,38 g) nie jest skalibrowany danymi z prawdziwego skafandra.
 - Wykrywanie głazów widzi obiekty od ok. 1 m. Mniejsze kamienie nie są widoczne z orbity.
 - Brak logowania i ról. Serwer domyślnie słucha tylko lokalnie. Szczegóły: [docs/BEZPIECZENSTWO.md](docs/BEZPIECZENSTWO.md).
-- Układ ekranu jest stały (skalowany), nie przebudowuje się na telefon. Dostępność poprawiona, ale bez pełnego audytu WCAG.
+- Na telefonie mapa zachowuje proporcje 3:2, a napisy na niej są powiększone; wizjer hełmu pokazuje tylko nawigację (dane skafandra są w panelu pod obrazem). Dostępność poprawiona, ale bez pełnego audytu WCAG.
+- Przedział niepewności tlenu i czasu opiera się na założonych niepewnościach modelu wysiłku (±20%) i prędkości marszu (±15%) — do kalibracji danymi z misji analogowych.
 - Wersja pod linkiem (GitHub Pages: https://aqayooooo.github.io/MarSim/) działa bez serwera. Raport, plan wyjść, pogoda kosmiczna, dziennik i pierwsza trasa (z wariantami „dlaczego ta trasa”) pochodzą z zapisanych odpowiedzi prawdziwego backendu i są tylko do odczytu; symulacja EVA i nowe trasy liczą się w przeglądarce (planer zastępczy A*). Odświeżenie zapisu: `.venv/Scripts/python.exe tools/export_backend_sample.py`.
 - Mapa piasku i zagrożeń jest względna dla wycinka (wskaźniki porównują miejsca w obrębie obszaru), więc procent „piasku” w różnych obszarach nie jest bezpośrednio porównywalny.
 

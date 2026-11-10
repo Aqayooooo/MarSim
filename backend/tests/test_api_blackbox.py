@@ -147,7 +147,9 @@ def test_plan_start_state_flow(client):
     assert client.post("/api/eva/pause").json()["running"] is False
     assert client.post("/api/eva/timescale", json={"timeScale": 5}).json()["timeScale"] == 5
     assert client.post("/api/eva/reset").json() == {"ok": True, "running": False, "timeScale": 60.0, "phase": "idle"}
-    assert client.get("/api/route").json() == {"version": 0, "route": None, "discarded": []}
+    after = client.get("/api/route").json()
+    assert {k: after[k] for k in ("version", "route", "discarded")} == {"version": 0, "route": None, "discarded": []}
+    assert [w["id"] for w in after["waypoints"]] == ["WP1", "WP2"]  # po resecie: punkty z konfiguracji misji
 
 
 def test_return_to_habitat_ends_eva(client):

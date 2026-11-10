@@ -1,1 +1,11 @@
-{"type":"module"}
+{
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test:eva": "node --test tools/test-eva.mjs",
+    "test:browser": "node --test --test-concurrency=1 tools/test-browser.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.0"
+  }
+}

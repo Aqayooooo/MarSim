@@ -1,6 +1,7 @@
 // Mapa 2D na canvasie: zdjęcie, nakładki 6 warstw, trasa, załoga, łazik, strefy, etykiety.
 // Rysuje w układzie 972 × 648 px (obszar główny z nagrania); skala okna jest uwzględniana przez k.
 import { t as tr } from '../i18n.js';
+import { hm, int, num } from '../core/format.js';
 export const MAIN_W = 972, MAIN_H = 648;
 const MONO = "700 15px 'JetBrains Mono', Consolas, monospace";
 const ROUTE = '#FFDC52', TRAIL = '#F28586', ACCENT = '#F17778';   // ACCENT/TRAIL = --accent/--trail w styles.css
@@ -32,18 +33,48 @@ export class Map2D {
     this.oy = (MAIN_H - this.H * this.ps) / 2;
     this.alpha = Object.fromEntries(app.m.layers.map((l) => [l.id, 0]));
     this.k = 1;
+    this.ui = 1;                         // powiększenie etykiet (telefon: mapa zmniejszona, napisy nie)
     this.#buildLayerCanvases();
     this.#makeTiles();
     this.wind = Array.from({ length: 110 }, () => ({ x: Math.random() * this.W, y: Math.random() * this.H, l: 0.7 + Math.random() * 0.6 }));
     app.on('reset', () => { this.#makeTiles(); for (const id in this.alpha) this.alpha[id] = 0; });
+    this.#hoverReadout();
+  }
+
+  /** Punkt terenu (m) pod kursorem albo null poza obszarem. */
+  worldAt(clientX, clientY) {
+    const r = this.c.getBoundingClientRect();
+    const px = (clientX - r.left) / r.width * MAIN_W, py = (clientY - r.top) / r.height * MAIN_H;
+    const x = (px - this.ox) / this.ps, y = (py - this.oy) / this.ps;
+    return x >= 0 && y >= 0 && x <= this.W && y <= this.H ? { x, y } : null;
+  }
+
+  /** Odczyt pod kursorem: wysokość, nachylenie, strefa, piasek, dojście pieszo do habitatu (z warstw misji). */
+  #hoverReadout() {
+    const box = document.getElementById('hoverRead');
+    if (!box) return;
+    const { terrain, rasters } = this.app.world;
+    this.c.addEventListener('pointerleave', () => { box.hidden = true; });
+    this.c.addEventListener('pointermove', (e) => {
+      const p = e.pointerType === 'mouse' ? this.worldAt(e.clientX, e.clientY) : null;
+      if (!p || this.app.state.view !== 'map') { box.hidden = true; return; }
+      const zone = Math.min(2, rasters.hazards?.sample(p.x, p.y) ?? 0), sand = rasters.sand?.sample(p.x, p.y);
+      const tHome = rasters.timeToHabitat?.sample(p.x, p.y), o2Home = rasters.o2ToHabitat?.sample(p.x, p.y);
+      const home = tHome == null ? '' : tHome >= 9000 ? tr('probe.noHome') : tr('probe.home', { t: hm(tHome / 3600), o: num(o2Home, 0) });
+      box.innerHTML = `<b>x ${int(p.x)} · y ${int(p.y)} m</b> · ${tr('probe.elev')} ${int(terrain.height(p.x, p.y) + terrain.minH)} m<br>`
+        + `${tr('probe.slope')} ${num(terrain.slope(p.x, p.y), 0)}° · <span class="z${zone}">${tr(`probe.z${zone}`)}</span>`
+        + `${sand == null ? '' : ` · ${tr('probe.sand')} ${int(sand / 2.55)}%`}${home ? `<br>${home}` : ''}`;
+      box.hidden = false;
+    });
   }
 
   sx(x) { return this.ox + x * this.ps; }
   sy(y) { return this.oy + y * this.ps; }
 
-  resize(scale) {
+  resize(scale, ui = 1) {
     const dpr = window.devicePixelRatio || 1;
     this.k = scale * dpr;
+    this.ui = ui;
     this.c.width = Math.round(MAIN_W * this.k);
     this.c.height = Math.round(MAIN_H * this.k);
     // rozmyte strefy zagrożeń w rozdzielczości ekranu
@@ -180,6 +211,7 @@ export class Map2D {
     this.#search(now);
     for (const d of st.discarded) this.#line(d, { color: 'rgba(228,226,220,.85)', width: 2.2, dash: [10, 7] });
     this.#alternatives();
+    if (st.whatIf && st.view === 'map') this.#line(st.whatIf.path, { color: st.whatIf.color, width: 3, dash: [7, 5], outline: 'rgba(0,0,0,.65)' });   // „co jeśli”: inny limit nachylenia
     this.#route(now);
     for (const o of st.obstacles) this.#obstacle(o, now);
     this.#trail();
@@ -394,21 +426,26 @@ export class Map2D {
     ctx.globalAlpha = 1;
   }
 
-  #label(text, x, y, a = 1) {
-    const ctx = this.ctx;
+  /** Etykieta na czarnym tle; align: punkt (x, y) to lewa krawędź, środek albo prawa krawędź etykiety. */
+  #label(text, x, y, a = 1, align = 'left') {
+    const ctx = this.ctx, u = this.ui;
     ctx.font = MONO;
-    const w = ctx.measureText(text).width;
+    const w = ctx.measureText(text).width + 10;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(u, u);
+    ctx.translate(align === 'right' ? -w : align === 'center' ? -w / 2 : 0, 0);
     ctx.globalAlpha = a;
     ctx.fillStyle = '#000';
-    ctx.fillRect(x, y - 13, w + 10, 26);
+    ctx.fillRect(0, -13, w, 26);
     ctx.fillStyle = '#fff';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, x + 5, y + 1);
-    ctx.globalAlpha = 1;
+    ctx.fillText(text, 5, 1);
+    ctx.restore();
   }
 
   #diamond(x, y, filled) {
-    const ctx = this.ctx, s = 8;
+    const ctx = this.ctx, s = 8 * this.ui;
     ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y); ctx.closePath();
     ctx.fillStyle = filled ? ROUTE : '#000'; ctx.fill();
     ctx.lineWidth = 3; ctx.strokeStyle = ROUTE; ctx.stroke();
@@ -418,10 +455,19 @@ export class Map2D {
     const app = this.app, st = app.state, sim = app.sim, ctx = this.ctx;
     const optOn = st.layers.optical.on && now - st.layers.optical.changedAt > 1.04;
     // punkty trasy
-    if (st.route && now >= st.route.draw.t0) {
+    if (st.wpEdit) {                    // edycja planu: kolejność punktów od łazika (linia przerywana)
+      const rv = app.m.rover;
+      ctx.save();
+      ctx.setLineDash([6, 7]); ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255, 220, 82, .6)';
+      ctx.beginPath(); ctx.moveTo(this.sx(rv.x), this.sy(rv.y));
+      for (const wp of app.m.waypoints) ctx.lineTo(this.sx(wp.x), this.sy(wp.y));
+      ctx.stroke();
+      ctx.restore();
+    }
+    if ((st.route && now >= st.route.draw.t0) || st.wpEdit) {
       app.m.waypoints.forEach((wp, i) => {
-        const s = st.route.wpS[i];
-        if (st.route.draw.s0 === 0 && s > st.route.poly.length * clamp01((now - st.route.draw.t0) / (st.route.draw.dur || 1e-6)) + 1) return;
+        const s = st.route?.wpS[i];
+        if (!st.wpEdit && st.route.draw.s0 === 0 && s > st.route.poly.length * clamp01((now - st.route.draw.t0) / (st.route.draw.dur || 1e-6)) + 1) return;
         const reached = st.reached[wp.id] !== undefined;
         const x = this.sx(wp.x), y = this.sy(wp.y);
         if (reached && i === sim.reached.length - 1) {
@@ -430,7 +476,7 @@ export class Map2D {
           ctx.beginPath(); ctx.arc(x, y, 12 + 38 * ph, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
         }
         this.#diamond(x, y, reached);
-        this.#label(wp.id, x + 12, y - 18);
+        this.#label(wp.id, x + 12 * this.ui, y - 18 * this.ui);
       });
     }
     // habitat i nadajniki UWB
@@ -439,8 +485,7 @@ export class Map2D {
       const x = this.sx(hab.x), y = this.sy(hab.y);
       ctx.fillStyle = '#e8e2d8'; ctx.fillRect(x - 9, y - 9, 18, 18);
       ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x - 9, y - 9, 18, 18);
-      ctx.font = MONO;
-      this.#label(tr('map.habitat'), x - 14 - ctx.measureText(tr('map.habitat')).width - 10, y + 2);
+      this.#label(tr('map.habitat'), x - 14, y + 2, 1, 'right');
     }
     // elipsy błędu pozycji (UWB / odometria)
     if (st.crewVisible && app.sim.snap) for (const c of app.sim.snap.crew) {
@@ -454,8 +499,7 @@ export class Map2D {
     if (optOn || st.route || app.drive || app.roverAt) {
       const p = app.roverPos(), x = this.sx(p.x), y = this.sy(p.y);
       ctx.fillStyle = ACCENT; ctx.fillRect(x - 8, y - 7, 16, 14);
-      const w = (ctx.font = MONO, ctx.measureText(tr('map.rover')).width + 10);
-      this.#label(tr('map.rover'), x - w / 2, y + 26);
+      this.#label(tr('map.rover'), x, y + 26 * this.ui, 1, 'center');
     }
     // załoga
     if (st.crewVisible && st.route) {

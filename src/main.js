@@ -11,17 +11,40 @@ import { EvaControls } from './ui/evaControls.js';
 import { Help } from './ui/help.js';
 import { HelmetHud } from './ui/helmetHud.js';
 import { Director } from './demo.js';
+import { Intro } from './ui/intro.js';
+import { WaypointEditor } from './ui/wpEditor.js';
+import { Sensitivity } from './ui/sensitivity.js';
 import { $, setHidden } from './core/dom.js';
 import { t, lang, setLang, applyStatic } from './i18n.js';
 
-const STAGE_W = 1664, STAGE_H = 744;
+const STAGE_W = 1664, STAGE_H = 744, MAIN_W = 972, MAIN_H = 648;
+const COMPACT_BELOW_PX = 900;            // węższe okno albo ekran w pionie: układ kolumnowy (telefon, tablet)
 const VIEWS_3D = ['orbit', 'helmet', 'drive'];
 const stage = $('stage');
 
-let stageScale = 1;
+let stageScale = 1, labelScale = 1, currentView = 'map';
+const DOC_VIEWS = ['report', 'schedule', 'device'];
 function fitStage() {
-  stageScale = Math.min(innerWidth / STAGE_W, innerHeight / STAGE_H);
-  stage.style.transform = `translate(${(innerWidth - STAGE_W * stageScale) / 2}px, ${(innerHeight - STAGE_H * stageScale) / 2}px) scale(${stageScale})`;
+  const compact = innerWidth < COMPACT_BELOW_PX || innerHeight > innerWidth;
+  stage.classList.toggle('compact', compact);
+  document.documentElement.classList.toggle('compact', compact);
+  if (!compact) {
+    labelScale = 1;
+    stage.style.removeProperty('--mh');
+    stageScale = Math.min(innerWidth / STAGE_W, innerHeight / STAGE_H);
+    stage.style.transform = `translate(${(innerWidth - STAGE_W * stageScale) / 2}px, ${(innerHeight - STAGE_H * stageScale) / 2}px) scale(${stageScale})`;
+    return;
+  }
+  // mapa / widok 3D na całą szerokość (z zachowaniem proporcji 3:2), panele pod spodem w zwykłej wielkości
+  stage.style.transform = '';
+  const width = document.documentElement.clientWidth - 16, height = innerHeight - $('hdr').offsetHeight - 24;
+  stageScale = Math.max(0.2, Math.min(width / MAIN_W, height / MAIN_H, 1.2));
+  labelScale = Math.min(2, Math.max(1, 0.72 / stageScale));   // napisy na mapie nie mniejsze niż ok. 72% wielkości
+  stage.style.setProperty('--ms', stageScale);
+  stage.style.setProperty('--uiz', labelScale);
+  // raport, plan wyjść, urządzenie: wysoki obszar do czytania zamiast okienka o proporcjach mapy
+  const docHeight = DOC_VIEWS.includes(currentView) ? Math.max(MAIN_H, height / stageScale) : MAIN_H;
+  stage.style.setProperty('--mh', docHeight);
 }
 fitStage();                 // od razu, żeby ekran wczytywania też był dopasowany do okna
 applyStatic();
@@ -43,7 +66,9 @@ const ds = createDataSource({ mode: api !== null ? 'http' : 'files', base, api: 
 
 let world;
 try {
-  world = await ds.loadMission();
+  world = await ds.loadMission({
+    onProgress: (f) => { $('loadPct').textContent = `${Math.round(f * 100)}%`; $('loading').style.setProperty('--p', f); },
+  });
 } catch (e) {
   $('loading').textContent = t('loading.fail', { e: e.message });
   throw e;
@@ -60,6 +85,8 @@ const device = new DeviceView(app), report = new ReportView(app), schedule = new
 new FieldReports(app, map);
 const compare = new RouteCompare(app);
 const picker = new PathPicker(app, map);
+const wpEditor = new WaypointEditor(app, map, { picker });
+const sensitivity = new Sensitivity(app);
 const driveHud = new DriveHud(app, () => view3d);
 const profile = new RouteProfile(app);
 const eva = new EvaControls(app, director);
@@ -75,12 +102,22 @@ const help = new Help(app, {
   footer: api !== null ? t('help.modeLive', { v: api.version })
     : sampleMeta?.generatedUtc ? t('help.modeStatic', { d: String(sampleMeta.generatedUtc).slice(0, 10) }) : t('help.modeDemo'),
 });
-window.marsim = { app, director, map, panels, device, report, schedule, compare, picker, driveHud, profile, eva, help, get view3d() { return view3d; } };   // do debugowania w konsoli
+const intro = new Intro(app, { play: () => director.play(), show: query.get('view') !== 'helmet' && !query.has('demo') });
+$('introAgain').addEventListener('click', () => { help.toggle(false); selectView('map'); intro.open(); });
+window.marsim = { app, director, map, panels, device, report, schedule, compare, picker, wpEditor, sensitivity, driveHud, profile, eva, help, intro, get view3d() { return view3d; } };   // do debugowania w konsoli
 
 function fit() {
   fitStage();
-  map.resize(stageScale);
+  map.resize(stageScale, labelScale);
   view3d?.resize(stageScale);
+  setHidden($('walkPad'), !(app.state.view === 'helmet' && matchMedia('(pointer: coarse)').matches));
+}
+
+// hełm na ekranie dotykowym: przytrzymanie przycisku = marsz (zamiast klawiszy W/S)
+for (const b of $('walkPad').querySelectorAll('button')) {
+  const keys = () => view3d?.helmet.keys;
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); keys()?.add(b.dataset.key); b.setPointerCapture(e.pointerId); });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(type, () => keys()?.delete(b.dataset.key));
 }
 addEventListener('resize', fit);
 fit();
@@ -152,6 +189,7 @@ $('viewSeg').addEventListener('click', (e) => {
 });
 
 function applyView(v) {
+  currentView = v;
   document.querySelectorAll('#viewSeg button').forEach((b) => {
     const on = b.dataset.view === v || (v === 'drive' && b.dataset.view === 'orbit');
     b.classList.toggle('on', on);

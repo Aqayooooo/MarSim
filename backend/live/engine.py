@@ -297,6 +297,7 @@ class EvaEngine:
             self._emerg_t = -1e9
             self.link = DtnLink(self.date)
             self.log = []
+            self._sensitivity = None  # (klucz trasy, wynik) — analiza „co jeśli” liczona raz na wersję trasy
 
     @property
     def clock_min(self) -> float:
@@ -461,6 +462,29 @@ class EvaEngine:
             if not self.running and self.t > 0:
                 self.save_checkpoint()
             return route
+
+    def sensitivity(self) -> dict:
+        """Analiza „co jeśli” bieżącego planu: trasy przy innych limitach nachylenia i przedział tlenu i czasu.
+        Liczona poza blokadą silnika (kilka przeszukań grafu), żeby nie wstrzymywać symulacji."""
+        with self.lock:
+            if not self.route:
+                return {"ok": False, "error": "Brak trasy — najpierw wyznacz trasę."}
+            key = (self.route_version, len(self.obstacles), len(self.observations))
+            if self._sensitivity and self._sensitivity[0] == key:
+                return self._sensitivity[1]
+            model, layers, route = self.model, dict(self.layers), self.route
+            waypoints, obstacles = list(self.waypoints), list(self.obstacles)
+        result = {
+            "ok": True,
+            "routeVersion": key[0],
+            "currentMaxSlopeDeg": self.cfg["eva"]["maxSlopeDeg"],
+            "variants": planning.sensitivity(model, route["path"][0], waypoints, obstacles, layers),
+            "interval": planning.route_interval(model, layers, route["path"], waypoints),
+        }
+        with self.lock:
+            if self.route is route:
+                self._sensitivity = (key, result)
+        return result
 
     # ---------- zdarzenia ----------
     def alert(self, category, text, source=None, highlight=None):

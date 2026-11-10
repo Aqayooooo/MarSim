@@ -352,3 +352,66 @@ test('litera trasy po Z wraca do A (tryb lokalny)', async () => {
   await app.reportObservation({ kind: 'glazy', x: 100, y: 100, radiusM: 30 });
   assert.equal(app.state.route.letter, 'A');
 });
+
+test('plan wyjścia: nowe punkty dostają kolejne numery i trafiają do planera oraz symulacji', async () => {
+  const { app, ds } = fixture();
+  let sent = null;
+  ds.planRoute = async ({ start, waypoints }) => { sent = waypoints.map((w) => w.id); return route(start, waypoints); };
+  app.setWaypoints([...app.m.waypoints, { id: '', x: 300, y: 200, stopMin: 5 }]);
+  assert.deepEqual(app.m.waypoints.map((w) => w.id), ['WP1', 'WP2', 'WP3']);
+  assert.deepEqual(app.sim.waypoints.map((w) => w.id), ['WP1', 'WP2', 'WP3']);
+  assert.equal(app.waypointsCustom, true);
+  await app.planInitial({ animate: false });
+  assert.deepEqual(sent, ['WP1', 'WP2', 'WP3']);
+  assert.deepEqual(app.state.route.wpIds, ['WP1', 'WP2', 'WP3']);
+  app.restoreDefaultWaypoints();
+  assert.equal(app.waypointsCustom, false);
+  assert.equal(app.m.waypoints.length, 2);
+});
+
+test('nieudane wyznaczenie trasy usuwa nieaktualną trasę; tryb cichy nie pokazuje alertu', async () => {
+  const { app, ds } = fixture();
+  await app.planInitial({ animate: false });
+  assert.ok(app.state.route);
+  ds.planRoute = async () => ({ ok: false, error: 'Cel WP1 leży w strefie niedostępnej' });
+  assert.equal(await app.planInitial({ animate: false, quiet: true }), null);
+  assert.equal(app.state.route, null);
+  assert.equal(app.lastPlanError, 'Cel WP1 leży w strefie niedostępnej');
+  assert.equal(app.state.alert, null);
+});
+
+test('plan wyjścia można zmieniać tylko przed startem', async () => {
+  const { app } = fixture();
+  assert.equal(app.canEditWaypoints, true);
+  await app.planInitial({ animate: false });
+  app.startEva(470);
+  app.update(0.1);
+  assert.equal(app.canEditWaypoints, false);
+});
+
+test('z backendem interfejs przyjmuje listę punktów trwającego wyjścia (np. z innej karty)', async () => {
+  const { app, ds } = fixture(true);
+  const custom = [...app.m.waypoints.map((w) => ({ ...w })), { id: 'WP3', x: 400, y: 120, stopMin: 7 }];
+  ds.get = async () => ({ route: { ...route(app.m.rover, custom, 4), letter: 'A' }, discarded: [], waypoints: custom });
+  ds.receive(snapshot(app, 4));
+  await tick(); await tick();
+  assert.deepEqual(app.m.waypoints.map((w) => w.id), ['WP1', 'WP2', 'WP3']);
+  assert.equal(app.m.waypoints[2].stopMin, 7);
+  assert.ok(app.m.waypoints[1].view || !template.waypoints[1].view, 'pola opisowe punktu z misji zostają');
+  // trasa powrotu (z habitatem) nie zmienia planu wyjścia
+  ds.get = async () => ({ route: { ...route(app.m.rover, [{ id: 'HAB', x: 10, y: 10 }], 5), letter: 'B' }, discarded: [], waypoints: [{ id: 'HAB', x: 10, y: 10 }] });
+  ds.receive(snapshot(app, 5));
+  await tick(); await tick();
+  assert.equal(app.m.waypoints.length, 3);
+});
+
+test('kamienie: wokół habitatu i postoju łazika pusto, reszta układu bez zmian', async () => {
+  const { makeRocks, clearings } = await import('../src/core/rocks.js');
+  const hazards = { sample: () => 0 };
+  const all = makeRocks({ W: 1000, H: 800, hazards });
+  const mission = { habitat: { x: 300, y: 300 }, rover: { x: 500, y: 400 } };
+  const clear = makeRocks({ W: 1000, H: 800, hazards, keepClear: clearings(mission) });
+  for (const c of clearings(mission)) assert.ok(clear.every((r) => Math.hypot(r.x - c.x, r.y - c.y) >= c.r));
+  const outside = all.filter((r) => clearings(mission).every((c) => Math.hypot(r.x - c.x, r.y - c.y) >= c.r));
+  assert.deepEqual(clear, outside);
+});

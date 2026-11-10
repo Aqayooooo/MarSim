@@ -48,12 +48,13 @@ def resting_o2_l_min(person: Person) -> float:
 class CostModel:
     """Koszt marszu w każdej komórce siatki dla jednej osoby i jednej mapy zagrożeń."""
 
-    def __init__(self, layers: dict, cell: float, eva: dict, person: Person):
+    def __init__(self, layers: dict, cell: float, eva: dict, person: Person, sigma_margin: float = SLOPE_SIGMA_MARGIN):
+        """sigma_margin: ile odchyleń standardowych nachylenia dodać (planer: 2σ; przedział niepewności: 0σ i 3σ)."""
         self.person = person
         self.cell = cell
         self.eva = eva
         hazard = layers["hazard"]
-        self.slope_up = layers["slope"] + SLOPE_SIGMA_MARGIN * layers["slopeSigma"]
+        self.slope_up = layers["slope"] + sigma_margin * layers["slopeSigma"]
         speed = np.maximum(walk_speed_ms(self.slope_up, eva["walkKmh"]), MIN_SPEED_MS)
         terrain = np.where(layers["sand"] > SAND_TERRAIN_THRESHOLD, "sand", np.where(hazard == 1, "rough", "rock"))
         grade_pct = np.tan(np.radians(self.slope_up)) * 100
@@ -464,3 +465,72 @@ def alternatives(model: CostModel, start: dict, waypoints: list, obstacles, laye
     for variant in out:
         variant["o2L"] = round(variant["o2L"] + stop_o2, 1)
     return out
+
+
+# ---------------- niepewność i wrażliwość ----------------
+SENSITIVITY_SLOPE_LIMITS = (20.0, 22.5, 25.0, 27.5, 30.0)  # limity nachylenia (°) w analizie „co jeśli”
+EFFORT_UNCERTAINTY = 0.20  # ±20% zużycia O₂: model Pandolfa przeniesiony na 0,38 g (założenie, do kalibracji)
+SPEED_UNCERTAINTY = 0.15  # ±15% prędkości marszu (założenie)
+SIGMA_RANGE = (0.0, 3.0)  # nachylenie bez marginesu i z marginesem 3σ niepewności DTM
+
+
+def hazard_for_limit(layers: dict, eva: dict, max_slope_deg: float) -> np.ndarray:
+    """Mapa zagrożeń przy innym limicie nachylenia. Zakazy z innych przyczyn (piasek, głazy) zostają bez zmian;
+    pola zakazane tylko przez stromiznę, a dopuszczalne przy wyższym limicie, stają się strefą „uwaga”."""
+    slope_up = layers["slope"] + SLOPE_SIGMA_MARGIN * layers["slopeSigma"]
+    forbidden = layers["hazard"] == 2
+    other = forbidden & ((slope_up <= eva["maxSlopeDeg"]) | (layers["sand"] > SAND_FORBIDDEN_THRESHOLD))
+    hazard = layers["hazard"].copy()
+    hazard[forbidden & ~other] = 1
+    hazard[(slope_up > max_slope_deg) | other] = 2
+    return hazard
+
+
+def sensitivity(model: CostModel, start: dict, waypoints: list[dict], obstacles, layers: dict) -> list[dict]:
+    """Trasa tego samego planu przy różnych limitach nachylenia: długość, czas, tlen, metry w strefach „uwaga”."""
+    out = []
+    for limit in SENSITIVITY_SLOPE_LIMITS:
+        variant_layers = {**layers, "hazard": hazard_for_limit(layers, model.eva, limit)}
+        variant = CostModel(variant_layers, model.cell, {**model.eva, "maxSlopeDeg": limit}, model.person)
+        r = plan(variant, start, waypoints, obstacles, variant_layers)
+        row = {"maxSlopeDeg": limit, "ok": r["ok"]}
+        if r["ok"]:
+            row.update(
+                path=r["path"],
+                lengthM=round(r["lengthM"]),
+                durationH=round(r["durationH"], 3),
+                o2L=round(r["o2L"], 1),
+                cautionM=r["uncertainty"]["cautionM"],
+                maxSlopeOnRouteDeg=r["uncertainty"]["maxSlopeDeg"],
+            )
+        else:
+            row["error"] = r["error"]
+        out.append(row)
+    return out
+
+
+def route_interval(model: CostModel, layers: dict, path: list[dict], waypoints: list[dict]) -> dict:
+    """Przedział tlenu i czasu dla trasy: nachylenie od 0σ do 3σ niepewności DTM oraz założone niepewności
+    modelu wysiłku i prędkości marszu. Wartość środkowa to wynik planera (margines 2σ)."""
+    stop_min = sum(w.get("stopMin", 0) for w in waypoints)
+    rest = stop_min * resting_o2_l_min(model.person)
+    mid = path_stats(model, path, None)
+    low_m, high_m = (CostModel(layers, model.cell, model.eva, model.person, sigma_margin=s) for s in SIGMA_RANGE)
+    low, high = path_stats(low_m, path, None), path_stats(high_m, path, None)
+    return {
+        "o2L": {
+            "low": round((low["o2L"] + rest) * (1 - EFFORT_UNCERTAINTY), 1),
+            "mid": round(mid["o2L"] + rest, 1),
+            "high": round((high["o2L"] + rest) * (1 + EFFORT_UNCERTAINTY), 1),
+        },
+        "durationH": {
+            "low": round(low["walkH"] * (1 - SPEED_UNCERTAINTY) + stop_min / 60, 3),
+            "mid": round(mid["walkH"] + stop_min / 60, 3),
+            "high": round(high["walkH"] * (1 + SPEED_UNCERTAINTY) + stop_min / 60, 3),
+        },
+        "assumptions": {
+            "effortPct": round(EFFORT_UNCERTAINTY * 100),
+            "speedPct": round(SPEED_UNCERTAINTY * 100),
+            "sigma": list(SIGMA_RANGE),
+        },
+    }

@@ -1,4 +1,5 @@
 // Widoki dodatkowe: urządzenie w hełmie (mały ekran), raport ryzyka, plan wyjść, zgłoszenia z terenu.
+import { intervalHtml, loadSensitivity, robust, variantsTable } from './sensitivity.js';
 import { $, esc } from '../core/dom.js';
 import { num, int, hm, clock, km as kmFmt } from '../core/format.js';
 import { headingDeg } from '../core/path.js';
@@ -77,20 +78,20 @@ export class ReportView {
 
   async open() {
     if (!this.app.remote) {
-      const [rep, sw, log, state, meta] = await Promise.all(['report', 'spaceweather', 'log', 'state', 'meta'].map((n) => this.app.ds.sample(n)));
+      const [rep, sw, log, state, meta, sens] = await Promise.all(['report', 'spaceweather', 'log', 'state', 'meta', 'sensitivity'].map((n) => this.app.ds.sample(n)));
       if (!rep) { this.el.innerHTML = NEED_BACKEND(); return; }
-      this.render(rep, sw || { summary: '—' }, log || { events: [] }, { sample: meta, snap: state });
+      this.render(rep, sw || { summary: '—' }, log || { events: [] }, { sample: meta, snap: state, sens });
       return;
     }
     this.el.innerHTML = `<p class="muted">${t('rep.loading')}</p>`;
     try {
-      const [rep, sw, log, audit] = await Promise.all([this.app.ds.get('report'), this.app.ds.get('spaceweather'),
-        this.app.ds.get('log?limit=12').catch(() => ({ events: [] })), this.app.ds.get('log/verify').catch(() => null)]);
-      this.render(rep, sw, log, { audit });
+      const [rep, sw, log, audit, sens] = await Promise.all([this.app.ds.get('report'), this.app.ds.get('spaceweather'),
+        this.app.ds.get('log?limit=12').catch(() => ({ events: [] })), this.app.ds.get('log/verify').catch(() => null), loadSensitivity(this.app)]);
+      this.render(rep, sw, log, { audit, sens });
     } catch (e) { this.el.innerHTML = `<p class="warn">${esc(t('rep.error', { e: e.message }))}</p>`; }
   }
 
-  render(r, sw, log, { sample = null, snap: sampleSnap = null, audit = null } = {}) {
+  render(r, sw, log, { sample = null, snap: sampleSnap = null, audit = null, sens = null } = {}) {
     if (!r.ok) { this.el.innerHTML = `<h2>${t('rep.title')}</h2><p class="muted">${esc(tx(r.error))}</p>`; return; }
     const e = r.effectiveness, snap = sampleSnap || this.app.sim.snap;
     const riskClass = (likelihood, severity) => { const v = likelihood * severity; return v >= 15 ? 'r-hi' : v >= 8 ? 'r-mid' : 'r-lo'; };
@@ -124,6 +125,8 @@ export class ReportView {
           <td>${esc(tx(h.value))}</td><td class="muted">${esc(tx(h.basis))}</td><td class="muted">${esc(tx(h.mitigation))}</td></tr>`).join('')}</table>
         <div>${matrix}</div></div>
       ${assumptions ? `<h2>${t('rep.assume')}</h2><dl class="facts">${assumptions}</dl><p class="note">${t('rep.assumeNote')}</p>` : ''}
+      ${r.uncertainty || sens?.ok ? `<h2>${t('rep.sens')}</h2>${intervalHtml(r.uncertainty || sens.interval)}
+        ${sens?.ok ? `<p class="muted">${t('rep.sensLead')}</p>${variantsTable(sens)}${robust(sens.variants) ? `<p class="ok">${t('sens.robust')}</p>` : ''}` : ''}` : ''}
       <h2>${t('rep.data')}</h2>
       <table><tr><th>${t('rep.thProduct')}</th><th>${t('rep.thInstr')}</th><th>${t('rep.thUse')}</th><th>SHA-256</th></tr>
         ${r.dataBasis.map((d) => `<tr><td><code>${esc(d.source)}</code></td><td>${esc(d.instrument)}</td><td class="muted">${esc(tx(d.use))}</td><td><code>${esc(d.sha256 || t('rep.remote'))}</code></td></tr>`).join('')}</table>

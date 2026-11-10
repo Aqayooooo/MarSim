@@ -35,7 +35,7 @@ from backend import missions as mis
 from backend import server
 from backend.live import spaceweather
 
-FILES = ["plan", "report", "spaceweather", "log", "state", "schedule"]
+FILES = ["plan", "sensitivity", "report", "spaceweather", "log", "state", "schedule"]
 STEP_S = 15.0  # krok symulacji (sekundy misji)
 SEP_MIN = 20  # tyle trwa alarm SEP w scenariuszu
 EARTH_WAIT_MIN = 45  # po ostatnim punkcie: czas na odpowiedzi z Ziemi (opóźnienie światła w obie strony)
@@ -96,6 +96,7 @@ def export_mission(mid: str, sw: dict, generated: str) -> dict:
     out = {}
     with TestClient(app) as c:
         out["plan"] = {"request": req, "response": ok(c.post("/api/plan", json=req))}
+        out["sensitivity"] = ok(c.get("/api/sensitivity"))  # „co jeśli” dla planu przed startem (trasa A)
         ok(c.post("/api/eva/start", json={"timeScale": 60, "scenario": True}))
         finished_at = run_eva(E, c)
         ok(c.post("/api/eva/pause"))

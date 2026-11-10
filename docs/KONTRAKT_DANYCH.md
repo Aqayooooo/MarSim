@@ -108,7 +108,8 @@ API backendu (`python backend/server.py`, port 8000):
 | `GET /api/health` | wykrycie backendu przez UI |
 | `GET /missions/current/{plik}` | pliki misji |
 | `POST /api/plan` | trasa (A* po koszcie O₂ z nachyleniem + 2σ, piaskiem, głazami, zgłoszeniami); tylko przed startem EVA, w trakcie i po zakończeniu — 409 |
-| `GET /api/route` | aktualna trasa i odrzucone odcinki |
+| `GET /api/route` | aktualna trasa, odrzucone odcinki i lista punktów (`waypoints`) bieżącego planu |
+| `GET /api/sensitivity` | „co jeśli”: trasa planu przy limitach nachylenia 20–30° (`variants`: limit, długość, czas, tlen, ścieżka albo błąd) oraz `interval` — przedział tlenu i czasu (nachylenie 0σ–3σ, model wysiłku ±20%, prędkość ±15%); bez trasy — 409 |
 | `GET /api/stream` (SSE) / `GET /api/state` | stan EVA 4×/s: zegar, załoga (pozycja + elipsa błędu, O₂, CO₂, bateria, ciśnienie, tętno, dawka, granica powrotu), łazik, środowisko, alerty, trasy awaryjne, łącze z Ziemią. `phase`: idle, walking, stop, atTarget, returning, done; `paused`: `true`, gdy rozpoczęte i niezakończone wyjście jest wstrzymane (`phase` pokazuje wtedy fazę sprzed pauzy); `gap`: odstęp EV2 za EV1 w metrach (w punkcie trasy maleje do 0 — punkt jest osiągnięty, gdy dojdzie ostatnia osoba) |
 | `POST /api/eva/{start,pause,reset,timescale,inject}` | sterowanie EVA; `inject`: `boulders`, `sep`, `sep-end`, `link-outage` |
 | `POST /api/telemetry` | wejście z prawdziwego skafandra (wyłącza model dla tej osoby); `o2L` ponad pojemność butli — 422 |
@@ -116,5 +117,5 @@ API backendu (`python backend/server.py`, port 8000):
 | `GET /api/spaceweather` | NASA DONKI + NOAA SWPC (z buforem na brak sieci) |
 | `GET /api/link`, `POST /api/link/send` | kolejka DTN do Ziemi z opóźnieniem z położeń planet |
 | `GET/POST/PUT/DELETE /api/schedule` | harmonogram wyjść, zapasy, odpoczynek, światło dzienne; pierwsze wyjście na sol misji ustala godzinę startu i załogę EVA po resecie |
-| `GET /api/report` | analiza zagrożeń, ryzyka i skuteczności + skrót danych źródłowych |
+| `GET /api/report` | analiza zagrożeń, ryzyka i skuteczności + skrót danych źródłowych; pole `uncertainty` — przedział tlenu i czasu trasy |
 | `GET /api/provenance` | pełne pochodzenie danych |

@@ -34,3 +34,43 @@ jobs:
         run: node --test tools/test-eva.mjs
       - name: Translation test (PL/EN)
         run: node tools/test-i18n.mjs
+
+  browser:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install runtime packages
+        run: pip install -r requirements-runtime.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: Install Playwright and Chromium
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Browser tests (static demo, phone layout, backend)
+        env:
+          PYTHON: python
+        run: npm run test:browser
+
+  docker:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build image
+        run: docker build -t marsim .
+      - name: Run container and check the API
+        run: |
+          docker run -d --name marsim -p 127.0.0.1:8000:8000 marsim
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/api/health && break; sleep 2; done
+          curl -fsS http://127.0.0.1:8000/api/health | grep -q '"ok":true'
+          curl -fsS -X POST http://127.0.0.1:8000/api/plan -H 'Content-Type: application/json' -d '{}' | grep -q '"ok":true'
+          curl -fsS http://127.0.0.1:8000/api/sensitivity | grep -q '"variants"'
+          curl -fsS http://127.0.0.1:8000/ | grep -q 'marsim-api'
+      - name: Container log
+        if: always()
+        run: docker logs marsim || true

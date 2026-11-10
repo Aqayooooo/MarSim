@@ -2,6 +2,26 @@
 
 Najnowsze na górze. Daty z commitów na gałęzi `pages-demo`, z której publikowane jest demo online.
 
+## 2026-11-10 (noc): wygląd, własny plan wyjścia, telefon, niepewność, testy w przeglądarce
+
+- **Wygląd 3D:**
+  - teren w palecie Marsa z cieniowaniem rzeźby z DEM i fakturą gruntu z bliska;
+  - niebo ze słońcem według zegara misji i mgiełka na horyzoncie;
+  - cienie słońca, kamienie o nieregularnych kształtach i drobne kamyki wokół obserwatora;
+  - model łazika ciśnieniowego (sześć kół, kabina, śluzy skafandrów) i habitatu (moduły, panele, maszt łączności);
+  - z orbity blok terenu z warstwami skalnymi i cieniem.
+- **Punkty EVA:** edytor planu wyjścia na mapie: dodawanie kliknięciem, przeciąganie, postój, kolejność, usuwanie i powrót do punktów misji. Plan zostaje w przeglądarce. `GET /api/route` zwraca listę punktów, więc z backendem plan odtwarza się po odświeżeniu.
+- **Telefon i tablet:** układ kolumnowy, nagłówek w kilku rzędach, powiększone napisy na mapie i wysoki obszar raportu. W hełmie są przyciski marszu dla ekranu dotykowego, a na tablecie w pionie panele stoją obok siebie.
+- **Niepewność i wrażliwość:**
+  - `GET /api/sensitivity` zwraca trasę planu przy limitach nachylenia 20–30°;
+  - przedział tlenu i czasu bierze pod uwagę nachylenie od 0σ do 3σ niepewności DTM, model wysiłku ±20% i prędkość ±15%;
+  - na mapie jest karta **Co jeśli?**, a w raporcie sekcja „Niepewność i wrażliwość”.
+- **UX:** karta „Jak zacząć” przy pierwszym wejściu, pasek postępu wczytywania i odczyt terenu pod kursorem. Naprawiono nachodzenie macierzy ryzyka na tabelę w raporcie. Doszła też ikona strony.
+- **Testy:**
+  - testy w przeglądarce (Playwright): wersja bez serwera, edytor punktów, telefon i backend;
+  - w CI budowa obrazu Docker i sprawdzenie API w kontenerze;
+  - nowe testy backendu dla analizy wrażliwości i listy punktów.
+
 ## 2026-11-10 (wieczór): poprawki po przeglądzie
 
 Commit `965278a`.

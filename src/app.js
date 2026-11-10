@@ -10,12 +10,31 @@ import { t, tx } from './i18n.js';
 
 const DEFAULT_LAYERS = ['optical', 'hazards', 'sky'];   // widoczne od razu po otwarciu strony
 const CAN_RETURN = ['walking', 'stop', 'atTarget'];
+const MAX_WAYPOINTS = 8;
+
+// plan wyjścia zapisany w przeglądarce (osobno dla każdej misji); brak dostępu do pamięci — plan domyślny
+const wpKey = (m) => `marsim.waypoints.${m.mission.id}`;
+function loadWaypoints(m) {
+  try {
+    const list = JSON.parse(localStorage.getItem(wpKey(m)) || 'null');
+    const inside = (w) => Number.isFinite(w?.x) && Number.isFinite(w?.y) && w.x >= 0 && w.y >= 0 && w.x <= m.area.widthM && w.y <= m.area.heightM;
+    if (!Array.isArray(list) || !list.length || list.length > MAX_WAYPOINTS || !list.every((w) => inside(w) && typeof w.id === 'string')) return null;
+    return list.map((w) => ({ ...w, stopMin: Math.max(0, Math.min(600, Number(w.stopMin) || 0)) }));
+  } catch { return null; }
+}
+function saveWaypoints(m, list) {
+  try { if (list) localStorage.setItem(wpKey(m), JSON.stringify(list)); else localStorage.removeItem(wpKey(m)); } catch { /* tryb prywatny */ }
+}
+const wpSignature = (list) => JSON.stringify(list.map((w) => [w.id, Math.round(w.x), Math.round(w.y), w.stopMin ?? 0]));
 
 export class App {
   constructor(ds, world) {
     this.ds = ds;
     this.world = world;
     this.m = world.mission;
+    this.defaultWaypoints = structuredClone(this.m.waypoints);
+    this.m.waypoints = loadWaypoints(this.m) ?? this.m.waypoints;   // własny plan wyjścia z poprzedniej wizyty
+    this.lastPlanError = null;
     this.remote = ds.mode === 'http';
     this.now = 0;
     this.autoEvents = true;   // false, gdy prezentacja sama steruje końcem alarmów
@@ -110,15 +129,51 @@ export class App {
   setShadowHour(h) { this.shadowHour = h; this.emit('layers'); }
   get envOn() { return this.state.layers.sky?.on; }
 
+  // ---------- punkty wyjścia (plan EVA) ----------
+  /** Plan wyjścia można zmieniać tylko przed startem EVA i bez jazdy łazikiem. */
+  get canEditWaypoints() { return this.phase === 'idle' && !this.drive; }
+  get waypointsCustom() { return wpSignature(this.m.waypoints) !== wpSignature(this.defaultWaypoints); }
+
+  /** Nowy plan wyjścia. renumber: identyfikatory WP1…WPn w kolejności; save: zapis w przeglądarce. */
+  setWaypoints(list, { save = true, renumber = true } = {}) {
+    const next = list.slice(0, MAX_WAYPOINTS);
+    if (renumber) next.forEach((w, i) => { w.id = `WP${i + 1}`; });
+    this.m.waypoints = next;
+    if (!this.remote && this.phase === 'idle') this.sim.waypoints = [...next];
+    if (save) saveWaypoints(this.m, this.waypointsCustom ? next : null);
+    this.emit('waypoints', next);
+  }
+
+  /** Powrót do punktów z konfiguracji misji. */
+  restoreDefaultWaypoints() { this.setWaypoints(structuredClone(this.defaultWaypoints), { renumber: false }); }
+
+  /** Backend prowadzi wyjście według własnej listy punktów (np. ustawionej w innej karcie) — interfejs ją przyjmuje. */
+  #adoptWaypoints(list) {
+    if (!Array.isArray(list) || !list.length || list.some((w) => w.id === HABITAT_ID)) return;   // trasa powrotu: plan bez zmian
+    if (wpSignature(list) === wpSignature(this.m.waypoints)) return;
+    const known = [...this.m.waypoints, ...this.defaultWaypoints];
+    this.setWaypoints(list.map((w) => ({ ...(known.find((k) => k.id === w.id) || {}), ...w })), { save: false, renumber: false });
+  }
+
   // ---------- trasa ----------
-  async planInitial({ animate = true } = {}) {
+  /** Trasa bieżącego planu od łazika. quiet: błąd tylko w lastPlanError (edytor pokazuje go u siebie). */
+  async planInitial({ animate = true, quiet = false } = {}) {
     if (this.pendingReset) {
       const result = await this.pendingReset;
       this.pendingReset = null;
       if (!result) return null;
     }
-    const r = await this.ds.planRoute({ start: { x: this.m.rover.x, y: this.m.rover.y }, waypoints: this.m.waypoints });
-    if (!r.ok && !r.path) { this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return null; }
+    let r;
+    try {
+      r = await this.ds.planRoute({ start: { x: this.m.rover.x, y: this.m.rover.y }, waypoints: this.m.waypoints });
+    } catch (e) { r = { ok: false, error: e.message }; }
+    if (!r.ok && !r.path) {
+      this.lastPlanError = tx(r.error);
+      if (!quiet) this.setAlert({ category: t('noRoute'), text: this.lastPlanError });
+      if (this.phase === 'idle' && this.state.route) { this.state.route = null; this.sim.setRoute(null); this.emit('route'); }   // stara trasa nie pasuje już do planu
+      return null;
+    }
+    this.lastPlanError = null;
     this.routeBlocked = false;
     const searchDur = animate ? 2.2 : 0, drawDur = animate ? 1.0 : 0;
     this.state.search = animate ? { pts: r.expanded || [], t0: this.now, dur: searchDur } : null;
@@ -151,8 +206,9 @@ export class App {
       return;
     }
     if (request !== this.routeSync) return;   // nowszy odczyt albo reset zastąpił to żądanie
-    const { route, discarded } = response;
+    const { route, discarded, waypoints } = response;
     if (!route) { this.state.route = null; this.sim.setRoute(null); this.emit('route'); return; }
+    this.#adoptWaypoints(waypoints);
     const cur = this.state.route;
     if (cur && cur.version === route.version) return;              // ta sama trasa (np. po własnym POST /plan)
     const s0 = route.replanFrom ?? 0;

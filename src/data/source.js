@@ -6,7 +6,7 @@
 // w <katalog>/backend/*.json (tools/export_backend_sample.py): raport, plan wyjść, pogoda kosmiczna, dziennik, trasa A.
 import { Terrain, Raster } from '../core/terrain.js';
 import { planRoute as mockPlan } from './mockPlanner.js';
-import { makeRocks } from '../core/rocks.js';
+import { clearings, makeRocks } from '../core/rocks.js';
 import { decodePngGray } from '../core/png.js';
 
 export const ROVER_CLEARANCE_M = 1.8;   // połowa długości łazika (1,6 m) + margines
@@ -93,7 +93,8 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
     mode,
     api: API,
     sample,
-    async loadMission() {
+    /** onProgress(f): część wczytanych warstw 0–1 (do paska postępu). */
+    async loadMission({ onProgress } = {}) {
       if (mode === 'http') {
         const active = await json(await fetch(API('missions'), { cache: 'no-store' }));
         root = `${api}/missions/${encodeURIComponent(active.active)}`;
@@ -132,7 +133,8 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
       for (const [k, meta] of Object.entries(mission.rasters || {})) {
         jobs.push((async () => { rasters[k] = new Raster({ data: k === 'slope' && slopes ? slopes : await f32(meta), width: meta.width, height: meta.height, cellM: meta.cellM }); })());
       }
-      await Promise.all(jobs);
+      let done = 0;
+      await Promise.all(jobs.map((job) => job.then(() => onProgress?.(++done / jobs.length))));
       if (rasters.slope) terrain.slopeGrid = rasters.slope.data;     // nachylenie policzone przez potok (z niepewnością obok)
       ctx = { mission, terrain, rasters };
       return ctx;
@@ -154,7 +156,7 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
     /** Trasa z dowolnego startu do dowolnego celu: czysty Dijkstra w przeglądarce (działa też bez serwera; nie zmienia stanu EVA). */
     planDijkstra({ start, end, obstacles = [] }) {
       const t0 = performance.now();
-      ctx.rocks ||= makeRocks({ W: ctx.terrain.widthM, H: ctx.terrain.heightM, hazards: ctx.rasters.hazards, boulders: ctx.rasters.boulders });
+      ctx.rocks ||= makeRocks({ W: ctx.terrain.widthM, H: ctx.terrain.heightM, hazards: ctx.rasters.hazards, boulders: ctx.rasters.boulders, keepClear: clearings(ctx.mission) });
       const r = mockPlan({ terrain: ctx.terrain, hazards: ctx.rasters.hazards, start, waypoints: [{ id: 'CEL', x: end.x, y: end.y }],
         obstacles, eva: ctx.mission.eva, heuristic: false, rocks: ctx.rocks, clearanceM: ROVER_CLEARANCE_M });
       return { ...r, ms: performance.now() - t0 };

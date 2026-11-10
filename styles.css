@@ -129,8 +129,61 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 #view3d { visibility: hidden; }
 #view3d.on { visibility: visible; }
 #view3d canvas { display: block; }
-#main.reporting #map, #main.picking #map { cursor: crosshair; }
-#loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text2); font: 15px var(--mono); }
+#main.reporting #map, #main.picking #map, #main.editing #map { cursor: crosshair; }
+#loading { position: absolute; inset: 0; display: flex; flex-wrap: wrap; align-content: center; align-items: center; justify-content: center; gap: 8px; color: var(--text2); font: 15px var(--mono); }
+#loading .bar { flex: 0 0 100%; display: flex; justify-content: center; }
+#loading .bar i { display: block; width: 260px; height: 3px; border-radius: 2px; background: linear-gradient(90deg, var(--accent) calc(var(--p, 0) * 100%), var(--line3) 0); }
+#loading b { color: var(--text); font-weight: 600; min-width: 4ch; }
+
+/* edytor punktów wyjścia */
+#wpEditor { position: absolute; left: 12px; top: 58px; z-index: 3; width: 360px; max-height: 500px; overflow: hidden auto; background: rgba(11, 8, 5, .96);
+  border: 1px solid var(--line2); border-left: 3px solid var(--route); border-radius: 8px; padding: 9px 12px 10px; font-size: 13px; color: var(--text2); }
+#wpEditor > b { color: var(--text); font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; display: block; }
+#wpEditor p { margin: 4px 0 8px; }
+#wpEditor .muted { color: var(--text3); }
+#wpEditor .warn { color: var(--bad); }
+.wpe-row { display: grid; grid-template-columns: 38px 1fr auto 26px 26px; align-items: center; gap: 6px; padding: 4px 0; border-bottom: 1px solid #1d160e; }
+.wpe-row b { color: var(--route); font: 700 13px var(--mono); }
+.wpe-row .xy { font: 12px var(--mono); color: var(--text2); white-space: nowrap; }
+.wpe-row label { font-size: 12px; white-space: nowrap; }
+.wpe-row input { width: 52px; background: var(--raised); border: 1px solid var(--line2); border-radius: 4px; padding: 2px 4px; color: var(--text); font: 12px var(--mono); }
+.btn.mini { padding: 2px 0; width: 26px; text-align: center; font-size: 13px; }
+.wpe-sum { color: var(--text); font: 12px var(--mono); min-height: 18px; }
+
+/* „co jeśli”: limit nachylenia i przedział niepewności */
+#sensCard { position: absolute; left: 12px; top: 58px; z-index: 3; width: 380px; background: rgba(11, 8, 5, .96); border: 1px solid var(--line2);
+  border-left: 3px solid #7fb2ff; border-radius: 8px; padding: 9px 12px 10px; font-size: 13px; color: var(--text2); }
+#sensCard > b { color: var(--text); font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+#sensCard h3 { margin: 10px 0 2px; font: 600 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--text3); }
+#sensCard p { margin: 6px 0; }
+#sensCard .muted, .doc .sens-int + .note { color: var(--text3); }
+#sensCard .warn { color: var(--bad); }
+#sensCard .ok { color: var(--ok); }
+#sensCard b { color: var(--text); }
+.sens-slider { display: flex; align-items: center; gap: 10px; }
+.sens-slider input { flex: 1; accent-color: #7fb2ff; }
+.sens-ticks { display: flex; justify-content: space-between; margin: 0 2px 0 108px; font: 11px var(--mono); color: var(--text3); }
+.sens-line { line-height: 1.5; min-height: 38px; }
+.sens-int { font: 12px var(--mono); color: var(--text); }
+.doc .sens-table { width: auto; min-width: 420px; }
+.doc .sens-table tr.cur td { color: var(--text); font-weight: 600; }
+
+/* odczyt terenu pod kursorem (mapa 2D) */
+#hoverRead { position: absolute; right: 12px; bottom: 112px; z-index: 2; pointer-events: none; background: rgba(10, 7, 4, .9); border: 1px solid var(--line2); border-radius: 6px;
+  padding: 6px 10px; font: 12px/1.55 var(--mono); color: var(--text2); white-space: nowrap; }
+#hoverRead b { color: var(--text); font-weight: 600; }
+#hoverRead .z1 { color: var(--warn); }
+#hoverRead .z2 { color: var(--bad); }
+
+/* karta „Jak zacząć” */
+#intro { position: absolute; left: 12px; bottom: 74px; z-index: 4; width: 430px; background: rgba(11, 8, 5, .96); border: 1px solid var(--line2); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 12px 16px 12px 14px; box-shadow: 0 12px 30px rgba(0, 0, 0, .55); animation: introIn .45s ease-out; }
+#intro h2 { font: 700 13px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--text); }
+#intro ol { margin: 8px 0 10px; padding-left: 20px; font-size: 14px; line-height: 1.45; color: var(--text2); }
+#intro li { margin: 4px 0; }
+#intro li b { color: var(--text); font-weight: 600; }
+#intro .intro-btns { display: flex; gap: 8px; }
+@keyframes introIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 3; }
 #fade.on { opacity: 1; }
 
@@ -157,7 +210,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 @keyframes pulse { 50% { opacity: .25; } }
 
 /* karty narzędzi mapy: własna trasa, jazda łazikiem, zgłoszenie, profil */
-#pickCard { position: absolute; right: 12px; top: 312px; z-index: 3; width: 270px; background: rgba(11, 8, 5, .95); border: 1px solid var(--accentDim); border-left: 3px solid var(--pick); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text2); }
+#pickCard { position: absolute; right: 12px; top: 352px; z-index: 3; width: 270px; background: rgba(11, 8, 5, .95); border: 1px solid var(--accentDim); border-left: 3px solid var(--pick); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text2); }
 #pickCard b { color: var(--text); font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; display: block; margin-bottom: 4px; }
 #pickCard .big { color: var(--text); font: 700 16px var(--mono); }
 #pickCard .warn { color: var(--bad); }
@@ -196,7 +249,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .doc h2:first-child { margin-top: 0; }
 .doc table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .doc th, .doc td { text-align: left; padding: 5px 7px; border-bottom: 1px solid #1d160e; vertical-align: top; }
-.doc td:first-child { white-space: nowrap; }
+.doc td { overflow-wrap: anywhere; }   /* długie nazwy produktów NASA nie rozpychają tabeli */
+.doc td:first-child { white-space: nowrap; overflow-wrap: normal; }
 .doc td code { overflow-wrap: anywhere; }
 .doc th { color: var(--text2); font-weight: 500; white-space: nowrap; }
 .doc .lvl { font: 700 11px var(--mono); padding: 2px 6px; border-radius: 3px; white-space: nowrap; }
@@ -284,4 +338,74 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .keys h3:first-child { margin-top: 0; }
 .keys div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--text2); }
 kbd { font: 600 11px var(--mono); color: var(--text); background: var(--card); border: 1px solid var(--line3); border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
-.dlg-foot { margin: 14px 0 0; font-size: 12px; color: var(--text3); }
+.dlg-foot { margin: 14px 0 0; font-size: 12px; color: var(--text3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dlg-foot .btn { margin-left: auto; }
+
+/* ---------- układ kompaktowy: telefon i tablet (src/main.js: fitStage) ---------- */
+#mainWrap { display: contents; }
+#walkPad { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 4; display: flex; gap: 14px; }
+#walkPad .btn { width: 64px; height: 64px; border-radius: 50%; font-size: 24px; background: rgba(13, 9, 5, .75); border-color: var(--line3); touch-action: none; }
+html.compact, html.compact body { overflow: hidden auto; height: auto; min-height: 100%; }
+#stage.compact { position: relative; width: auto; height: auto; transform: none; display: flex; flex-direction: column; gap: 10px; padding-bottom: 18px; }
+#stage.compact #hdr { order: 0; position: relative; width: auto; height: auto; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
+#stage.compact .logo { font-size: 18px; flex: 1 1 auto; }
+#stage.compact .missionSel { order: 3; flex: 1 1 100%; max-width: none; min-width: 0; padding: 8px; }
+#stage.compact .title { display: none; }
+#stage.compact .controls { display: contents; }
+#stage.compact #langSeg { order: 1; }
+#stage.compact #helpBtn { order: 2; }
+#stage.compact #viewSeg { order: 5; flex: 1 1 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
+#stage.compact #viewSeg button { padding: 10px 4px; }
+#stage.compact #viewSeg button:nth-child(3n + 1) { border-left: 0; }
+#stage.compact #viewSeg button:nth-child(n + 4) { border-top: 1px solid var(--line2); }
+#stage.compact #evaBtn, #stage.compact #returnBtn, #stage.compact #demoBtn { order: 6; flex: 1 1 0; padding: 10px; }
+#stage.compact #mainWrap { order: 1; display: block; position: relative; flex: none; width: calc(972px * var(--ms)); height: calc(var(--mh, 648) * 1px * var(--ms)); margin: 0 auto; }
+#stage.compact #main { left: 0; top: 0; height: calc(var(--mh, 648) * 1px); transform: scale(var(--ms)); transform-origin: 0 0; }
+#stage.compact .panel { position: relative; left: auto; top: auto; width: auto; height: auto; margin: 0 10px; }
+#stage.compact #right { order: 2; }
+#stage.compact #left { order: 3; }
+#stage.compact .wpview { flex: none; height: 200px; }
+#stage.compact #legend { margin-top: 10px; }
+#stage.compact .o2 .bar { flex: 1; width: auto; margin-right: 10px; }
+@media (min-width: 700px) {
+  #stage.compact #viewSeg { grid-template-columns: repeat(6, 1fr); }
+  #stage.compact #viewSeg button:nth-child(n) { border-top: 0; border-left: 1px solid var(--line2); }
+  #stage.compact #viewSeg button:first-child { border-left: 0; }
+  #stage.compact { display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
+  #stage.compact #hdr, #stage.compact #mainWrap { grid-column: 1 / -1; }
+  #stage.compact #right { margin-right: 0; }
+  #stage.compact #left { margin-left: 0; }
+}
+/* elementy na mapie: czytelne mimo zmniejszonej mapy */
+#stage.compact :is(.maplabel, #alert, #routeCard, #mapTools, #scale, #caption, #pickCard, #wpEditor, #sensCard, #intro, #obsForm, #driveHud, #net, #walkPad, .pane.doc) { zoom: var(--uiz); }
+#stage.compact #profile { zoom: calc(var(--uiz) * .85); left: 6px; }
+#stage.compact #locLabel, #stage.compact #hoverRead { display: none; }
+#stage.compact #alert { top: 12px; width: 270px; }
+#stage.compact #mapTools { top: 124px; }
+#stage.compact #routeCard .u { display: none; }
+#stage.compact #scale { right: auto; bottom: auto; left: 10px; top: 10px; }
+#stage.compact #caption { white-space: normal; height: auto; min-height: 44px; padding: 6px 12px; font-size: 16px; }
+#stage.compact #intro { bottom: 12px; width: 400px; }
+#stage.compact #wpEditor { top: 12px; max-height: 300px; }
+#stage.compact #sensCard { top: 12px; max-height: 310px; overflow: hidden auto; }
+#stage.compact #pickCard { top: auto; right: auto; bottom: 12px; left: 12px; }
+#stage.compact #obsForm { left: 12px !important; top: 12px !important; }
+#stage.compact #driveHud { width: 500px; bottom: 8px; }
+#stage.compact #help { position: fixed; }
+#stage.compact .dialog { width: min(640px, 94vw); max-height: 86vh; }
+#stage.compact .keys { grid-template-columns: 1fr; }
+#stage.compact .keys h3 { grid-column: 1; }
+#stage.compact .doc .two { display: block; }
+#stage.compact .doc .two > table, #stage.compact .doc table.wide { display: block; overflow-x: auto; }
+#stage.compact .doc .matrix { margin-top: 12px; }
+#stage.compact .doc .facts { grid-template-columns: 1fr; }
+/* telefon w poziomie: nagłówek w dwóch rzędach, żeby mapa była jak największa */
+@media (orientation: landscape) and (max-height: 540px) {
+  #stage.compact .logo { flex: 0 0 auto; }
+  #stage.compact .missionSel { order: 1; flex: 0 1 220px; }
+  #stage.compact #langSeg { order: 2; }
+  #stage.compact #helpBtn { order: 3; }
+  #stage.compact #evaBtn, #stage.compact #returnBtn, #stage.compact #demoBtn { order: 4; flex: 0 0 auto; padding: 7px 12px; }
+  #stage.compact #viewSeg { order: 9; }
+  #stage.compact #viewSeg button { padding: 7px 4px; }
+}

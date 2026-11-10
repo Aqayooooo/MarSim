@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="MarSim — mapa i planer wyjść (EVA) dla astronautów na Marsie, oparty na danych NASA.">
 <meta name="theme-color" content="#060200">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23c1440e'/%3E%3Ccircle cx='11' cy='12' r='3' fill='%23a33a0c'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%23a33a0c'/%3E%3C/svg%3E">
 <title>MarSim · planowanie EVA na Marsie</title>
 <!-- wszystko lokalnie (vendor/), działa bez internetu -->
 <link rel="stylesheet" href="vendor/fonts/fonts.css">
@@ -50,6 +51,7 @@
     <div id="legend" aria-live="polite"></div>
   </aside>
 
+  <div id="mainWrap">
   <main id="main" tabindex="-1">
     <canvas id="map" role="img" data-i18n-aria="map.aria" aria-label="Mapa obszaru EVA"></canvas>
     <div id="view3d"></div>
@@ -65,12 +67,16 @@
     <div id="report" class="pane doc" hidden></div>
     <div id="schedule" class="pane doc" hidden></div>
     <div id="mapTools" role="toolbar" data-i18n-aria="tools.aria">
+      <button id="wpBtn" class="btn" data-i18n-title="wpe.btnTitle" data-i18n="wpe.btn" aria-pressed="false">Punkty EVA</button>
       <button id="pickBtn" class="btn" data-i18n-title="pick.btnTitle" data-i18n="pick.btn" aria-pressed="false">Wyznacz trasę</button>
       <button id="reportBtn" class="btn" data-i18n-title="obs.btnTitle" data-i18n="obs.btn" aria-pressed="false">Zgłoś z terenu</button>
       <button id="altBtn" class="btn" data-i18n-title="alt.btnTitle" data-i18n="alt.btn" aria-expanded="false" hidden>Porównaj trasy</button>
       <button id="profileBtn" class="btn" data-i18n-title="profile.btnTitle" data-i18n="profile.btn" aria-expanded="false" hidden>Profil trasy</button>
+      <button id="sensBtn" class="btn" data-i18n-title="sens.btnTitle" data-i18n="sens.btn" aria-expanded="false" hidden>Co jeśli?</button>
     </div>
     <div id="pickCard" role="status" aria-live="polite" hidden></div>
+    <div id="wpEditor" role="region" data-i18n-aria="wpe.title" hidden></div>
+    <div id="sensCard" role="region" data-i18n-aria="sens.title" hidden></div>
     <section id="profile" data-i18n-aria="profile.btn" hidden></section>
     <div id="driveHud" role="group" data-i18n-aria="drive.title" hidden></div>
     <div id="obsForm" role="dialog" data-i18n-aria="obs.title" hidden>
@@ -84,9 +90,25 @@
         <option value="łazik" data-i18n="obs.s.łazik">łazik</option><option value="dron" data-i18n="obs.s.dron">dron</option></select></label>
       <div class="of-btns"><button id="obsOk" class="btn primary" data-i18n="obs.send">Wyślij</button><button id="obsCancel" class="btn" data-i18n="obs.cancel">Anuluj</button></div>
     </div>
+    <div id="hoverRead" aria-hidden="true" hidden></div>
+    <div id="intro" role="dialog" aria-labelledby="introTitle" hidden>
+      <h2 id="introTitle" data-i18n="intro.title">Jak zacząć</h2>
+      <ol>
+        <li data-i18n-html="intro.s1"></li>
+        <li data-i18n-html="intro.s2"></li>
+        <li data-i18n-html="intro.s3"></li>
+      </ol>
+      <div class="intro-btns"><button id="introOk" class="btn primary" data-i18n="intro.ok">Zaczynam</button>
+        <button id="introDemo" class="btn accent" data-i18n="intro.demo">▶ Obejrzyj prezentację</button></div>
+    </div>
     <div id="fade"></div>
-    <div id="loading" role="status" data-i18n="loading">Wczytywanie danych terenu…</div>
+    <div id="loading" role="status"><span data-i18n="loading">Wczytywanie danych terenu…</span> <b id="loadPct"></b><i class="bar"><i></i></i></div>
+    <div id="walkPad" role="group" data-i18n-aria="walk.aria" hidden>
+      <button class="btn" data-key="KeyW" data-i18n-aria="walk.fwd">▲</button>
+      <button class="btn" data-key="KeyS" data-i18n-aria="walk.back">▼</button>
+    </div>
   </main>
+  </div>
 
   <aside id="right" class="panel">
     <div id="altPanel" role="region" data-i18n-aria="alt.title" hidden></div>
@@ -114,7 +136,8 @@
       <div class="dlg-head"><h2 id="helpTitle" data-i18n="help.title">Skróty klawiszowe</h2>
         <button id="helpClose" class="btn round" data-i18n-aria="help.close">×</button></div>
       <div id="helpBody"></div>
-      <p class="dlg-foot"><span id="sourceLabel"></span> · <span id="versionLabel"></span></p>
+      <p class="dlg-foot"><span id="sourceLabel"></span> · <span id="versionLabel"></span>
+        <button id="introAgain" class="btn" data-i18n="intro.again">Pokaż wprowadzenie</button></p>
     </div>
   </div>
 </div>

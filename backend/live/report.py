@@ -242,6 +242,7 @@ def build(e) -> dict:
         "riskMatrix": matrix,
         "effectiveness": effectiveness,
         "assumptions": assumptions,
+        "uncertainty": planning.route_interval(e.model, e.layers, r["path"], e.waypoints),
         "dataBasis": data_basis,
         "provenance": {
             "pipelineVersion": prov["pipelineVersion"],

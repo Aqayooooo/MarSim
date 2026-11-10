@@ -6,11 +6,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MAIN_W, MAIN_H } from './map2d.js';
 import { headingDeg } from '../core/path.js';
 import { t as tr } from '../i18n.js';
-import { makeRocks, mulberry } from '../core/rocks.js';
+import { clearings, makeRocks, mulberry } from '../core/rocks.js';
 import { HelmetInterior } from './helmetInterior.js';
+import { FOG_COLOR, Pebbles, approxSun, detailTexture, habitatModel, orbitBackground, reliefColors, rockColor, rockGeometries, roverModel, skyDome, sunVector, terrainBlock, terrainMaterial } from './marsLook.js';
 
 const EX_ORBIT = 10, EYE = 1.7, FOV = 45;
-const OCHRE = new THREE.Color(1.55, 0.98, 0.66);
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
@@ -28,6 +28,10 @@ export class View3D {
 
     const r = this.renderer = new THREE.WebGLRenderer({ antialias: true });
     r.outputColorSpace = THREE.SRGBColorSpace;
+    r.shadowMap.enabled = true;
+    r.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.detail = detailTexture();
+    this.detail.repeat.set(2, 2);
     el.appendChild(r.domElement);
     r.domElement.style.width = `${MAIN_W}px`;
     r.domElement.style.height = `${MAIN_H}px`;
@@ -46,7 +50,11 @@ export class View3D {
     this.#buildSky();
     this.#buildRover();
     this.rocks = [];
+    this.rockGeos = rockGeometries(3);
+    this.rockMat = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0, bumpMap: this.detail, bumpScale: 2.5 });
     this.#scatterRocks();
+    this.pebbles = new Pebbles({ terrain: this.t, sand: app.world.rasters.sand, X: (x) => this.X(x), Z: (y) => this.Z(y), material: this.rockMat });
+    this.scene.add(this.pebbles.mesh);
     this.#buildWaypoints();
 
     this.controls = new OrbitControls(this.camera, r.domElement);
@@ -60,6 +68,7 @@ export class View3D {
     this.#input();
 
     app.on('route', () => this.#buildRoute());
+    app.on('waypoints', () => this.#buildWaypoints());
     app.on('drive', () => this.#buildDriveRoute());
     app.on('obstacle', (ob) => this.#addBoulderField(ob));
     app.on('reset', () => this.reset());
@@ -68,10 +77,38 @@ export class View3D {
 
   // ---------- budowa sceny ----------
   #lights() {
-    this.scene.add(new THREE.HemisphereLight(0xffe2cc, 0x3a2418, 1.1));
-    const sun = new THREE.DirectionalLight(0xfff0dc, 2.4);
-    sun.position.set(-900, 700, -500);
-    this.scene.add(sun);
+    this.hemi = new THREE.HemisphereLight(0xffe0c4, 0x3b2519, 0.85);
+    const sun = this.sun = new THREE.DirectionalLight(0xfff0dc, 2.25);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0004;
+    this.scene.add(this.hemi, sun, sun.target);
+  }
+
+  /** Słońce z zegara misji (backend: położenie z modelu; bez serwera: przybliżenie), cień wokół obserwatora albo całego obszaru. */
+  #syncSun() {
+    const env = this.app.sim.snap?.env;
+    const s = env?.sunAzDeg != null ? { az: env.sunAzDeg, el: env.sunElevDeg } : approxSun(this.app.sim.min / 60, this.app.m.area?.center?.lat ?? 0);
+    const dir = sunVector(s.az, s.el), ground = this.mode === 'helmet' || this.mode === 'drive';
+    this.sky.uniforms.uSun.value.copy(dir);
+    const c = ground ? this.camera.position : new THREE.Vector3(0, (this.t.maxH - this.t.minH) / 2 * this.ex, 0);
+    const half = ground ? 45 : Math.max(this.W, this.H) * 0.62, dist = ground ? 300 : 2500;
+    this.sun.target.position.copy(c);
+    this.sun.position.set(c.x + dir.x * dist, c.y + dir.y * dist, c.z + dir.z * dist);
+    this.sun.shadow.normalBias = ground ? 0.05 : 2.5;
+    const cam = this.sun.shadow.camera;
+    if (cam.right !== half) {
+      Object.assign(cam, { left: -half, right: half, top: half, bottom: -half, near: 1, far: dist * 2 + 600 });
+      cam.updateProjectionMatrix();
+    }
+  }
+
+  /** Stan sceny zależny od kamery: niebo, słońce, kamyki wokół obserwatora. */
+  #syncFrame() {
+    this.sky.mesh.position.copy(this.camera.position);
+    this.#syncSun();
+    if (this.mode === 'helmet') this.pebbles.update(this.helmet.x, this.helmet.y);
+    else if (this.mode === 'drive') { const p = this.app.roverPos(); this.pebbles.update(p.x, p.y); }
   }
 
   X(x) { return x - this.W / 2; }
@@ -79,11 +116,13 @@ export class View3D {
 
   #buildTerrain() {
     const t = this.t, w = t.w, h = t.hgt;
-    const pos = new Float32Array(w * h * 3), uv = new Float32Array(w * h * 2);
+    const pos = new Float32Array(w * h * 3), uv = new Float32Array(w * h * 2), uv1 = new Float32Array(w * h * 2);
+    const DETAIL_TILE_M = 3.2;   // jeden kafelek tekstury detalu na tyle metrów gruntu
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
       const k = j * w + i, x = (i + 0.5) * t.cell, y = (j + 0.5) * t.cell;
       pos[k * 3] = this.X(x); pos[k * 3 + 1] = t.h[k] - t.minH; pos[k * 3 + 2] = this.Z(y);
       uv[k * 2] = x / this.W; uv[k * 2 + 1] = y / this.H;
+      uv1[k * 2] = x / DETAIL_TILE_M; uv1[k * 2 + 1] = y / DETAIL_TILE_M;
     }
     const idx = new Uint32Array((w - 1) * (h - 1) * 6);
     let n = 0;
@@ -94,6 +133,8 @@ export class View3D {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
+    g.setAttribute('color', new THREE.BufferAttribute(reliefColors(t), 3));
     g.setIndex(new THREE.BufferAttribute(idx, 1));
     g.computeVertexNormals();
     const tex = new THREE.Texture(this.app.world.rasters.optical.image);
@@ -101,36 +142,40 @@ export class View3D {
     tex.flipY = false;
     tex.anisotropy = 8;
     tex.needsUpdate = true;
-    this.terrainMat = new THREE.MeshLambertMaterial({ map: tex, color: OCHRE.clone() });
+    const detail = this.detail.clone();
+    detail.repeat.set(1, 1);
+    detail.channel = 1;
+    detail.needsUpdate = true;
+    const { mat, uniforms } = terrainMaterial(tex, detail);
+    this.terrainMat = mat;
+    this.terrainU = uniforms;
     this.terrainMesh = new THREE.Mesh(g, this.terrainMat);
+    this.terrainMesh.castShadow = true;
+    this.terrainMesh.receiveShadow = true;
     this.world.add(this.terrainMesh);
+    this.block = terrainBlock(t, (x) => this.X(x), (y) => this.Z(y));   // ściany i cień bloku — tylko w widoku orbitalnym
+    this.world.add(this.block);
   }
 
   #buildSky() {
-    const c = document.createElement('canvas'); c.width = 4; c.height = 256;
-    const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
-    gr.addColorStop(0, '#271910'); gr.addColorStop(0.62, '#845738'); gr.addColorStop(1, '#9a6a48');
-    g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
-    this.skyTex = new THREE.CanvasTexture(c);
-    this.skyTex.colorSpace = THREE.SRGBColorSpace;
-    this.orbitBg = new THREE.Color('#2C1C14');
+    this.sky = skyDome();
+    this.scene.add(this.sky.mesh);
+    this.orbitBg = orbitBackground();
   }
 
   #buildRover() {
-    const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.2, 2.2), new THREE.MeshLambertMaterial({ color: 0xe8e2d8 }));
-    body.position.y = 1.1;
-    const stripe = new THREE.Mesh(new THREE.BoxGeometry(3.25, 0.25, 2.25), new THREE.MeshLambertMaterial({ color: 0xf17778 }));
-    stripe.position.y = 1.5;
-    g.add(body, stripe);
-    for (const [x, z] of [[-1.1, -1.2], [1.1, -1.2], [-1.1, 1.2], [1.1, 1.2]]) {
-      const wh = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.35, 14), new THREE.MeshLambertMaterial({ color: 0x2a2420 }));
-      wh.rotation.x = Math.PI / 2; wh.position.set(x, 0.45, z); g.add(wh);
-    }
-    this.roverMesh = g;
-    this.scene.add(g);
+    this.roverMesh = roverModel();
+    this.scene.add(this.roverMesh);
     this.roverSprite = this.#markerSprite(tr('map.rover'), '#F17778');
     this.markers.add(this.roverSprite);
+    const hab = this.app.m.habitat;
+    if (hab) {
+      this.habitatMesh = habitatModel(hab.mastM ?? 10);
+      this.habitatMesh.rotation.y = 0.35;
+      this.scene.add(this.habitatMesh);
+      this.habitatSprite = this.#markerSprite(tr('map.habitat'), '#FFFFFF');
+      this.markers.add(this.habitatSprite);
+    }
   }
 
   #markerSprite(text, color = '#FFDC52', filled = false) {
@@ -152,6 +197,7 @@ export class View3D {
   }
 
   #buildWaypoints() {
+    for (const o of this.wpObjs || []) { this.markers.remove(o.sprite, o.pole); o.sprite.material.map.dispose(); o.sprite.material.dispose(); }
     this.wpObjs = this.app.m.waypoints.map((wp) => {
       const sprite = this.#markerSprite(wp.id);
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.6, 6), new THREE.MeshBasicMaterial({ color: 0xffdc52 }));
@@ -163,7 +209,7 @@ export class View3D {
   #scatterRocks() {
     // ta sama lista co w planerze jazdy łazikiem (core/rocks.js) — trasa omija dokładnie to, co widać
     const w = this.app.world;
-    this.rocks = makeRocks({ W: this.W, H: this.H, hazards: w.rasters.hazards, boulders: w.rasters.boulders });
+    this.rocks = makeRocks({ W: this.W, H: this.H, hazards: w.rasters.hazards, boulders: w.rasters.boulders, keepClear: clearings(this.app.m) });
     this.#rebuildRocks();
   }
 
@@ -178,24 +224,34 @@ export class View3D {
   }
 
   #rebuildRocks() {
-    if (this.rockMesh) { this.scene.remove(this.rockMesh); this.rockMesh.geometry.dispose(); }
-    const geo = new THREE.DodecahedronGeometry(1, 0);
-    const m = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0x7a5038 }), this.rocks.length);
-    this.rockMesh = m;
-    this.scene.add(m);
+    for (const m of this.rockMeshes || []) { this.scene.remove(m); m.dispose(); }
+    const groups = this.rockGeos.map(() => []);
+    this.rocks.forEach((rk, i) => groups[i % groups.length].push(rk));   // kilka kształtów kamieni na zmianę
+    this.rockMeshes = groups.map((list, v) => {
+      const m = new THREE.InstancedMesh(this.rockGeos[v], this.rockMat, Math.max(1, list.length));
+      m.count = list.length;
+      m.castShadow = m.receiveShadow = true;
+      m.userData.rocks = list;
+      list.forEach((rk, i) => m.setColorAt(i, rockColor(mulberry(Math.round(rk.x * 31 + rk.y * 17)))));
+      this.scene.add(m);
+      return m;
+    });
     this.#placeRocks();
   }
   #placeRocks() {
-    const m = this.rockMesh, o = new THREE.Object3D();
-    this.rocks.forEach((rk, i) => {
-      o.position.set(this.X(rk.x), this.t.height(rk.x, rk.y) * this.ex + rk.r * 0.25, this.Z(rk.y));
-      o.rotation.set(rk.rot, rk.rot * 1.7, 0);
-      o.scale.set(rk.r, rk.h ? rk.h / 1.6 : rk.r * 0.7, rk.r * 0.9);
-      o.updateMatrix();
-      m.setMatrixAt(i, o.matrix);
-    });
-    m.instanceMatrix.needsUpdate = true;
-    m.visible = this.mode === 'helmet' || this.mode === 'drive';
+    const o = new THREE.Object3D();
+    for (const m of this.rockMeshes) {
+      m.userData.rocks.forEach((rk, i) => {
+        o.position.set(this.X(rk.x), this.t.height(rk.x, rk.y) * this.ex + rk.r * 0.15, this.Z(rk.y));
+        o.rotation.set(rk.rot * 0.2, rk.rot * 1.7, rk.rot * 0.1);
+        o.scale.set(rk.r, rk.h ? rk.h / 1.25 : rk.r * 0.75, rk.r * 0.9);
+        o.updateMatrix();
+        m.setMatrixAt(i, o.matrix);
+      });
+      m.instanceMatrix.needsUpdate = true;
+      if (m.instanceColor) m.instanceColor.needsUpdate = true;
+      m.visible = this.mode === 'helmet' || this.mode === 'drive';
+    }
   }
 
   #ribbon(pts, width, lift, color, opacity) {
@@ -254,11 +310,11 @@ export class View3D {
   reset() {
     this.flight = null;
     this.helmet.auto = null;
-    this.terrainMat.color.copy(OCHRE);
+    this.terrainU.uMars.value = 1;
     this.#buildRoute();
     this.#buildDriveRoute();
     this.rocks = this.rocks.filter((r) => !r.field);
-    if (this.rockMesh) this.#rebuildRocks();
+    if (this.rockMeshes) this.#rebuildRocks();
     this.setMode('orbit', { keepCamera: false });
   }
 
@@ -280,8 +336,13 @@ export class View3D {
   #applyMode() {
     const ground = this.mode === 'helmet' || this.mode === 'drive';   // widok z poziomu gruntu, skala 1:1
     this.world.scale.y = this.ex;
-    this.scene.background = ground ? this.skyTex : this.orbitBg;
-    this.scene.fog = ground ? new THREE.Fog(0x8a5c3c, 250, 1700) : null;
+    this.scene.background = ground ? null : this.orbitBg;
+    this.scene.fog = ground ? new THREE.Fog(FOG_COLOR, 220, 2400) : null;
+    this.sky.mesh.visible = ground;
+    this.block.visible = !ground;
+    this.pebbles.mesh.visible = ground;
+    this.terrainMat.bumpScale = ground ? 1.4 : 0;   // detal gruntu tylko z bliska
+    this.terrainU.uDetail.value = ground ? 1 : 0;
     (this.routeOrbit || []).forEach((m) => (m.visible = !ground));
     (this.routeHelmet || []).forEach((m) => (m.visible = ground));
     (this.driveOrbit || []).forEach((m) => (m.visible = !ground));
@@ -291,7 +352,7 @@ export class View3D {
     this.camera.near = this.mode === 'helmet' ? .05 : ground ? .1 : 2;
     this.interior.setVisible(this.mode === 'helmet');
     this.camera.updateProjectionMatrix();
-    if (this.rockMesh) this.#placeRocks();
+    if (this.rockMeshes) this.#placeRocks();
     this.#placeMarkers();
   }
 
@@ -308,7 +369,15 @@ export class View3D {
     const rp = this.app.roverPos();
     const rh = this.t.height(rp.x, rp.y) * this.ex;
     this.roverMesh.position.set(this.X(rp.x), rh, this.Z(rp.y));
-    this.roverMesh.visible = helmet || drive;
+    this.roverMesh.visible = helmet || (drive && !this.chase.cabin);   // z kabiny łazika nie widać jego bryły
+    const hab = this.app.m.habitat;
+    if (this.habitatMesh) {
+      const hh = this.t.height(hab.x, hab.y) * this.ex;
+      this.habitatMesh.position.set(this.X(hab.x), hh, this.Z(hab.y));
+      this.habitatMesh.visible = helmet || drive;
+      this.habitatSprite.visible = helmet || drive;   // z orbity etykieta nachodziłaby na łazik (stoją ok. 100 m od siebie)
+      this.habitatSprite.position.set(this.X(hab.x), hh + 7, this.Z(hab.y));
+    }
     if (this.app.drive) this.roverMesh.rotation.y = Math.PI / 2 - (drive && this.camYaw !== undefined ? this.camYaw : this.app.drive.heading()) * Math.PI / 180;
     this.roverSprite.visible = !drive;
     this.roverSprite.position.set(this.X(rp.x), rh + (helmet ? 3 : 4), this.Z(rp.y));
@@ -328,7 +397,7 @@ export class View3D {
   #defaultOrbit() {
     const c = this.#center(), tgt = new THREE.Vector3(this.X(c.x), this.t.height(c.x, c.y) * this.ex, this.Z(c.y));
     this.controls.target.copy(tgt);
-    this.#setSpherical(tgt, 1150, 0.95, 0.35);
+    this.#setSpherical(tgt, 1380, 0.98, 0.35);
     this.controls.update();
   }
 
@@ -340,7 +409,7 @@ export class View3D {
     const c = this.#center(), endTarget = new THREE.Vector3(this.X(c.x), this.t.height(c.x, c.y) * this.ex, this.Z(c.y));
     const r0 = (this.H / 2) / Math.tan(FOV / 2 * Math.PI / 180);
     this.flight = { t: 0, dur, startTarget, endTarget, r0 };
-    this.terrainMat.color.setRGB(1, 1, 1);
+    this.terrainU.uMars.value = 0;   // start jak na mapie 2D: samo zdjęcie, potem barwy Marsa
     this.controls.enabled = false;
     this.#flightStep(0);
   }
@@ -348,8 +417,7 @@ export class View3D {
     const f = this.flight;
     f.t += dt;
     const k = clamp01(f.t / f.dur);
-    const tex = clamp01(f.t / 0.6);
-    this.terrainMat.color.setRGB(1 + (OCHRE.r - 1) * tex, 1 + (OCHRE.g - 1) * tex, 1 + (OCHRE.b - 1) * tex);
+    this.terrainU.uMars.value = clamp01(f.t / 0.6);
     const m = ease(clamp01((f.t - 0.6) / (f.dur - 0.6)));
     const tgt = f.startTarget.clone().lerp(f.endTarget, m);
     this.#setSpherical(tgt, f.r0 + (720 - f.r0) * m, 0.02 + (1.08 - 0.02) * m, 0.9 * m);
@@ -515,6 +583,7 @@ export class View3D {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     this.interior.setVisible(false);
+    this.#syncFrame();
     this.renderer.render(this.scene, this.camera);
     const url = this.renderer.domElement.toDataURL('image/jpeg', 0.88);
     this.renderer.setPixelRatio(pr);
@@ -545,6 +614,7 @@ export class View3D {
     else if (this.mode === 'drive') this.#driveStep(dt);
     else if (this.flight) this.#flightStep(dt);
     else this.controls.update();
+    this.#syncFrame();
     this.renderer.render(this.scene, this.camera);
   }
 }
