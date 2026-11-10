@@ -1,0 +1,70 @@
+/* Widok z wnętrza hełmu: dane są projekcją na szybie, rama jest modelem 3D. */
+#stage.helmet-mode #left, #stage.helmet-mode #right { display: none; }
+#stage.helmet-mode #main { left: 0; top: 56px; width: 1664px; height: 688px; border: 0; border-radius: 0; }
+#stage.helmet-mode #view3d { width: 100%; height: 100%; }
+#stage.helmet-mode #caption { top: 88px; bottom: auto; left: 26%; right: 26%; font-size: 13px; }
+#stage.helmet-mode #net { top: 90px; }
+
+#hud { --visor: #9be8e6; --visor-dim: #71a9a9; --visor-line: #91e3e345; position: absolute; inset: 0; z-index: 1;
+  pointer-events: none; color: var(--visor); font-family: var(--mono); text-shadow: 0 0 12px #82f6f44a; }
+.visor-glass { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, transparent 42%, #4bcdd308 68%, #6ce3ed12 82%, #0002 95%);
+  border-radius: 22% 22% 31% 31%; box-shadow: inset 0 24px 90px #b3eff00b; }
+.visor-glass::before { content: ''; position: absolute; left: 12%; right: 12%; top: 10%; height: 13%; border-radius: 50%;
+  border-top: 1px solid #b8faff38; transform: rotate(-3deg); filter: blur(.4px); }
+.visor-glass::after { content: ''; position: absolute; left: 8%; width: 12%; top: 19%; height: 43%; border-radius: 70%;
+  border-left: 8px solid #c4fbff09; transform: rotate(12deg); filter: blur(3px); }
+.visor-id { position: absolute; left: 11%; top: 11%; font-size: 18px; letter-spacing: .22em; font-weight: 600; }
+.visor-id > span:last-of-type { color: #b3d3d1a6; }
+.visor-id small { display: block; margin: 7px 0 0 19px; font-size: 9px; letter-spacing: .2em; color: var(--visor-dim); }
+.visor-led { display: inline-block; width: 5px; height: 5px; margin-right: 9px; border-radius: 50%; background: var(--visor); box-shadow: 0 0 9px var(--visor); vertical-align: 3px; }
+.visor-compass { position: absolute; left: 38%; right: 38%; top: 10%; height: 57px; text-align: center; }
+.compass-ruler { height: 15px; border-bottom: 1px solid var(--visor-line); background: repeating-linear-gradient(90deg, transparent 0 19px, var(--visor-line) 19px 20px); mask-image: linear-gradient(90deg, transparent, #000 20% 80%, transparent); }
+.visor-compass b { display: inline-block; font-size: 16px; letter-spacing: .12em; padding: 5px 12px; background: #0a252137; }
+.visor-compass > span { display: block; font-size: 7px; margin-top: -4px; }
+.visor-cross { position: absolute; left: 50%; top: 46%; display: flex; align-items: center; gap: 12px; transform: translate(-50%, -50%); opacity: .65; }
+.visor-cross i { width: 18px; height: 1px; background: var(--visor-line); }
+.visor-cross span { font-size: 15px; font-weight: 300; }
+.visor-nav { position: absolute; left: 12%; top: 37%; padding-left: 13px; border-left: 1px solid var(--visor-line); transform: perspective(800px) rotateY(12deg); }
+.visor-nav small { display: block; font-size: 9px; letter-spacing: .18em; color: var(--visor-dim); margin-bottom: 8px; }
+.visor-nav b { font-size: 17px; font-weight: 500; letter-spacing: .04em; }
+.visor-nav > span { display: block; margin-top: 8px; font-size: 10px; color: var(--visor-dim); }
+.visor-motion { position: absolute; left: 14%; bottom: 21%; display: grid; gap: 8px; transform: perspective(800px) rotateY(12deg); }
+.visor-motion b { font-size: 26px; font-weight: 400; letter-spacing: -.04em; }
+.visor-motion > span { font-size: 10px; color: var(--visor-dim); letter-spacing: .06em; }
+.visor-motion small { font-size: 10px; margin-top: 7px; color: var(--visor-dim); }
+.visor-wordmark { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); color: #8c9b9f; font-size: 8px; letter-spacing: .3em; text-shadow: none; }
+.visor-wordmark span { color: #d5dfe0; }
+.visor-summary { position: absolute; width: 345px; right: 12%; bottom: 15%; padding: 15px 19px 12px; border: 1px solid var(--visor-line);
+  border-left: 2px solid #8ce3e2a3; border-radius: 2px 17px 2px 14px; background: linear-gradient(118deg, #06222cce, #0c242a82 72%, #09313b6b);
+  box-shadow: 0 0 35px #54deee0b, inset 0 0 24px #7cebfb05; transform: perspective(1000px) rotateY(-11deg) rotateX(3deg);
+  backdrop-filter: blur(5px); }
+.visor-summary::before { content: ''; position: absolute; top: -5px; left: 18px; width: 44px; height: 3px; background: var(--visor); box-shadow: 0 0 10px #8ce3e277; }
+.visor-summary header { display: flex; align-items: center; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--visor-line); }
+.visor-summary header .visor-led { margin-right: 4px; vertical-align: middle; }
+.visor-summary h2 { font-size: 10px; letter-spacing: .18em; font-weight: 500; text-transform: uppercase; }
+#visorSource { margin-left: auto; font-size: 8px; color: var(--visor-dim); letter-spacing: .08em; }
+.visor-decision { padding: 12px 0 8px; }
+#visorDecision { font-size: 14px; font-weight: 600; letter-spacing: .02em; }
+#visorDetail { margin: 5px 0 3px; font-family: var(--sans); font-size: 11px; line-height: 1.5; color: #cae4e1; }
+.visor-metric { position: relative; display: flex; align-items: baseline; justify-content: space-between; padding: 6px 0 13px; margin-bottom: 2px; }
+.visor-metric > span { font-size: 11px; color: #b4d8d6; }
+.visor-metric b { font-size: 20px; font-weight: 400; letter-spacing: -.04em; }
+.visor-bar { position: absolute; left: 0; right: 0; bottom: 5px; height: 3px; background: #94e8e41c; }
+.visor-bar i { display: block; height: 100%; background: var(--visor); box-shadow: 0 0 8px #91f4e741; transition: width .2s; }
+.visor-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 10px 0 9px; border-bottom: 1px solid var(--visor-line); }
+.visor-facts div > span { display: block; font-size: 9px; color: var(--visor-dim); margin-bottom: 5px; }
+.visor-facts b { font-size: 16px; font-weight: 400; }
+.visor-summary footer { padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#visorDataNote { font-size: 8px; line-height: 1.5; max-width: 145px; color: var(--visor-dim); }
+#visorExample { pointer-events: auto; cursor: pointer; font-size: 9px; padding: 6px 8px; border: 1px solid var(--visor-line); border-radius: 3px; color: var(--visor); background: #132e3b55; white-space: nowrap; }
+#visorExample:hover { background: #34777b66; border-color: var(--visor); }
+#hud[data-tone="danger"] { --visor: #ffb47d; --visor-dim: #deb392; --visor-line: #ffb47d50; }
+#hud[data-tone="warning"] { --visor: #ffdb92; --visor-dim: #d0c1a1; --visor-line: #ffdb9245; }
+#hud[data-tone="danger"] .visor-summary { border-left-color: #ffb47d; background: linear-gradient(118deg, #321b19e8, #261c189b); }
+#hud.example .visor-summary { box-shadow: 0 0 35px #ff7b361c; }
+.visor-warning { position: absolute; left: 50%; top: 26%; max-width: 48%; transform: translateX(-50%); padding: 8px 18px; font-size: 12px;
+  letter-spacing: .08em; color: #ffcb91; background: #351b15b3; border-top: 1px solid #ffcb9177; border-bottom: 1px solid #ffcb9144; text-align: center; }
+.visor-help { position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); font-size: 9px; letter-spacing: .02em; color: #b5cece99; white-space: nowrap; }
+
+.visor-motion { padding: 10px 16px; border-left: 1px solid var(--visor-line); background: linear-gradient(90deg, #08202c88, #08202c00); text-shadow: 0 1px 3px #031014, 0 0 10px #9be8e644; }
+.visor-motion > span, .visor-motion small { color: #c1dedc; }

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { App } from '../src/app.js';
 import { Director } from '../src/demo.js';
+import { helmetStatus } from '../src/ui/helmetHud.js';
 import { DeviceView } from '../src/ui/views.js';
 import { t } from '../src/i18n.js';
 import { EvaControls } from '../src/ui/evaControls.js';
@@ -287,4 +288,18 @@ test('urządzenie pokazuje postój podczas pauzy i usuwa cel po nowym wyjściu',
     assert.equal(elements.get('dvTgt').textContent, t('dev.target'));
     assert.equal(elements.get('dvDist').textContent, '—');
   } finally { globalThis.document = saved; }
+});
+
+test('wizjer nadaje pierwszeństwo zagrożeniom i rozróżnia brak pomiaru baterii', () => {
+  const good = { oxygen: 90, battery: 80, reserve: 2, zone: 0, sep: false, offline: false, planned: true };
+  assert.equal(helmetStatus(good).tone, 'normal');
+  assert.equal(helmetStatus({ ...good, battery: null }).tone, 'normal');
+  assert.equal(helmetStatus({ ...good, planned: false }).key, 'visor.ready');
+  assert.equal(helmetStatus({ ...good, oxygen: 18 }).key, 'visor.returnNow');
+  assert.equal(helmetStatus({ ...good, reserve: -0.1 }).key, 'visor.returnNow');
+  assert.equal(helmetStatus({ ...good, battery: 22 }).key, 'visor.lowBattery');
+  assert.equal(helmetStatus({ ...good, zone: 2 }).key, 'hud.nogo');
+  assert.equal(helmetStatus({ ...good, zone: 1 }).tone, 'warning');
+  assert.equal(helmetStatus({ ...good, oxygen: 18, sep: true }).key, 'visor.shelter');
+  assert.equal(helmetStatus({ ...good, oxygen: 18, offline: true }).key, 'visor.offline');
 });

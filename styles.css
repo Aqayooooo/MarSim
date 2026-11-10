@@ -189,23 +189,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 #profile .pf-legend { display: flex; gap: 14px; margin-top: 4px; font: 11px var(--mono); color: var(--text3); }
 #profile .pf-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 
-/* HUD hełmu */
-#hud { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
-#hud .corner { position: absolute; width: 40px; height: 40px; border: 0 solid #fff; }
-#hud .corner.tl { left: 25px; top: 25px; border-left-width: 2px; border-top-width: 2px; }
-#hud .corner.tr { right: 25px; top: 25px; border-right-width: 2px; border-top-width: 2px; }
-#hud .corner.bl { left: 25px; bottom: 80px; border-left-width: 2px; border-bottom-width: 2px; }
-#hud .corner.br { right: 25px; bottom: 80px; border-right-width: 2px; border-bottom-width: 2px; }
-#hud .hl { position: absolute; background: #000; font: 700 16px var(--mono); letter-spacing: .08em; padding: 6px 10px; white-space: nowrap; }
-#hud .hl.tl { left: 40px; top: 40px; }
-#hud .hl.tr { right: 40px; top: 40px; }
-#hud .hl.bl { left: 40px; bottom: 95px; }
-#hud .hl.br { right: 40px; bottom: 95px; }
-.hudmid { position: absolute; left: 50%; top: 40px; transform: translateX(-50%); font: 700 15px var(--mono); background: rgba(0, 0, 0, .55); padding: 5px 12px; white-space: nowrap; }
-.hudwarn { position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); font: 700 20px var(--mono); letter-spacing: .1em; padding: 8px 16px; border: 1px solid #fd4420; color: #fd4420; background: rgba(0, 0, 0, .6); }
-.hudwarn.caution { border-color: #ffbd33; color: #ffbd33; }
-.hudhelp { position: absolute; left: 50%; bottom: 100px; transform: translateX(-50%); font: 13px var(--mono); color: #d8d2c8; background: rgba(0, 0, 0, .5); padding: 4px 10px; }
-
 /* ---------- widoki dokumentów: raport, plan wyjść ---------- */
 .pane { position: absolute; inset: 0; z-index: 3; background: #050200; }
 .pane.doc { overflow: hidden auto; padding: 18px 22px 40px; font-size: 14px; line-height: 1.45; }

@@ -15,11 +15,23 @@ MarSim pokazuje teren z prawdziwych danych NASA i wyznacza bezpieczną trasę pi
 
 Wersja 1.4 zapisuje przebieg EVA i odtwarza go po restarcie w stanie pauzy. Dziennik ma kontrolę integralności i eksport CSV. Interfejs obsługuje powrót do habitatu, profil wysokości trasy, pomoc klawiaturową i sygnalizację utraty połączenia. Poprawiono obsługę błędów sterowania, przeliczanie trasy podczas pauzy i synchronizację sesji między kartami.
 
-Weryfikacja: 271 testów backendu, 20 testów sterowania EVA (w tym pełne przebiegi demo, Mount Sharp i Jezero), trzy testy planera, 318 kluczy tłumaczeń PL/EN oraz kontrola kodu Ruff. Test działającego serwera sprawdził strumień stanu, 360 równoległych zapytań i powrót do habitatu. Kontrola CI obejmuje też gałąź `pages-demo`.
+Weryfikacja: 271 testów backendu, 21 testów sterowania EVA (w tym pełne przebiegi demo, Mount Sharp i Jezero), trzy testy planera, 350 kluczy tłumaczeń PL/EN oraz kontrola kodu Ruff. Test działającego serwera sprawdził strumień stanu, 360 równoległych zapytań i powrót do habitatu. Kontrola CI obejmuje też gałąź `pages-demo`.
 
 Niezależne próby w przeglądarce objęły oba obszary NASA, PL/EN, wersję z backendem i bez niego, widoki 3D, jazdę łazikiem, formularze oraz pełne prezentacje. Naprawiono błędny komunikat marszu podczas pauzy, stary cel na urządzeniu po resecie i utratę zmian wprowadzonych podczas pauzy po restarcie serwera. [Zakres i wynik prób](docs/WERYFIKACJA-UI.md). Docker pozostaje niesprawdzony; nie jest zainstalowany na tym komputerze.
 
 ![Mapa MarSim z warstwą zagrożeń](docs/img/mapa.jpg)
+
+## Demo hełmu 3D
+
+[Otwórz widok astronauty](https://aqayooooo.github.io/MarSim/?view=helmet&lang=pl) albo wybierz **Hełm EV1** w aplikacji. Wnętrze hełmu jest modelem 3D przy kamerze: metalowa rama, uszczelka, mocowania, śruby i dolna osłona. Widok terenu zajmuje szerokość ekranu, a dane wyglądają jak projekcja na szybie wizjera.
+
+Panel w prawym dolnym rogu podsumowuje tlen, energię, ciśnienie i zapas na powrót. Wskazuje najpilniejsze zagrożenie oraz działanie. **Pokaż niedobór** uruchamia oznaczony przykład alarmu z małą ilością tlenu i energii; nie zmienia stanu misji. Bez backendu brakujące pomiary baterii i ciśnienia mają znak „—”.
+
+Sterowanie: przeciągnij myszą, aby się rozejrzeć; W A S D lub strzałki pozwalają poruszać kamerą. To podgląd z perspektywy astronauty, niezależny od ruchu modelowanej EVA. Parametr `?view=helmet` otwiera ten widok od razu. Zdjęcia punktów trasy nadal przedstawiają sam teren, bez wnętrza hełmu.
+
+Sprawdzono w przeglądarce: PL/EN, oba obszary NASA, z backendem i bez, rozglądanie, próbę alarmu i przełączanie mapy, 3D oraz hełmu. Przeszły testy sterowania i komunikatów wizjera oraz tłumaczeń.
+
+![Hełm astronauty: przykład alarmu](docs/img/helm-3d-demo.jpg)
 
 ## Uruchomienie
 

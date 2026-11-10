@@ -1,5 +1,5 @@
 // Start aplikacji: wczytanie danych, złożenie widoków, pętla klatek.
-// Parametry adresu: ?data=ścieżka/do/katalogu, ?api=http://backend (tryb backendu), ?demo (autostart prezentacji), ?lang=en.
+// Parametry adresu: ?view=helmet (widok astronauty), ?data=ścieżka/do/katalogu, ?api=http://backend (tryb backendu), ?demo (autostart prezentacji), ?lang=en.
 // Bez ?data= i bez backendu: domyślna misja z data/missions/index.json (dane NASA + przykładowe dane backendu), inaczej data/demo.
 import { createDataSource, detectBackend } from './data/source.js';
 import { DeviceView, ReportView, ScheduleView, FieldReports, RouteCompare, PathPicker, DriveHud } from './ui/views.js';
@@ -9,9 +9,9 @@ import { Map2D } from './ui/map2d.js';
 import { RouteProfile } from './ui/profile.js';
 import { EvaControls } from './ui/evaControls.js';
 import { Help } from './ui/help.js';
+import { HelmetHud } from './ui/helmetHud.js';
 import { Director } from './demo.js';
 import { $, setHidden } from './core/dom.js';
-import { num } from './core/format.js';
 import { t, lang, setLang, applyStatic } from './i18n.js';
 
 const STAGE_W = 1664, STAGE_H = 744;
@@ -63,6 +63,7 @@ const picker = new PathPicker(app, map);
 const driveHud = new DriveHud(app, () => view3d);
 const profile = new RouteProfile(app);
 const eva = new EvaControls(app, director);
+const helmetHud = new HelmetHud(app);
 const sampleMeta = api === null ? await ds.sample('meta') : null;
 const help = new Help(app, {
   setView: (v) => selectView(v),
@@ -157,6 +158,8 @@ function applyView(v) {
     b.setAttribute('aria-selected', String(on));
   });
   const is3d = VIEWS_3D.includes(v), isMap = v === 'map';
+  stage.classList.toggle('helmet-mode', v === 'helmet');
+  fit();
   $('view3d').classList.toggle('on', is3d);
   $('hud').hidden = v !== 'helmet';
   $('view3dLabel').hidden = v !== 'orbit';
@@ -190,22 +193,6 @@ app.on('waypoint', async ({ wp }) => {
   setTimeout(() => app.setWaypointView(wp.id, view3d.snapshot(wp, heading), wp.view.caption), 240);
 });
 
-// ---------- HUD hełmu ----------
-function updateHud() {
-  const h = view3d.hudInfo(), crew = app.sim.crew[0];
-  $('hudTitle').textContent = `${t('hud.title', { id: crew.id })}${h.timelapse > 1 ? ` · TIMELAPSE ×${h.timelapse}` : ''}`;
-  $('hudHeading').textContent = t('hud.heading', { h: String(h.heading).padStart(3, '0') });
-  $('hudDist').textContent = t('hud.to', { t: h.target, d: Math.round(h.dist) });
-  $('hudSpeed').textContent = `${num(h.speed, h.speed < 10 ? 1 : 0)} KM/H`;
-  const mid = `O<span class="sub2">₂</span> ${Math.round(crew.o2)}% · ${t('hud.slope')} ${Math.round(h.slope)}°`;
-  if ($('hudMid').innerHTML !== mid) $('hudMid').innerHTML = mid;
-  const warn = $('hudWarn');
-  const message = h.warn || (h.zone === 2 ? t('hud.nogo') : h.zone === 1 ? t('hud.caution') : null);
-  warn.hidden = !message;
-  if (message) { warn.textContent = message; warn.classList.toggle('caution', !h.warn && h.zone === 1); }
-  $('hudHelp').hidden = h.timelapse > 1;
-}
-
 // ---------- pętla klatek ----------
 let last = performance.now();
 function frame(now) {
@@ -214,7 +201,7 @@ function frame(now) {
   app.update(dt);
   const v = app.state.view;
   if (v === 'map') map.render(dt);
-  else if (VIEWS_3D.includes(v) && view3d) { view3d.render(dt); if (v === 'helmet') updateHud(); }
+  else if (VIEWS_3D.includes(v) && view3d) { view3d.render(dt); if (v === 'helmet') helmetHud.update(view3d.hudInfo()); }
   if (app.drive) driveHud.update();
   else if (v === 'device') device.update();
   panels.update();
@@ -224,5 +211,6 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-applyView('map');
+if (query.get('view') === 'helmet') app.setView('helmet');
+else applyView('map');
 if (query.has('demo')) director.play();

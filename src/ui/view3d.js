@@ -7,6 +7,7 @@ import { MAIN_W, MAIN_H } from './map2d.js';
 import { headingDeg } from '../core/path.js';
 import { t as tr } from '../i18n.js';
 import { makeRocks, mulberry } from '../core/rocks.js';
+import { HelmetInterior } from './helmetInterior.js';
 
 const EX_ORBIT = 10, EYE = 1.7, FOV = 45;
 const OCHRE = new THREE.Color(1.55, 0.98, 0.66);
@@ -33,6 +34,8 @@ export class View3D {
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(FOV, MAIN_W / MAIN_H, 0.2, 40000);
+    this.interior = new HelmetInterior(this.camera);
+    this.scene.add(this.camera);
     this.world = new THREE.Group();          // skalowana w pionie przez przewyższenie
     this.scene.add(this.world);
     this.markers = new THREE.Group();
@@ -265,11 +268,13 @@ export class View3D {
   setMode(mode, { keepCamera = true } = {}) {
     const first = this.mode !== mode || !keepCamera;
     this.mode = mode;
+    if (mode !== 'helmet') this.helmet.keys.clear();
     this.ex = this.#exFor(mode);
     if (mode === 'drive') this.camYaw = undefined;
     this.#applyMode();
     if (mode === 'orbit' && first && !this.flight) this.#defaultOrbit();
     if (mode === 'helmet' && first && !this.helmet.auto) this.#placeHelmetAtCrew();
+    this.resize(this.renderScale ?? 1);
   }
 
   #applyMode() {
@@ -282,7 +287,9 @@ export class View3D {
     (this.driveOrbit || []).forEach((m) => (m.visible = !ground));
     (this.driveNear || []).forEach((m) => (m.visible = ground));
     this.controls.enabled = !ground && !this.flight;
-    this.camera.near = ground ? 0.1 : 2;
+    this.camera.fov = this.mode === 'helmet' ? 64 : FOV;
+    this.camera.near = this.mode === 'helmet' ? .05 : ground ? .1 : 2;
+    this.interior.setVisible(this.mode === 'helmet');
     this.camera.updateProjectionMatrix();
     if (this.rockMesh) this.#placeRocks();
     this.#placeMarkers();
@@ -391,7 +398,7 @@ export class View3D {
     el.addEventListener('wheel', (e) => { if (this.mode !== 'drive') return; e.preventDefault(); c.dist = Math.max(7, Math.min(150, c.dist * (e.deltaY > 0 ? 1.12 : 1 / 1.12))); }, { passive: false });
     addEventListener('keydown', (e) => { if (this.mode === 'drive' && e.code === 'KeyC' && !e.target.closest?.('input,select,textarea')) this.toggleCabin(); });
     const keys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'];
-    addEventListener('keydown', (e) => { if (this.mode === 'helmet' && keys.includes(e.code)) { h.keys.add(e.code); h.auto = null; e.preventDefault(); } });
+    addEventListener('keydown', (e) => { if (this.app.state.view === 'helmet' && !e.target.closest?.('input,select,textarea,[contenteditable],[role="dialog"]') && keys.includes(e.code)) { h.keys.add(e.code); h.auto = null; e.preventDefault(); } });
     addEventListener('keyup', (e) => h.keys.delete(e.code));
     addEventListener('blur', () => h.keys.clear());
   }
@@ -486,7 +493,7 @@ export class View3D {
       const idx = wps.findIndex((_, i) => Math.abs(app.state.route.wpS[i] - h.auto.toS) < 1);
       target = wps[idx]?.id || 'CEL'; dist = Math.abs(h.auto.s - h.auto.toS);
     } else {
-      const wp = wps[Math.min(app.sim.nextWp, wps.length - 1)];
+      const wp = app.navTarget();
       target = wp.id; dist = Math.hypot(wp.x - h.x, wp.y - h.y);
     }
     const haz = app.world.rasters.hazards.sample(h.x, h.y);
@@ -507,6 +514,7 @@ export class View3D {
     this.renderer.setPixelRatio(1);
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+    this.interior.setVisible(false);
     this.renderer.render(this.scene, this.camera);
     const url = this.renderer.domElement.toDataURL('image/jpeg', 0.88);
     this.renderer.setPixelRatio(pr);
@@ -520,11 +528,15 @@ export class View3D {
   }
 
   resize(scale) {
-    const dpr = window.devicePixelRatio || 1;
-    this.renderer.setPixelRatio(dpr);
-    this.renderer.setSize(Math.round(MAIN_W * scale), Math.round(MAIN_H * scale), false);
-    this.camera.aspect = MAIN_W / MAIN_H;
+    this.renderScale = scale;
+    const w = this.el.clientWidth || MAIN_W, h = this.el.clientHeight || MAIN_H;
+    this.renderer.domElement.style.width = `${w}px`;
+    this.renderer.domElement.style.height = `${h}px`;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setSize(Math.round(w * scale), Math.round(h * scale), false);
+    this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.interior.resize();
   }
 
   render(dt) {

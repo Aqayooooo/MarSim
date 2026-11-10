@@ -9,6 +9,7 @@
 <!-- wszystko lokalnie (vendor/), działa bez internetu -->
 <link rel="stylesheet" href="vendor/fonts/fonts.css">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="src/ui/helmet.css">
 <script type="importmap">
 { "imports": {
   "three": "./vendor/three/three.module.js",
@@ -52,16 +53,7 @@
   <main id="main" tabindex="-1">
     <canvas id="map" role="img" data-i18n-aria="map.aria" aria-label="Mapa obszaru EVA"></canvas>
     <div id="view3d"></div>
-    <div id="hud" hidden>
-      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
-      <div class="hl tl" id="hudTitle"></div>
-      <div class="hl tr" id="hudHeading"></div>
-      <div class="hl bl" id="hudDist"></div>
-      <div class="hl br" id="hudSpeed"></div>
-      <div class="hudmid" id="hudMid"></div>
-      <div class="hudwarn" id="hudWarn" role="alert" hidden></div>
-      <div class="hudhelp" id="hudHelp" data-i18n="hud.help">W A S D — chodzenie · przeciągnij — rozglądanie · Shift — szybciej</div>
-    </div>
+    <div id="hud" hidden></div>
     <div id="net" role="status" hidden><span class="dot"></span><span data-i18n="net.down">Brak połączenia z serwerem — ponawiam…</span></div>
     <div id="locLabel" class="maplabel"></div>
     <div id="view3dLabel" class="maplabel" hidden></div>
