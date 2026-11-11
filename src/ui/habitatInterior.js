@@ -365,8 +365,8 @@ export function buildInterior() {
   place(screens.lights, HULL.x1 - 0.012, FLOOR + 1.3, 0.95, -Math.PI / 2);
   place(screens.outer, AIRLOCK.x1 + 0.012, FLOOR + 1.45, -0.95, Math.PI / 2);
   place(screens.green, G.x, FLOOR + 1.45, G.z1 - 0.05, Math.PI);
-  place(screens.map, hx1 - 0.012, FLOOR + 1.35, -1.4, -Math.PI / 2);
-  add(new THREE.BoxGeometry(0.03, 0.85, 1.3), M.dark, hx1 - 0.002, FLOOR + 1.35, -1.4);
+  place(screens.map, hx1 - 0.03, FLOOR + 1.35, -1.4, -Math.PI / 2);
+  add(new THREE.BoxGeometry(0.02, 0.85, 1.3), M.dark, hx1 - 0.01, FLOOR + 1.35, -1.4);   // ramka za ekranem (ekran 1 cm przed nią)
   place(screens.gym, tm.x1 - 0.1, FLOOR + 1.3, (tm.z0 + tm.z1) / 2, -Math.PI / 2, 0);
   place(screens.water, (wr.x0 + wr.x1) / 2, FLOOR + 1.45, wr.z1 + 0.012, 0);
   place(screens.lab, lx1 - 0.012, FLOOR + 1.3, -5.8, -Math.PI / 2);
