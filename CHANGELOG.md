@@ -4,6 +4,10 @@ Najnowsze na górze. Daty z commitów na gałęzi `pages-demo`, z której publik
 
 ## Niewydane
 
+- **Większa baza.** Za modułem dziennym jest hala z łukowym dachem. Mieści węzeł z mesą (stół, magazyn, szafki, zbiorniki wody, ekran z planem bazy) oraz korytarz sypialni. Przy korytarzu są 4 kajuty (łóżko, biurko z ekranem, lampka), łazienka (toaleta, umywalka, prysznic, odzysk wody) i siłownia (bieżnia z uprzężą, rower). Z węzła prowadzą przejścia do laboratorium (stoły, mikroskop, komora rękawicowa, próbki, łóżko medyczne) i do większej szklarni. Moduł dzienny ma kanapę pod drugim oknem i apteczkę.
+- Nowe stanowiska (**E**): plan bazy z oznaczeniem „tu jesteś” i trybem nocnym, lampki w kajutach, bieżnia, odzysk wody, analiza próbek z punktów EVA (wysokość, nachylenie, minerały, piasek z warstw misji) i badanie załogi. Model bazy liczy też wodę (zbiornik 400 l, odzysk 93%), a panel Habitat pokazuje jej stan.
+- **Poprawki wyglądu:** wnętrze ma własną scenę i własne lampy, więc słońce nie przenika już przez cienkie ściany i nie ma pasków cieni. Połączenia modułów mają prawdziwe otwory w skorupie: przejście ze szklarni nie jest już zasłonięte. Hełm rysuje się na końcu i nie przecina ścian.
+- Poprawka: kamera orbitalna i kamera jazdy znowu się aktualizują, gdy w misji jest habitat (błąd w kolejności kroków renderowania).
 - Hełm jak w grze: sterowanie myszą po kliknięciu widoku (Esc zwalnia), płynne ruszanie i hamowanie, ślizg wzdłuż przeszkód, kołysanie kroku. Tempo marszu ×1…×32 (kółko myszy, + −), bieg Shift (×3), skok spacją w grawitacji Marsa. Tempo widać na wizjerze.
 - Jazda łazikiem pod **F** w hełmie: napęd i skręt jak w samochodzie, obrót w miejscu, przechył na terenie, kolizje. Kamera z trzeciej osoby na widocznym, obrotowym i wysuwanym wysięgniku na dachu. C przełącza na kamerę kabinową, a do sterowania służą wskaźniki jazdy i przyciski dotykowe.
 - Dokładniejszy model łazika wzorowany na koncepcji NASA SEV (wymiary, 12 kół, śluzy z przypiętymi skafandrami, okna, radiator). Doszły kolizje z habitatem i łazikiem przy chodzeniu oraz poprawki migotania i cieni przy habitacie, a marsz przyspieszył do 2 m/s.

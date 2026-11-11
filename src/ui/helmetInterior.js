@@ -25,11 +25,12 @@ function rim(outer, inner, material, depth, z = 0) {
 }
 
 export class HelmetInterior {
-  constructor(camera) {
+  /** parent: grupa, która co klatkę przyjmuje położenie kamery (domyślnie sama kamera). */
+  constructor(camera, parent = camera) {
     this.camera = camera;
     this.group = new THREE.Group();
     this.group.visible = false;
-    camera.add(this.group);
+    parent.add(this.group);
     const metal = new THREE.MeshStandardMaterial({ color: '#36434a', metalness: .78, roughness: .37, fog: false });
     const rubber = new THREE.MeshStandardMaterial({ color: '#080e12', metalness: .1, roughness: .88, fog: false });
     const edge = new THREE.MeshStandardMaterial({ color: '#687b82', metalness: .88, roughness: .3, fog: false });

@@ -126,6 +126,8 @@ export class Panels {
     bar('hsO2Bar', h.o2Pct);
     setText($('hsBat'), `${int(h.batteryPct)}%`);
     setText($('hsO2'), `${int(h.o2Kg)} kg`);
+    bar('hsWaterBar', h.waterPct);
+    setText($('hsWater'), `${int(h.waterL)} l`);
     const note = h.shed ? t('hab.p.shed') : t('hab.p.note', { s: num(ls.solarKw, 1), l: num(ls.loadKw, 1) });
     setText($('hsNote'), note);
     setClass($('hsNote'), 'warn', h.shed);

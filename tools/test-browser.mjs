@@ -199,7 +199,7 @@ test('łazik: F przy łaziku — wsiadanie, jazda W/D, kamera na wysięgniku, ka
   await context.close();
 });
 
-test('habitat: z rampy do śluzy, cykl ciśnienia klawiszem E, wejście do modułu bez hełmu', async () => {
+test('habitat: z rampy do śluzy, cykl ciśnienia klawiszem E, moduł bez hełmu, węzeł i korytarz sypialni', async () => {
   const { page, context, errors } = await openApp(browser, `${staticUrl}?view=helmet`);
   await page.waitForFunction(() => window.marsim.view3d?.hab, null, { timeout: LOAD_MS });
   // na rampie, przodem do drzwi śluzy (−x w układzie habitatu)
@@ -222,6 +222,11 @@ test('habitat: z rampy do śluzy, cykl ciśnienia klawiszem E, wejście do modu�
   const s = await page.evaluate(() => { const v = window.marsim.view3d; return { off: v.hab.helmetOff, rim: v.interior.group.visible, hud: document.getElementById('hud').hidden }; });
   assert.deepEqual(s, { off: true, rim: false, hud: true }, 'w module hełm zdjęty, wizjer schowany');
   assert.equal(await page.evaluate(() => window.marsim.app.phase), 'idle', 'E w habitacie nie startuje EVA bez stanowiska skafandrów');
+  // dalej prosto: przez węzeł z mesą do korytarza sypialni
+  await page.keyboard.down('KeyW');
+  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'corridor', null, { timeout: LOAD_MS });
+  await page.keyboard.up('KeyW');
+  assert.ok(await page.evaluate(() => window.local().x < -10), 'korytarz sypialni za węzłem');
   assert.deepEqual(errors, []);
   await context.close();
 });

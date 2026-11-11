@@ -27,7 +27,7 @@ export function makeRocks({ W, H, hazards, boulders, keepClear = [] }) {
 
 /** Miejsca wokół habitatu i postoju łazika, gdzie nie ma losowych kamieni (te same w 3D i w planerze jazdy). */
 export function clearings(mission) {
-  return [mission.habitat && { x: mission.habitat.x, y: mission.habitat.y, r: 16 }, mission.rover && { x: mission.rover.x, y: mission.rover.y, r: 6 }].filter(Boolean);
+  return [mission.habitat && { x: mission.habitat.x, y: mission.habitat.y, r: 24 }, mission.rover && { x: mission.rover.x, y: mission.rover.y, r: 6 }].filter(Boolean);
 }
 
 /** Najmniejszy odstęp (m) między linią a krawędzią kamienia; do sprawdzania trasy łazika. */

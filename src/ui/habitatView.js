@@ -1,35 +1,47 @@
-// Działający habitat w widoku z hełmu: wnętrze 3D, śluza z cyklem ciśnienia, stanowiska pod klawiszem E,
-// oświetlenie, ekrany z danymi misji i model podtrzymywania życia. Reguły w core/habitat.js, geometria w habitatInterior.js.
+// Działająca baza w widoku z hełmu: wnętrze 3D we własnej scenie (własne światła, bez słońca przez ściany), śluza z cyklem
+// ciśnienia, stanowiska pod klawiszem E, oświetlenie, ekrany z danymi misji i model podtrzymywania życia.
+// Reguły w core/habitat.js, geometria w habitatInterior.js.
+import * as THREE from 'three';
 import {
-  Airlock, LOADS_KW, CABIN_KPA, floorAt, canStand, lifeSupport, stationAt, toLocal, zoneAt,
+  AIRLOCK, Airlock, CABIN_KPA, GREEN, HALL, HULL, LAB, LOADS_KW, ROOMS, WATER_TANK_L, canStand, floorAt, lifeSupport, stationAt, toLocal, zoneAt,
 } from '../core/habitat.js';
 import { buildInterior } from './habitatInterior.js';
 import { habitatEnv } from '../core/environment.js';
 import { num, int, clock, hm } from '../core/format.js';
-import { t } from '../i18n.js';
+import { t, tx } from '../i18n.js';
 
-const SCREEN_EVERY_S = 0.25, NEAR_M = 30, CONSOLE_PAGES = 3;
+const SCREEN_EVERY_S = 0.25, CONSOLE_PAGES = 3;
 const DOOR_SLIDE = 0.92;
 const C = { bg: '#0b1116', line: '#20323b', text: '#d8f3f2', dim: '#78a5a6', ok: '#5ee6a0', warn: '#ffd166', bad: '#ff7b6b', accent: '#68dee0', grow: '#ff8ce8' };
+const CABINS = ROOMS.filter((r) => r.id.startsWith('cabin'));
+const CREW_NAMES = ['IV1', 'IV2'];   // załoga zostająca w bazie (EV1, EV2 — z misji)
 
 export class HabitatView {
-  /** mesh: grupa modelu habitatu (pozycja i obrót ustawia widok 3D). */
+  /** mesh: grupa modelu bazy (pozycja i obrót ustawia widok 3D). */
   constructor(app, mesh) {
     this.app = app;
     this.mesh = mesh;
     this.airlock = new Airlock();
     this.parts = buildInterior();
-    mesh.add(this.parts.group);
+    this.scene = new THREE.Scene();   // wnętrze rysowane osobno, oświetlone tylko lampami bazy
+    this.scene.add(new THREE.HemisphereLight(0xfff4e6, 0x3a332c, 0.55));
+    this.scene.add(this.parts.group);
+    this.cabinLamps = Object.fromEntries(CABINS.map((r) => [r.id, true]));
+    this.night = false;
     this.page = 0;
+    this.analyzed = [];
+    this.medAt = null;
     this.flash = null;
     this.screenT = 0;
     this.zone = null;
     this.station = null;
-    app.on('reset', () => { this.airlock.reset(); this.flash = null; });
+    this.local = { x: 99, z: 0 };
+    this.dir = { x: 1, z: 0 };
+    app.on('reset', () => { this.airlock.reset(); this.flash = null; this.analyzed = []; this.medAt = null; });
   }
 
   get hab() { return this.app.m.habitat; }
-  /** Przełączniki habitatu — wspólne z modelem w czasie misji (app.habitat). */
+  /** Przełączniki bazy — wspólne z modelem w czasie misji (app.habitat). */
   get systems() { return this.app.habitat.systems; }
   get angle() { return this.mesh.rotation.y; }
   #local(x, y) { return toLocal(x, y, this.hab.x, this.hab.y, this.angle); }
@@ -37,22 +49,26 @@ export class HabitatView {
   /** Strefa wnętrza w punkcie planu (null = na zewnątrz). */
   zoneAtPlan(x, y) { const l = this.#local(x, y); return zoneAt(l.x, l.z, this.airlock.gates); }
   canStandPlan(x, y) { const l = this.#local(x, y); return canStand(l.x, l.z, this.airlock.gates); }
-  /** Podłoga w punkcie planu: { h: nad podstawą habitatu, k: udział gruntu } albo null (zwykły grunt). */
+  /** Podłoga w punkcie planu: { h: nad podstawą bazy, k: udział gruntu } albo null (zwykły grunt). */
   floorAtPlan(x, y) { const l = this.#local(x, y); return floorAt(l.x, l.z, this.airlock.gates); }
 
   /** Pod dachem i z ciśnieniem kabiny — hełm zdjęty. */
   get helmetOff() {
     const z = this.zone?.id;
-    return z === 'module' || z === 'greenhouse' || z === 'innerDoor' || (z === 'airlock' && this.airlock.pressure > 0.95 && this.airlock.outer < 0.05);
+    if (!z || z === 'ramp' || z === 'outerDoor') return false;
+    if (z === 'airlock') return this.airlock.pressure > 0.95 && this.airlock.outer < 0.05;
+    return true;
   }
   get indoors() { return !!this.zone?.inside; }
 
-  /** Stan habitatu po ruchu postaci: strefa i stanowisko w zasięgu (yaw — kierunek patrzenia). */
+  /** Stan bazy po ruchu postaci: strefa i stanowisko w zasięgu (yaw — kierunek patrzenia). */
   track(x, y, yawDeg) {
     this.zone = this.zoneAtPlan(x, y);
     const l = this.#local(x, y), a = yawDeg * Math.PI / 180, dx = Math.sin(a), dy = -Math.cos(a);
     const c = Math.cos(this.angle), s = Math.sin(this.angle);
-    this.station = stationAt(l.x, l.z, dx * c - dy * s, dx * s + dy * c, this.indoors);
+    this.local = l;
+    this.dir = { x: dx * c - dy * s, z: dx * s + dy * c };
+    this.station = stationAt(l.x, l.z, this.dir.x, this.dir.z, this.zone?.id ?? null);
     this.dist = Math.hypot(x - this.hab.x, y - this.hab.y);
   }
 
@@ -76,11 +92,19 @@ export class HabitatView {
       case 'console': this.page = (this.page + 1) % CONSOLE_PAGES; this.#say(`hab.page${this.page}`); break;
       case 'life': this.#toggle('moxie', 'hab.moxieOn', 'hab.moxieOff'); break;
       case 'greenhouse': this.#toggle('grow', 'hab.growOn', 'hab.growOff'); break;
+      case 'gym': this.#toggle('treadmill', 'hab.gymOn', 'hab.gymOff'); break;
+      case 'water': this.#toggle('wrs', 'hab.wrsOn', 'hab.wrsOff'); break;
+      case 'map': this.night = !this.night; this.#say(this.night ? 'hab.nightOn' : 'hab.nightOff'); break;
+      case 'lab': this.analyzed = this.#samples(); this.#say(this.analyzed.length ? 'hab.labDone' : 'hab.labEmpty', { n: this.analyzed.length }); break;
+      case 'med': this.medAt = this.app.sim.min; this.#say('hab.medDone'); break;
       case 'suits':
         if (this.app.phase === 'idle' && !this.app.drive) { this.#say('hab.suitUp'); this.app.emit('hab-suitup'); }
         else this.#say('hab.evaBusy');
         break;
-      default: return false;
+      default:
+        if (!(s.id in this.cabinLamps)) return false;
+        this.cabinLamps[s.id] = !this.cabinLamps[s.id];
+        this.#say(this.cabinLamps[s.id] ? 'hab.lampOn' : 'hab.lampOff');
     }
     this.screenT = SCREEN_EVERY_S;   // ekrany od razu pokazują zmianę
     return true;
@@ -93,25 +117,30 @@ export class HabitatView {
 
   /** Napis akcji dla stanowiska w zasięgu (podpowiedź „E — …”). */
   prompt() {
-    const s = this.station, a = this.airlock;
+    const s = this.station, a = this.airlock, sys = this.systems;
     if (!s) return null;
     const act = {
       outerPanel: a.busy ? 'hab.act.wait' : a.state === 'in' ? 'hab.act.callAirlock' : 'hab.act.enter',
       airlockPanel: a.busy ? 'hab.act.wait' : a.state === 'out' ? 'hab.act.pressurize' : 'hab.act.depressurize',
       hatchPanel: a.busy ? 'hab.act.wait' : a.state === 'out' ? 'hab.act.pressurize' : 'hab.act.enterAirlock',
-      lights: this.systems.lights ? 'hab.act.lightsOff' : 'hab.act.lightsOn',
+      lights: sys.lights ? 'hab.act.lightsOff' : 'hab.act.lightsOn',
       console: 'hab.act.page',
-      life: this.systems.moxie ? 'hab.act.moxieOff' : 'hab.act.moxieOn',
-      greenhouse: this.systems.grow ? 'hab.act.growOff' : 'hab.act.growOn',
+      life: sys.moxie ? 'hab.act.moxieOff' : 'hab.act.moxieOn',
+      greenhouse: sys.grow ? 'hab.act.growOff' : 'hab.act.growOn',
+      gym: sys.treadmill ? 'hab.act.gymOff' : 'hab.act.gymOn',
+      water: sys.wrs ? 'hab.act.wrsOff' : 'hab.act.wrsOn',
+      map: this.night ? 'hab.act.dayMode' : 'hab.act.nightMode',
+      lab: 'hab.act.analyze',
+      med: 'hab.act.checkup',
       suits: this.app.phase === 'idle' && !this.app.drive ? 'hab.act.suitUp' : 'hab.act.suits',
-    }[s.id];
+    }[s.id] ?? (this.cabinLamps[s.id] ? 'hab.act.lampOff' : 'hab.act.lampOn');
     return t('hab.prompt', { s: t(`hab.st.${s.id}`), a: t(act) });
   }
 
-  /** Bieżący bilans habitatu (liczony w App z zegarem misji). */
+  /** Bieżący bilans bazy (liczony w App z zegarem misji). */
   lifeSupport() { return this.app.habitat.now ?? lifeSupport({ ...habitatEnv(this.app), ...this.systems, pumping: false }); }
 
-  /** Dane dla wskaźników habitatu (ui/habHud.js). */
+  /** Dane dla wskaźników bazy (ui/habHud.js). */
   info() {
     const a = this.airlock, z = this.zone?.id ?? 'ramp';
     const flash = this.flash && performance.now() - this.flash.t < 2600 ? this.flash.text : null;
@@ -121,40 +150,150 @@ export class HabitatView {
     return { zone: t(`hab.zone.${z}`), status, prompt: this.prompt(), flash, helmetOff: this.helmetOff, cycling: a.busy, progress: a.progress };
   }
 
-  /** Krok: śluza, drzwi, światła, ekrany. */
+  /** Krok: śluza, drzwi, światła, ekrany; near — postać blisko bazy (wnętrze warto rysować). */
   step(dt, near) {
-    const a = this.airlock, p = this.parts;
+    const a = this.airlock, p = this.parts, sys = this.systems;
     a.step(dt);
     this.app.habitat.pumping = a.stage === 'pump';
+    p.group.position.copy(this.mesh.position);
+    p.group.rotation.copy(this.mesh.rotation);
+    p.group.visible = this.mesh.visible;
     p.doors.inner.position.z = -a.inner * DOOR_SLIDE;
     p.doors.outer.position.z = -a.outer * DOOR_SLIDE;
-    const inside = this.indoors && this.zone?.id !== 'ramp';
-    const on = this.systems.lights;
-    for (const l of p.lamps) l.intensity = on && near ? 4.5 : 0;
-    p.strips.emissiveIntensity = on ? 1.4 : 0.05;
-    p.grow.emissiveIntensity = this.systems.grow ? 1.6 : 0.05;
-    p.growLight.intensity = this.systems.grow && near ? 3 : 0;
+    const main = sys.lights ? (this.night ? 0.3 : 1) : 0.03;
+    const cabinLights = new Map(Object.entries(p.cabins).map(([k, c]) => [c.light, k]));
+    for (const e of p.lights) {
+      const cabin = cabinLights.get(e);
+      e.light.intensity = !near ? 0 : cabin ? (this.cabinLamps[cabin] ? e.base : 0) : e.base * main;
+    }
+    for (const [k, c] of Object.entries(p.cabins)) c.bulb.emissiveIntensity = this.cabinLamps[k] ? 1.6 : 0;
+    p.strips.emissiveIntensity = 1.4 * main + 0.04;
+    p.grow.emissiveIntensity = sys.grow ? 1.6 : 0.05;
+    p.growLight.intensity = sys.grow && near ? 3 : 0;
+    if (sys.treadmill) p.belt.offset.y -= dt * 1.8;
     const col = a.busy ? 0xffb020 : a.state === 'in' ? 0x40ff80 : 0xff5040;   // zielone: kabina, czerwone: próżnia
     for (const lamp of [p.airLamp, p.outLamp]) { lamp.material.color.setHex(col); lamp.material.emissive.setHex(col); }
     p.airLight.color.setHex(col);
     p.airLight.intensity = near ? 1.4 : 0;
+    this.scene.children[0].intensity = 0.15 + 0.4 * main;
     this.screenT += dt;
     if (near && this.screenT >= SCREEN_EVERY_S) { this.screenT = 0; this.#drawScreens(); }
-    return inside;
+    return this.indoors && this.zone?.id !== 'ramp';
+  }
+
+  /** Próbki z punktów osiągniętych w czasie EVA: odczyt warstw misji w tych miejscach. */
+  #samples() {
+    const app = this.app, w = app.world, wps = app.m.waypoints;
+    return app.sim.reached.filter((id) => id !== 'HAB').map((id) => {
+      const wp = wps.find((p) => p.id === id);
+      if (!wp) return null;
+      const cls = w.rasters.minerals?.meta?.classes?.[w.rasters.minerals.sample(wp.x, wp.y)];
+      return {
+        id, elev: w.terrain.height(wp.x, wp.y) + w.terrain.minH, slope: w.terrain.slope(wp.x, wp.y),
+        mineral: cls ? tx(cls.text) : t('hab.lab.none'), sand: w.rasters.sand ? w.rasters.sand.sample(wp.x, wp.y) / 2.55 : null,
+      };
+    }).filter(Boolean);
   }
 
   // ---------- ekrany ----------
   #drawScreens() {
-    const s = this.parts.screens, ls = this.lifeSupport();
+    const s = this.parts.screens, ls = this.lifeSupport(), sys = this.systems;
     s.console.draw((g, w, h) => this.#console(g, w, h, ls));
     s.life.draw((g, w, h) => this.#life(g, w, h, ls));
     for (const k of ['airlock', 'hatch', 'outer']) s[k].draw((g, w, h) => this.#airlockScreen(g, w, h));
     s.green.draw((g, w, h) => this.#green(g, w, h, ls));
     s.lights.draw((g, w, h) => {
-      frame(g, w, h, this.systems.lights ? C.warn : C.dim);
-      g.fillStyle = this.systems.lights ? C.warn : C.dim; g.font = '700 64px sans-serif'; g.textAlign = 'center';
-      g.fillText(this.systems.lights ? 'ON' : 'OFF', w / 2, h / 2 + 22);
+      frame(g, w, h, sys.lights ? C.warn : C.dim);
+      g.fillStyle = sys.lights ? C.warn : C.dim; g.font = '700 64px sans-serif'; g.textAlign = 'center';
+      g.fillText(sys.lights ? 'ON' : 'OFF', w / 2, h / 2 + 22);
     });
+    s.map.draw((g, w, h) => this.#map(g, w, h));
+    s.gym.draw((g, w, h) => {
+      frame(g, w, h, sys.treadmill ? C.ok : C.dim);
+      title(g, t('hab.st.gym'));
+      table(g, [[t('hab.gym.belt'), sys.treadmill ? 'ON · 6 km/h' : 'OFF'], [t('hab.gym.load'), sys.treadmill ? `+${num(LOADS_KW.treadmill, 1)} kW` : '—'], [t('hab.gym.goal'), '2 h / sol']], 70, w, 50);
+    });
+    s.water.draw((g, w, h) => {
+      const hs = this.app.habitat;
+      frame(g, w, h, sys.wrs ? C.accent : C.warn);
+      title(g, t('hab.st.water'));
+      table(g, [
+        [t('hab.w.tank'), `${int(hs.waterL)} / ${WATER_TANK_L} l`, hs.waterPct / 100],
+        [t('hab.w.wrs'), sys.wrs ? 'ON · 93%' : 'OFF'],
+        [t('hab.w.balance'), `${num(ls.waterLh, 2)} l/h`],
+      ], 66, w, 54);
+    });
+    s.lab.draw((g, w, h) => this.#lab(g, w, h));
+    s.med.draw((g, w, h) => this.#med(g, w, h));
+    CABINS.forEach((r, k) => s[r.id].draw((g, w, h) => {
+      const who = this.app.sim.crew[k]?.id ?? CREW_NAMES[k - this.app.sim.crew.length] ?? '—';
+      frame(g, w, h, this.cabinLamps[r.id] ? C.warn : C.dim);
+      g.fillStyle = C.text; g.font = '700 30px sans-serif'; g.fillText(`${t(`hab.st.${r.id}`)}`, 16, 44);
+      g.fillStyle = C.accent; g.font = '600 26px sans-serif'; g.fillText(who, 16, 86);
+      g.fillStyle = C.dim; g.font = '20px sans-serif'; g.fillText(`${clock(this.app.sim.min)} LTST · ${t('hab.cab.sleep')}`, 16, 130);
+      g.fillText(`${t('hab.cab.lamp')} ${this.cabinLamps[r.id] ? 'ON' : 'OFF'}`, 16, 168);
+    }));
+  }
+
+  #map(g, w, h) {
+    frame(g, w, h, C.accent);
+    title(g, t('hab.st.map'));
+    const X0 = -21, X1 = 11, Z0 = -10, Z1 = 12, k = Math.min((w - 40) / (X1 - X0), (h - 80) / (Z1 - Z0));
+    const px = (x) => 20 + (x - X0) * k, pz = (z) => 62 + (Z1 - z) * k;   // północ (+z) u góry
+    const rect = (x0, x1, z0, z1, fill) => { g.fillStyle = fill; g.fillRect(px(x0), pz(z1), (x1 - x0) * k, (z1 - z0) * k); g.strokeRect(px(x0), pz(z1), (x1 - x0) * k, (z1 - z0) * k); };
+    g.strokeStyle = C.dim; g.lineWidth = 1.5;
+    rect(HULL.x0, HULL.x1, -HULL.r, HULL.r, '#16303a');
+    rect(AIRLOCK.x0, AIRLOCK.x1, -AIRLOCK.z, AIRLOCK.z, '#2a2a16');
+    rect(HALL.x0, HALL.partition, -HALL.z, HALL.z, '#1d2440');
+    rect(HALL.partition, HALL.x1, -HALL.z, HALL.z, '#16303a');
+    rect(LAB.x0, LAB.x1, LAB.z0, LAB.z1, '#1d3a2c');
+    rect(GREEN.x - GREEN.r, GREEN.x + GREEN.r, GREEN.z0, GREEN.z1 + GREEN.r, '#3a1d36');
+    for (const r of ROOMS) rect(r.x0, r.x1, r.z0, r.z1, 'rgba(255,255,255,.04)');
+    g.fillStyle = C.text; g.font = '15px sans-serif'; g.textAlign = 'center';
+    const label = (key, x, z) => g.fillText(t(key), px(x), pz(z) + 5);
+    label('hab.zone.module', 0, 0); label('hab.zone.airlock', 5.9, 0); label('hab.zone.hub', -7.3, 0.6); label('hab.zone.corridor', -15, 0);
+    label('hab.zone.lab', -7.25, -6); label('hab.zone.greenhouse', -7.25, 7);
+    for (const r of ROOMS) label(`hab.zone.${r.id}`, (r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2);
+    const me = this.local;
+    if (me.x > -22 && me.x < 12 && me.z > -11 && me.z < 13) {
+      g.fillStyle = C.warn; g.beginPath(); g.arc(px(me.x), pz(me.z), 7, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = C.warn; g.lineWidth = 3; g.beginPath(); g.moveTo(px(me.x), pz(me.z)); g.lineTo(px(me.x + this.dir.x * 1.5), pz(me.z + this.dir.z * 1.5)); g.stroke();
+    }
+    g.textAlign = 'left'; g.fillStyle = C.dim; g.font = '15px sans-serif';
+    g.fillText(t(this.night ? 'hab.map.night' : 'hab.map.day'), 18, h - 14);
+  }
+
+  #lab(g, w, h) {
+    frame(g, w, h, C.ok);
+    title(g, t('hab.st.lab'));
+    const list = this.analyzed;
+    if (!list.length) {
+      g.fillStyle = C.dim; g.font = '22px sans-serif';
+      g.fillText(t(this.#samples().length ? 'hab.lab.pending' : 'hab.lab.collect'), 18, 110);
+      return;
+    }
+    g.font = '18px sans-serif';
+    list.slice(0, 6).forEach((s, i) => {
+      const y = 92 + i * 48;
+      g.fillStyle = C.accent; g.font = '700 20px sans-serif'; g.fillText(s.id, 18, y);
+      g.fillStyle = C.text; g.font = '18px sans-serif';
+      g.fillText(`${int(s.elev)} m · ${num(s.slope, 0)}° · ${s.sand == null ? '' : `${t('hab.lab.sand')} ${int(s.sand)}%`}`, 90, y);
+      g.fillStyle = C.dim; g.font = '16px sans-serif'; g.fillText(s.mineral.slice(0, 58), 90, y + 22);
+    });
+  }
+
+  #med(g, w, h) {
+    const sim = this.app.sim, snap = sim.snap;
+    frame(g, w, h, C.accent);
+    title(g, t('hab.st.med'));
+    if (this.medAt == null) { g.fillStyle = C.dim; g.font = '20px sans-serif'; g.fillText(t('hab.med.hint'), 18, 110); return; }
+    const rows = sim.crew.map((c, i) => {
+      const tl = snap?.crew?.[i], career = tl?.career?.fraction;
+      return [c.id, `O₂ ${num(c.o2, 0)}%${tl ? ` · ${tl.hr} bpm` : ''}${career != null ? ` · ${num(career * 100, 1)}%` : ''}`];
+    });
+    rows.push([t('hab.med.dose'), `${int(snap?.env?.doseUsvh ?? this.app.m.environment.doseUsvh)} µSv/h`]);
+    rows.push([t('hab.med.at'), `${clock(this.medAt)} LTST`]);
+    table(g, rows, 62, w, 44);
   }
 
   #console(g, w, h, ls) {
@@ -182,21 +321,21 @@ export class HabitatView {
       rows.push([t('hab.c.wind'), `${num(app.state.wind ?? e.wind.meanMs, 1)} m/s`]);
       rows.push([t('hab.c.dose'), `${int(env?.doseUsvh ?? e.doseUsvh)} µSv/h`]);
     } else {
-      rows.push([t('hab.c.solar'), `${num(ls.solarKw, 2)} kW`, ls.solarKw / 6]);
-      rows.push([t('hab.c.load'), `${num(ls.loadKw, 2)} kW`, ls.loadKw / 6]);
+      rows.push([t('hab.c.solar'), `${num(ls.solarKw, 2)} kW`, ls.solarKw / 7]);
+      rows.push([t('hab.c.load'), `${num(ls.loadKw, 2)} kW`, ls.loadKw / 7]);
       rows.push([t('hab.c.balance'), `${ls.balanceKw >= 0 ? '+' : ''}${num(ls.balanceKw, 2)} kW`]);
       const hs = this.app.habitat;
       rows.push([t('hab.c.battery'), `${int(hs.batteryPct)}% · ${ls.balanceKw >= 0 ? t('hab.c.charging') : span(hs.batteryKWh / -ls.balanceKw)}`, hs.batteryPct / 100]);
     }
     table(g, rows, 66, w, 40);
     if (this.page === 2) {   // odbiorniki: udział w poborze
-      let x = 18;
+      let x = 18, y = 248;
       g.font = '15px sans-serif';
       for (const [k, v] of Object.entries(ls.loads).filter(([, kw]) => kw > 0)) {
         const label = `${t(`hab.load.${k}`)} ${num(v, 1)}`, tw = g.measureText(label).width + 16;
-        if (x + tw > w - 18) break;
-        g.fillStyle = C.line; g.fillRect(x, 248, tw, 26);
-        g.fillStyle = C.text; g.fillText(label, x + 8, 266);
+        if (x + tw > w - 18) { x = 18; y += 32; }
+        g.fillStyle = C.line; g.fillRect(x, y, tw, 26);
+        g.fillStyle = C.text; g.fillText(label, x + 8, y + 18);
         x += tw + 6;
       }
     }
@@ -204,8 +343,8 @@ export class HabitatView {
   }
 
   #life(g, w, h, ls) {
-    frame(g, w, h, ls.o2BalanceGh < 0 && !Number.isFinite(ls.o2Hours) ? C.bad : C.ok);
-    g.fillStyle = C.text; g.font = '700 24px sans-serif'; g.fillText(t('hab.st.life'), 18, 40);
+    frame(g, w, h, ls.o2BalanceGh < 0 ? C.warn : C.ok);
+    title(g, t('hab.st.life'));
     table(g, [
       [t('hab.l.pressure'), `${num(ls.kPa, 1)} kPa`],
       ['O₂', `${ls.o2Pct}%`],
@@ -235,10 +374,10 @@ export class HabitatView {
   #green(g, w, h, ls) {
     const on = this.systems.grow;
     frame(g, w, h, on ? C.grow : C.dim);
-    g.fillStyle = C.text; g.font = '700 26px sans-serif'; g.fillText(t('hab.st.greenhouse'), 18, 40);
+    title(g, t('hab.st.greenhouse'));
     table(g, [
       [t('hab.g.lamps'), on ? `ON · ${num(LOADS_KW.grow, 1)} kW` : 'OFF'],
-      [t('hab.g.o2'), on ? '+14 g/h' : '0 g/h'],
+      [t('hab.g.o2'), on ? '+18 g/h' : '0 g/h'],
       [t('hab.g.day'), `${this.app.m.mission.sol % 90 + 1} / 90`],
       [t('hab.g.air'), '24 °C · 70%'],
     ], 66, w, 40);
@@ -254,6 +393,8 @@ function frame(g, w, h, col) {
   g.strokeStyle = col; g.lineWidth = 6; g.strokeRect(3, 3, w - 6, h - 6);
   g.textAlign = 'left';
 }
+
+function title(g, text) { g.fillStyle = C.text; g.font = '700 24px sans-serif'; g.textAlign = 'left'; g.fillText(text, 18, 40); }
 
 function table(g, rows, y0, w, step = 44) {
   rows.forEach(([k, v, bar], i) => {

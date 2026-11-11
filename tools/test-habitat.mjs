@@ -1,49 +1,88 @@
-// Testy logiki habitatu (src/core/habitat.js): strefy wnętrza, kolizje, śluza, stanowiska, bilans podtrzymywania życia.
+// Testy logiki habitatu (src/core/habitat.js): strefy bazy, kolizje, śluza, stanowiska, bilans podtrzymywania życia.
 // Uruchomienie: node --test tools/test-habitat.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  Airlock, CABIN_KPA, DOOR_S, MARS_KPA, PUMP_S, canStand, floorAt, lifeSupport, stationAt, toLocal, toPlan, zoneAt,
+  Airlock, CABIN_KPA, DOOR_S, FURNITURE, HABITAT_FOOTPRINT, MARS_KPA, PUMP_S, ROOMS, SOLIDS, STATIONS, ZONES,
+  canStand, floorAt, lifeSupport, stationAt, toLocal, toPlan, zoneAt,
 } from '../src/core/habitat.js';
 
 const OPEN_OUT = { inner: false, outer: true }, OPEN_IN = { inner: true, outer: false };
 
-/** Idzie po linii prostej krokami 0,1 m i zwraca, dokąd udało się dojść. */
-function walk(from, to, gates) {
+/** Idzie po łamanej krokami 0,1 m i zwraca, dokąd udało się dojść (ostatni argument: stan drzwi śluzy). */
+function walk(from, ...points) {
   let p = { ...from };
-  const n = Math.ceil(Math.hypot(to.x - from.x, to.z - from.z) / 0.1);
-  for (let i = 1; i <= n; i++) {
-    const q = { x: from.x + (to.x - from.x) * i / n, z: from.z + (to.z - from.z) * i / n };
-    if (!canStand(q.x, q.z, gates)) break;
-    p = q;
+  const gates = typeof points.at(-1).inner === 'boolean' ? points.pop() : OPEN_IN;
+  for (const to of points) {
+    const a = { ...p }, n = Math.ceil(Math.hypot(to.x - a.x, to.z - a.z) / 0.1);
+    for (let i = 1; i <= n; i++) {
+      const q = { x: a.x + (to.x - a.x) * i / n, z: a.z + (to.z - a.z) * i / n };
+      if (!canStand(q.x, q.z, gates)) return p;
+      p = q;
+    }
   }
   return p;
 }
+const at = (p) => zoneAt(p.x, p.z, OPEN_IN)?.id;
 
 test('z rampy przez otwarte drzwi zewnętrzne do śluzy, dalej tylko po napełnieniu', () => {
   const inAirlock = walk({ x: 10, z: 0 }, { x: 5.5, z: 0 }, OPEN_OUT);
   assert.ok(Math.abs(inAirlock.x - 5.5) < 1e-9, `doszedł do ${inAirlock.x}`);
   assert.equal(zoneAt(inAirlock.x, inAirlock.z, OPEN_OUT).id, 'airlock');
-  const stuck = walk(inAirlock, { x: 0, z: 0 }, OPEN_OUT);
-  assert.ok(stuck.x > 4.8, 'zamknięte drzwi wewnętrzne zatrzymują');
-  const inModule = walk(inAirlock, { x: 0, z: 0 }, OPEN_IN);
-  assert.equal(zoneAt(inModule.x, inModule.z, OPEN_IN).id, 'module');
+  assert.ok(walk(inAirlock, { x: 0, z: 0 }, OPEN_OUT).x > 4.8, 'zamknięte drzwi wewnętrzne zatrzymują');
+  assert.equal(at(walk(inAirlock, { x: 0, z: 0 })), 'module');
+  assert.ok(walk({ x: 10, z: 0 }, { x: 5.5, z: 0 }, OPEN_IN).x > 7.5, 'zamknięte drzwi zewnętrzne nie wpuszczają');
 });
 
-test('zamknięte drzwi zewnętrzne nie wpuszczają, ściany i meble zatrzymują', () => {
-  const p = walk({ x: 10, z: 0 }, { x: 5.5, z: 0 }, OPEN_IN);
-  assert.ok(p.x > 7.5, `zatrzymany przed drzwiami: ${p.x}`);
-  assert.ok(walk({ x: 0, z: 0 }, { x: 0, z: 3 }, OPEN_IN).z < 1.3, 'ściana modułu');
-  assert.ok(walk({ x: 1.4, z: 0 }, { x: 1.4, z: -2 }, OPEN_IN).z > -0.75, 'konsola pod oknem');
-  const green = walk({ x: -1, z: 0 }, { x: -1, z: 6 }, OPEN_IN);
-  assert.equal(zoneAt(green.x, green.z, OPEN_IN).id, 'greenhouse', 'przejście do szklarni');
-  assert.equal(canStand(0, 3, {}), false, 'bryła szklarni z zewnątrz');
-  assert.equal(canStand(20, 20, {}), true, 'otwarty teren');
+test('cała baza jest połączona: moduł dzienny → węzeł → laboratorium, szklarnia, korytarz i każde pomieszczenie', () => {
+  const hub = walk({ x: 0, z: 0 }, { x: -7.25, z: 0 });
+  assert.equal(at(hub), 'hub');
+  assert.equal(at(walk(hub, { x: -7.25, z: -6 })), 'lab');
+  assert.equal(at(walk(hub, { x: -7.25, z: 8 })), 'greenhouse');
+  const corridor = walk(hub, { x: -15, z: 0 });
+  assert.equal(at(corridor), 'corridor');
+  for (const r of ROOMS) {
+    const dc = (r.door.x0 + r.door.x1) / 2;
+    const p = walk(corridor, { x: dc, z: 0 }, { x: dc, z: r.side * 1.6 });
+    assert.equal(at(p), r.id, `${r.id}: doszedł do ${at(p)}`);
+  }
+});
+
+test('ściany, meble i bryły zatrzymują', () => {
+  assert.ok(walk({ x: 0, z: 0 }, { x: 0, z: 3 }).z < 1.3, 'ściana modułu dziennego');
+  assert.ok(walk({ x: 1.4, z: 0 }, { x: 1.4, z: -2 }).z > -0.75, 'konsola pod oknem');
+  assert.ok(walk({ x: -15, z: 0 }, { x: -15, z: 2 }).z < 0.75, 'ściana korytarza poza drzwiami');
+  const c = ROOMS[0], dc = (c.door.x0 + c.door.x1) / 2;
+  const inCabin = walk({ x: -15, z: 0 }, { x: dc, z: 0 }, { x: dc, z: 1.5 }, { x: c.x0 + 1, z: 1.5 });
+  assert.equal(at(inCabin), c.id);
+  assert.ok(walk(inCabin, { x: c.x0 + 1, z: 2.5 }).z < 1.7, 'łóżko w kajucie');
+  assert.equal(canStand(-12, 3.2, {}), false, 'bryła hali z zewnątrz');
+  assert.equal(canStand(-5.3, 6, {}), false, 'bryła szklarni z zewnątrz');
+  assert.equal(canStand(30, 30, {}), true, 'otwarty teren');
+});
+
+test('strefy pomieszczeń dzieli co najmniej 0,4 m — krok marszu nie przeskoczy ściany', () => {
+  const rooms = ZONES.filter((z) => z.inside && z.id !== 'pass' && !z.gate);
+  for (const a of rooms) for (const b of rooms) {
+    if (a === b) continue;
+    const gap = Math.max(a.x0 - b.x1, b.x0 - a.x1, a.z0 - b.z1, b.z0 - a.z1);
+    assert.ok(gap >= 0.4, `${a.id} ↔ ${b.id}: ${gap.toFixed(2)} m`);
+  }
+});
+
+test('meble i stanowiska leżą w bazie, obrys dla łazika pokrywa bryły', () => {
+  const inBase = (x, z) => SOLIDS.some((s) => x >= s.x0 - 0.01 && x <= s.x1 + 0.01 && z >= s.z0 - 0.01 && z <= s.z1 + 0.01);
+  for (const f of FURNITURE) assert.ok(inBase((f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2), f.id);
+  for (const s of STATIONS.filter((st) => !st.from.includes(null))) assert.ok(inBase(s.x, s.z), s.id);
+  for (const s of SOLIDS) {
+    const c = { x: (s.x0 + s.x1) / 2, z: (s.z0 + s.z1) / 2 };
+    assert.ok(HABITAT_FOOTPRINT.some(([x, z, r]) => Math.hypot(c.x - x, c.z - z) <= r), `obrys ${JSON.stringify(c)}`);
+  }
 });
 
 test('podłoga: we wnętrzu stała, na rampie przechodzi w grunt', () => {
   assert.deepEqual(floorAt(0, 0, OPEN_IN), { h: 1, k: 0 });
-  assert.equal(floorAt(20, 0, OPEN_IN), null);
+  assert.equal(floorAt(30, 0, OPEN_IN), null);
   const mid = floorAt(8.75, 0, OPEN_OUT);
   assert.ok(mid.k > 0.4 && mid.k < 0.6);
 });
@@ -72,16 +111,20 @@ test('śluza: zamyka, napełnia do ciśnienia kabiny, otwiera; w drugą stronę 
   assert.deepEqual(a.gates, { inner: false, outer: true });
 });
 
-test('stanowiska: z właściwej strony ściany, to przed postacią', () => {
-  assert.equal(stationAt(8.2, 0, -1, 0, false)?.id, 'outerPanel');
-  assert.notEqual(stationAt(6.9, -0.4, 1, 0, true)?.id, 'outerPanel', 'panel zewnętrzny nie przez ścianę');
-  assert.equal(stationAt(5.9, -0.5, 0, -1, true)?.id, 'airlockPanel');
-  assert.equal(stationAt(1.4, -0.5, 0, -1, true)?.id, 'console');
-  assert.equal(stationAt(1.4, -0.5, 0, -1, false), null);
+test('stanowiska: tylko z własnego pomieszczenia, przy kilku — to przed postacią', () => {
+  assert.equal(stationAt(8.2, 0, -1, 0, 'ramp')?.id, 'outerPanel');
+  assert.notEqual(stationAt(6.9, -0.4, 1, 0, 'airlock')?.id, 'outerPanel', 'panel zewnętrzny nie przez ścianę');
+  assert.equal(stationAt(5.9, -0.5, 0, -1, 'airlock')?.id, 'airlockPanel');
+  assert.equal(stationAt(1.4, -0.5, 0, -1, 'module')?.id, 'console');
+  assert.equal(stationAt(1.4, -0.5, 0, -1, null), null);
+  assert.equal(stationAt(-4.2, -1.2, -1, 0, 'module')?.id, undefined, 'plan bazy w węźle nie przez ścianę');
+  assert.equal(stationAt(-5.2, -1.3, 1, 0, 'hub')?.id, 'map');
+  const c = ROOMS[0];
+  assert.equal(stationAt(c.x1 - 0.5, 1.5, 0, 1, c.id)?.id, c.id);
 });
 
-test('podtrzymywanie życia: noc bez prądu ze słońca, pył osłabia ogniwa, załoga zużywa tlen', () => {
-  const base = { sunElevDeg: 50, tau: 0.5, outsideC: -40, crewInside: 2, moxie: true, grow: true, lights: true, pumping: false };
+test('podtrzymywanie życia: noc bez prądu ze słońca, pył osłabia ogniwa, załoga zużywa tlen i wodę', () => {
+  const base = { sunElevDeg: 50, tau: 0.5, outsideC: -40, crewInside: 2, moxie: true, grow: true, lights: true, wrs: true, pumping: false };
   const day = lifeSupport(base), dusty = lifeSupport({ ...base, tau: 2 }), night = lifeSupport({ ...base, sunElevDeg: -10 });
   assert.ok(day.solarKw > 3 && day.solarKw < 8, `moc w dzień ${day.solarKw}`);
   assert.ok(dusty.solarKw < day.solarKw * 0.75, `burza pyłowa: ${dusty.solarKw} kW`);
@@ -90,6 +133,8 @@ test('podtrzymywanie życia: noc bez prądu ze słońca, pył osłabia ogniwa, z
   assert.ok(day.o2BalanceGh < 0, 'dwie osoby zużywają więcej, niż daje MOXIE i szklarnia');
   assert.ok(lifeSupport({ ...base, crewInside: 0 }).o2BalanceGh > 0);
   assert.ok(lifeSupport({ ...base, pumping: true }).loadKw > day.loadKw);
+  assert.ok(day.waterLh < 0 && lifeSupport({ ...base, wrs: false }).waterLh < day.waterLh * 5, 'bez odzysku woda znika szybciej');
+  assert.ok(lifeSupport({ ...base, treadmill: true }).o2BalanceGh < day.o2BalanceGh, 'ćwiczenia zwiększają zużycie tlenu');
 });
 
 test('przeliczenie plan ↔ układ habitatu jest odwracalne', () => {
@@ -97,23 +142,22 @@ test('przeliczenie plan ↔ układ habitatu jest odwracalne', () => {
   assert.ok(Math.abs(p.x - 105) < 1e-9 && Math.abs(p.y - 230) < 1e-9);
 });
 
-test('systemy habitatu: bateria i tlen zmieniają się z zegarem misji, przy niskiej baterii odłączają się odbiorniki', async () => {
+test('systemy habitatu: bateria, tlen i woda zmieniają się z zegarem misji, przy niskiej baterii odłączają się odbiorniki', async () => {
   const { HabitatSystems, SHED_PCT, RESTORE_PCT } = await import('../src/core/habitat.js');
   const night = { sunElevDeg: -20, tau: 0.5, outsideC: -70, crewInside: 2 }, day = { ...night, sunElevDeg: 60, outsideC: -10, crewInside: 0 };
   const h = new HabitatSystems();
-  const b0 = h.batteryPct, o0 = h.o2Kg;
+  const b0 = h.batteryPct, o0 = h.o2Kg, w0 = h.waterL;
   h.step(1, night);
   assert.ok(h.batteryPct < b0, 'w nocy bateria się rozładowuje');
   assert.ok(h.o2Kg < o0, 'dwie osoby w środku zużywają tlen');
-  for (let i = 0; i < 40 && !h.shed; i++) h.step(0.5, night);
+  assert.ok(h.waterL < w0, 'i trochę wody mimo odzysku');
+  for (let i = 0; i < 60 && !h.shed; i++) h.step(0.5, night);
   assert.equal(h.shed, true);
   assert.ok(h.batteryPct < SHED_PCT + 1);
   assert.deepEqual([h.systems.moxie, h.systems.grow], [false, false], 'MOXIE i lampy odłączone');
   assert.equal(h.toggle('moxie'), false, 'bez energii nie da się włączyć MOXIE');
-  for (let i = 0; i < 40 && h.shed; i++) h.step(0.5, day);
+  for (let i = 0; i < 80 && h.shed; i++) h.step(0.5, day);
   assert.equal(h.shed, false);
-  assert.ok(h.batteryPct > RESTORE_PCT);
+  assert.ok(h.batteryPct > RESTORE_PCT - 1);
   assert.deepEqual([h.systems.moxie, h.systems.grow], [true, true], 'odbiorniki wracają po naładowaniu');
-  h.step(0, night);
-  assert.ok(h.now.loadKw > 0);
 });

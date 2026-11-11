@@ -49,8 +49,15 @@ export class View3D {
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(FOV, MAIN_W / MAIN_H, 0.2, 40000);
-    this.interior = new HelmetInterior(this.camera);
+    // hełm w osobnej scenie rysowanej na końcu (zawsze na wierzchu, nie przecina ścian ani kamieni)
+    this.overlay = new THREE.Scene();
+    this.overlay.add(new THREE.HemisphereLight(0xdfe8ee, 0x2a2420, 1.1));
+    this.helmetHolder = new THREE.Group();
+    this.helmetHolder.matrixAutoUpdate = false;
+    this.overlay.add(this.helmetHolder);
+    this.interior = new HelmetInterior(this.camera, this.helmetHolder);
     this.scene.add(this.camera);
+    r.autoClear = false;   // trzy przebiegi: teren i bryły, wnętrze bazy, hełm
     this.world = new THREE.Group();          // skalowana w pionie przez przewyższenie
     this.scene.add(this.world);
     this.markers = new THREE.Group();
@@ -848,6 +855,7 @@ export class View3D {
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     this.interior.setVisible(false);
     this.#syncFrame();
+    this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
     const url = this.renderer.domElement.toDataURL('image/jpeg', 0.88);
     this.renderer.setPixelRatio(pr);
@@ -885,20 +893,32 @@ export class View3D {
   #habitatStep(dt) {
     const walking = this.mode === 'helmet' && !this.ride;
     if (!walking) { this.hab.zone = null; this.hab.station = null; }
-    const inside = this.hab.step(dt, walking && this.hab.dist < 30);
-    // pod dachem światło nieba słabnie, wnętrze oświetlają lampy; po zdjęciu hełmu znika jego obręcz
-    this.hemi.intensity = inside ? (this.hab.systems.lights ? 0.32 : 0.08) : 0.85;
-    if (walking) this.interior.group.visible = !this.hab.helmetOff;
+    this.hab.step(dt, walking && this.hab.dist < 40);
+    if (walking) this.interior.group.visible = !this.hab.helmetOff;   // po zdjęciu hełmu znika jego obręcz
+  }
+
+  /** Teren i bryły, potem wnętrze bazy (własne światła, test głębi z bryłami), na końcu hełm na czystej głębi. */
+  #draw() {
+    const r = this.renderer, cam = this.camera;
+    r.clear();
+    r.render(this.scene, cam);
+    if (this.hab && this.habitatMesh.visible && cam.position.distanceTo(this.habitatMesh.position) < 180) r.render(this.hab.scene, cam);
+    if (this.interior.group.visible) {
+      this.helmetHolder.matrix.copy(cam.matrixWorld);
+      this.helmetHolder.updateMatrixWorld(true);
+      r.clearDepth();
+      r.render(this.overlay, cam);
+    }
   }
 
   render(dt) {
     this.#placeMarkers();
     if (this.mode === 'helmet') { if (this.ride) this.#rideStep(dt); else this.#helmetStep(dt); }
-    if (this.hab) this.#habitatStep(dt);
     else if (this.mode === 'drive') this.#driveStep(dt);
     else if (this.flight) this.#flightStep(dt);
     else this.controls.update();
+    if (this.hab) this.#habitatStep(dt);
     this.#syncFrame();
-    this.renderer.render(this.scene, this.camera);
+    this.#draw();
   }
 }
