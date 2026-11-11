@@ -227,6 +227,16 @@ test('habitat: z rampy do śluzy, cykl ciśnienia klawiszem E, moduł bez hełmu
   await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'corridor', null, { timeout: LOAD_MS });
   await page.keyboard.up('KeyW');
   assert.ok(await page.evaluate(() => window.local().x < -10), 'korytarz sypialni za węzłem');
+  // wyjście z kajuty, idąc obok drzwi (40 cm w bok): ruch zsuwa się w otwór zamiast zawisać na framudze
+  await page.evaluate(() => {
+    const { app, view3d: v } = window.marsim, hab = app.m.habitat, a = v.habitatMesh.rotation.y, c = Math.cos(a), s = Math.sin(a);
+    const lx = -10.625 - 0.4, lz = 1.6;   // kajuta 1: drzwi na środku x = −10,625
+    Object.assign(v.helmet, { x: hab.x + lx * c + lz * s, y: hab.y - lx * s + lz * c, yaw: (Math.atan2(-s, c) * 180 / Math.PI + 360) % 360, vx: 0, vy: 0 });   // przodem do −z (korytarz)
+  });
+  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'cabin1', null, { timeout: 10000 });
+  await page.keyboard.down('KeyW');
+  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'corridor', null, { timeout: 15000 });
+  await page.keyboard.up('KeyW');
   assert.deepEqual(errors, []);
   await context.close();
 });

@@ -270,9 +270,10 @@ export function buildInterior() {
 
   // łazienka
   const tl = F.toilet, sk = F.sink, wr = F.wrs, sh = F.shower;
-  box(tl.x0 + 0.05, tl.x1 - 0.05, FLOOR, FLOOR + 0.42, tl.z0 + 0.1, tl.z1, M.white);
-  add(new THREE.CylinderGeometry(0.2, 0.17, 0.1, 16), M.white, (tl.x0 + tl.x1) / 2, FLOOR + 0.47, (tl.z0 + tl.z1) / 2 - 0.05);
-  box(tl.x0 + 0.05, tl.x1 - 0.05, FLOOR + 0.42, FLOOR + 1.1, tl.z0 + 0.4, tl.z1, M.metal);
+  // toaleta: zbiornik przy ścianie (łazienka po stronie −z, ściana przy z0), miska od strony pomieszczenia
+  box(tl.x0 + 0.05, tl.x1 - 0.05, FLOOR, FLOOR + 0.42, tl.z0, tl.z1 - 0.1, M.white);
+  add(new THREE.CylinderGeometry(0.2, 0.17, 0.1, 16), M.white, (tl.x0 + tl.x1) / 2, FLOOR + 0.47, (tl.z0 + tl.z1) / 2 + 0.05);
+  box(tl.x0 + 0.05, tl.x1 - 0.05, FLOOR + 0.42, FLOOR + 1.1, tl.z0, tl.z0 + 0.2, M.metal);
   fbox(sk, FLOOR, FLOOR + 0.8, M.plain);
   add(new THREE.CylinderGeometry(0.2, 0.15, 0.08, 16), M.white, (sk.x0 + sk.x1) / 2, FLOOR + 0.84, (sk.z0 + sk.z1) / 2);
   add(new THREE.PlaneGeometry(0.6, 0.5), new THREE.MeshStandardMaterial({ color: 0xcfe0e6, roughness: 0.05, metalness: 0.9 }), (sk.x0 + sk.x1) / 2, FLOOR + 1.45, -hz + 0.01);   // lustro

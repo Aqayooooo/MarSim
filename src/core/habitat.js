@@ -40,7 +40,7 @@ export const ROOMS = [
   { id: 'cabin4', side: -1, x0: -15.2, x1: -12.6 },
   { id: 'gym', side: 1, x0: HALL.x0 + HALL.inset, x1: -15.2 },
   { id: 'bath', side: -1, x0: HALL.x0 + HALL.inset, x1: -15.2 },
-].map((r) => ({ ...r, door: { x0: r.x1 - 1.0, x1: r.x1 - 0.2 }, z0: r.side > 0 ? CORRIDOR : -IN_Z, z1: r.side > 0 ? IN_Z : -CORRIDOR }));
+].map((r) => ({ ...r, door: { x0: r.x1 - 1.1, x1: r.x1 - 0.15 }, z0: r.side > 0 ? CORRIDOR : -IN_Z, z1: r.side > 0 ? IN_Z : -CORRIDOR }));
 export { CORRIDOR };
 
 const S = (s, a, b) => (s > 0 ? [a, b] : [-b, -a]);   // zakres z po stronie s
@@ -62,7 +62,7 @@ export const ZONES = [
     const [z0, z1] = S(r.side, CORRIDOR + 0.3, IN_Z - 0.3), [dz0, dz1] = S(r.side, CORRIDOR - 0.4, CORRIDOR + 0.4), dc = (r.door.x0 + r.door.x1) / 2;
     return [
       { id: r.id, x0: r.x0 + 0.3, x1: r.x1 - 0.3, z0, z1, inside: true },
-      { id: 'pass', x0: dc - 0.1, x1: dc + 0.1, z0: dz0, z1: dz1, inside: true },
+      { id: 'pass', x0: dc - 0.17, x1: dc + 0.17, z0: dz0, z1: dz1, inside: true },
     ];
   }),
   { id: 'pass', x0: GREEN.x - 0.3, x1: GREEN.x + 0.3, z0: -IN_Z - 0.45, z1: -IN_Z + 0.45, inside: true },

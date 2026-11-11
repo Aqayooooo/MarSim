@@ -3,7 +3,7 @@
 // Reguły w core/habitat.js, geometria w habitatInterior.js.
 import * as THREE from 'three';
 import {
-  AIRLOCK, Airlock, CABIN_KPA, GREEN, HALL, HULL, LAB, LOADS_KW, ROOMS, WATER_TANK_L, canStand, floorAt, lifeSupport, stationAt, toLocal, zoneAt,
+  AIRLOCK, Airlock, CABIN_KPA, GREEN, HALL, HULL, LAB, LOADS_KW, ROOMS, WATER_TANK_L, ZONES, canStand, floorAt, lifeSupport, stationAt, toLocal, zoneAt,
 } from '../core/habitat.js';
 import { buildInterior } from './habitatInterior.js';
 import { habitatEnv } from '../core/environment.js';
@@ -51,6 +51,25 @@ export class HabitatView {
   canStandPlan(x, y) { const l = this.#local(x, y); return canStand(l.x, l.z, this.airlock.gates); }
   /** Podłoga w punkcie planu: { h: nad podstawą bazy, k: udział gruntu } albo null (zwykły grunt). */
   floorAtPlan(x, y) { const l = this.#local(x, y); return floorAt(l.x, l.z, this.airlock.gates); }
+
+  /**
+   * Ruchy zastępcze, gdy krok (dx, dy) w planie trafia w ścianę: ślizg wzdłuż ścian bazy, a przy drzwiach — zejście
+   * w otwór (kierunek do środka najbliższego przejścia przed postacią i jego składowe wzdłuż ścian).
+   */
+  slides(x, y, dx, dy) {
+    const c = Math.cos(this.angle), s = Math.sin(this.angle), l = this.#local(x, y);
+    const toLocal = (vx, vy) => [vx * c - vy * s, vx * s + vy * c], toPlan = (vx, vz) => [vx * c + vz * s, -vx * s + vz * c];
+    const [mx, mz] = toLocal(dx, dy), len = Math.hypot(mx, mz), out = [toPlan(mx, 0), toPlan(0, mz)];
+    let best = null, bd = 1.6;
+    for (const z of ZONES) {
+      if (z.id !== 'pass' && !z.gate) continue;
+      if (z.gate && !this.airlock.gates[z.gate]) continue;
+      const cx = (z.x0 + z.x1) / 2, cz = (z.z0 + z.z1) / 2, vx = cx - l.x, vz = cz - l.z, d = Math.hypot(vx, vz);
+      if (d < bd && d > 0.05 && vx * mx + vz * mz > 0) { bd = d; best = [vx / d * len, vz / d * len]; }
+    }
+    if (best) out.push(toPlan(...best), toPlan(best[0], 0), toPlan(0, best[1]));
+    return out;
+  }
 
   /** Pod dachem i z ciśnieniem kabiny — hełm zdjęty. */
   get helmetOff() {

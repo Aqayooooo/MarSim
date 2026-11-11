@@ -690,8 +690,9 @@ export class View3D {
   #step(dx, dy) {
     const warn = this.#tryMove(dx, dy);
     if (!warn) return null;
-    if (Math.abs(dx) > 1e-4 && !this.#tryMove(dx, 0)) return null;
-    if (Math.abs(dy) > 1e-4 && !this.#tryMove(0, dy)) return null;
+    // ślizg: w habitacie wzdłuż jego ścian (są obrócone względem mapy) i w stronę najbliższych drzwi, na zewnątrz — po osiach
+    const h = this.helmet, alt = this.hab?.zoneAtPlan(h.x, h.y) ? this.hab.slides(h.x, h.y, dx, dy) : [[dx, 0], [0, dy]];
+    for (const [ax, ay] of alt) if (Math.hypot(ax, ay) > 1e-5 && !this.#tryMove(ax, ay)) return null;
     return warn;
   }
 
