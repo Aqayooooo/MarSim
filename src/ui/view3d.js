@@ -894,7 +894,7 @@ export class View3D {
   #habitatStep(dt) {
     const walking = this.mode === 'helmet' && !this.ride;
     if (!walking) { this.hab.zone = null; this.hab.station = null; }
-    this.hab.step(dt, walking && this.hab.dist < 40);
+    this.hab.step(dt, walking && this.hab.dist < 40, this.camera.position);
     if (walking) this.interior.group.visible = !this.hab.helmetOff;   // po zdjęciu hełmu znika jego obręcz
   }
 

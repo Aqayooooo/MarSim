@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { AIRLOCK, CEIL, CORRIDOR, DOOR, FLOOR, FURNITURE, GREEN, HALL, HULL, LAB, OPENINGS, ROOMS, WINDOWS } from '../core/habitat.js';
 import { mulberry } from '../core/rocks.js';
 import { circlePath, placeShape, rectPath, wallShape } from './habitatShapes.js';
+import { mergeStatic } from './mergeStatic.js';
 
 function canvasTexture(size, draw, repeat = true) {
   const c = document.createElement('canvas'); c.width = size[0]; c.height = size[1];
@@ -376,5 +377,7 @@ export function buildInterior() {
     place(screens[r.id], (d.x0 + d.x1) / 2, FLOOR + 0.9, s * (hz - 0.3), s > 0 ? Math.PI : 0, -0.5);
   }
 
+  // nieruchome bryły scalone według materiału (drzwi się przesuwają, ekrany mają własne tekstury — zostają osobno)
+  group.userData.merged = mergeStatic(group, [inner, outer, ...Object.values(screens).map((s) => s.mesh)]);
   return { group, doors: { inner, outer }, lights, cabins, airLight, growLight, airLamp, outLamp, strips: M.strip, grow: M.grow, screens, plants, belt: beltTex };
 }

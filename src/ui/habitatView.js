@@ -11,6 +11,7 @@ import { num, int, clock, hm } from '../core/format.js';
 import { t, tx } from '../i18n.js';
 
 const SCREEN_EVERY_S = 0.25, CONSOLE_PAGES = 3;
+const SCREEN_NEAR_M = 14, SCREENS_PER_FRAME = 2;   // ekrany dalej niż 14 m są nieczytelne — nie odświeżamy ich
 const DOOR_SLIDE = 0.92;
 const C = { bg: '#0b1116', line: '#20323b', text: '#d8f3f2', dim: '#78a5a6', ok: '#5ee6a0', warn: '#ffd166', bad: '#ff7b6b', accent: '#68dee0', grow: '#ff8ce8' };
 const CABINS = ROOMS.filter((r) => r.id.startsWith('cabin'));
@@ -32,7 +33,7 @@ export class HabitatView {
     this.analyzed = [];
     this.medAt = null;
     this.flash = null;
-    this.screenT = 0;
+    this.screenAge = null;   // wiek treści każdego ekranu (s); Infinity — jeszcze nie rysowany
     this.zone = null;
     this.station = null;
     this.local = { x: 99, z: 0 };
@@ -125,7 +126,7 @@ export class HabitatView {
         this.cabinLamps[s.id] = !this.cabinLamps[s.id];
         this.#say(this.cabinLamps[s.id] ? 'hab.lampOn' : 'hab.lampOff');
     }
-    this.screenT = SCREEN_EVERY_S;   // ekrany od razu pokazują zmianę
+    for (const k in this.screenAge) this.screenAge[k] = Math.max(this.screenAge[k], 1e6);   // ekrany w pobliżu od razu pokazują zmianę
     return true;
   }
 
@@ -169,8 +170,8 @@ export class HabitatView {
     return { zone: t(`hab.zone.${z}`), status, prompt: this.prompt(), flash, helmetOff: this.helmetOff, cycling: a.busy, progress: a.progress };
   }
 
-  /** Krok: śluza, drzwi, światła, ekrany; near — postać blisko bazy (wnętrze warto rysować). */
-  step(dt, near) {
+  /** Krok: śluza, drzwi, światła, ekrany; near — postać blisko bazy (wnętrze warto rysować); cam — pozycja kamery. */
+  step(dt, near, cam = null) {
     const a = this.airlock, p = this.parts, sys = this.systems;
     a.step(dt);
     this.app.habitat.pumping = a.stage === 'pump';
@@ -195,8 +196,7 @@ export class HabitatView {
     p.airLight.color.setHex(col);
     p.airLight.intensity = near ? 1.4 : 0;
     this.scene.children[0].intensity = 0.15 + 0.4 * main;
-    this.screenT += dt;
-    if (near && this.screenT >= SCREEN_EVERY_S) { this.screenT = 0; this.#drawScreens(); }
+    if (near) this.#refreshScreens(dt, cam);
     return this.indoors && this.zone?.id !== 'ramp';
   }
 
@@ -215,43 +215,65 @@ export class HabitatView {
   }
 
   // ---------- ekrany ----------
-  #drawScreens() {
-    const s = this.parts.screens, ls = this.lifeSupport(), sys = this.systems;
-    s.console.draw((g, w, h) => this.#console(g, w, h, ls));
-    s.life.draw((g, w, h) => this.#life(g, w, h, ls));
-    for (const k of ['airlock', 'hatch', 'outer']) s[k].draw((g, w, h) => this.#airlockScreen(g, w, h));
-    s.green.draw((g, w, h) => this.#green(g, w, h, ls));
-    s.lights.draw((g, w, h) => {
+  /**
+   * Odświeżanie ekranów: każdy co SCREEN_EVERY_S, ale tylko gdy jest w zasięgu wzroku (dalej i tak nie da się go czytać),
+   * najwyżej SCREENS_PER_FRAME na klatkę — kanwa i wysyłka tekstury rozłożone w czasie zamiast skoku co ćwierć sekundy.
+   */
+  #refreshScreens(dt, cam) {
+    const s = this.parts.screens, age = this.screenAge ||= Object.fromEntries(Object.keys(s).map((k) => [k, Infinity]));
+    for (const k in age) age[k] += dt;
+    const due = Object.keys(s).filter((k) => age[k] >= SCREEN_EVERY_S && (age[k] === Infinity || !cam || s[k].mesh.getWorldPosition(this.#wp).distanceTo(cam) < SCREEN_NEAR_M));
+    if (!due.length) return;
+    const first = due.some((k) => age[k] === Infinity);
+    due.sort((a, b) => age[b] - age[a]);
+    const fns = this.#screenFns();
+    for (const k of first ? due : due.slice(0, SCREENS_PER_FRAME)) { s[k].draw(fns[k]); age[k] = 0; }
+  }
+  #wp = new THREE.Vector3();
+
+  /** Rysowanie każdego ekranu (nazwa → fn(g, w, h)); dane podtrzymywania życia liczone raz, przy pierwszym użyciu. */
+  #screenFns() {
+    const sys = this.systems;
+    let cached;
+    const ls = () => (cached ||= this.lifeSupport());
+    const fns = {
+      console: (g, w, h) => this.#console(g, w, h, ls()),
+      life: (g, w, h) => this.#life(g, w, h, ls()),
+      green: (g, w, h) => this.#green(g, w, h, ls()),
+      lab: (g, w, h) => this.#lab(g, w, h),
+      med: (g, w, h) => this.#med(g, w, h),
+      map: (g, w, h) => this.#map(g, w, h),
+    };
+    for (const k of ['airlock', 'hatch', 'outer']) fns[k] = (g, w, h) => this.#airlockScreen(g, w, h);
+    fns.lights = (g, w, h) => {
       frame(g, w, h, sys.lights ? C.warn : C.dim);
       g.fillStyle = sys.lights ? C.warn : C.dim; g.font = '700 64px sans-serif'; g.textAlign = 'center';
       g.fillText(sys.lights ? 'ON' : 'OFF', w / 2, h / 2 + 22);
-    });
-    s.map.draw((g, w, h) => this.#map(g, w, h));
-    s.gym.draw((g, w, h) => {
+    };
+    fns.gym = (g, w, h) => {
       frame(g, w, h, sys.treadmill ? C.ok : C.dim);
       title(g, t('hab.st.gym'));
       table(g, [[t('hab.gym.belt'), sys.treadmill ? 'ON · 6 km/h' : 'OFF'], [t('hab.gym.load'), sys.treadmill ? `+${num(LOADS_KW.treadmill, 1)} kW` : '—'], [t('hab.gym.goal'), '2 h / sol']], 70, w, 50);
-    });
-    s.water.draw((g, w, h) => {
+    };
+    fns.water = (g, w, h) => {
       const hs = this.app.habitat;
       frame(g, w, h, sys.wrs ? C.accent : C.warn);
       title(g, t('hab.st.water'));
       table(g, [
         [t('hab.w.tank'), `${int(hs.waterL)} / ${WATER_TANK_L} l`, hs.waterPct / 100],
         [t('hab.w.wrs'), sys.wrs ? 'ON · 93%' : 'OFF'],
-        [t('hab.w.balance'), `${num(ls.waterLh, 2)} l/h`],
+        [t('hab.w.balance'), `${num(ls().waterLh, 2)} l/h`],
       ], 66, w, 54);
-    });
-    s.lab.draw((g, w, h) => this.#lab(g, w, h));
-    s.med.draw((g, w, h) => this.#med(g, w, h));
-    CABINS.forEach((r, k) => s[r.id].draw((g, w, h) => {
+    };
+    CABINS.forEach((r, k) => { fns[r.id] = (g, w, h) => {
       const who = this.app.sim.crew[k]?.id ?? CREW_NAMES[k - this.app.sim.crew.length] ?? '—';
       frame(g, w, h, this.cabinLamps[r.id] ? C.warn : C.dim);
       g.fillStyle = C.text; g.font = '700 30px sans-serif'; g.fillText(`${t(`hab.st.${r.id}`)}`, 16, 44);
       g.fillStyle = C.accent; g.font = '600 26px sans-serif'; g.fillText(who, 16, 86);
       g.fillStyle = C.dim; g.font = '20px sans-serif'; g.fillText(`${clock(this.app.sim.min)} LTST · ${t('hab.cab.sleep')}`, 16, 130);
       g.fillText(`${t('hab.cab.lamp')} ${this.cabinLamps[r.id] ? 'ON' : 'OFF'}`, 16, 168);
-    }));
+    }; });
+    return fns;
   }
 
   #map(g, w, h) {

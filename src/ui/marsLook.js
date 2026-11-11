@@ -231,11 +231,11 @@ export function rockColor(rnd) {
 }
 
 /**
- * Drobne kamyki (2–20 cm) wokół obserwatora w widoku z gruntu. Bez kolizji — tylko faktura podłoża.
+ * Drobne kamyki (2–11 cm, przysypane pyłem) wokół obserwatora w widoku z gruntu. Bez kolizji — tylko faktura podłoża.
  * Układ zależy od kafelka terenu (ziarno z jego współrzędnych), więc kamyki nie przeskakują przy chodzeniu.
  */
 export class Pebbles {
-  constructor({ terrain, sand, X, Z, material, count = 2600 }) {
+  constructor({ terrain, sand, X, Z, material, count = 1800 }) {
     Object.assign(this, { terrain, sand, X, Z, count });
     const g = new THREE.IcosahedronGeometry(1, 0), p = g.attributes.position, rnd = mulberry(77), q = new THREE.Vector3();
     for (let i = 0; i < p.count; i++) {
@@ -248,7 +248,8 @@ export class Pebbles {
     this.mesh.receiveShadow = true;
     this.mesh.frustumCulled = false;
     this.mesh.count = 0;
-    this.colors = Array.from({ length: 16 }, () => rockColor(rnd));
+    const soil = new THREE.Color('#9c6642');                      // barwa regolitu: kamyki przysypane pyłem zlewają się z gruntem
+    this.colors = Array.from({ length: 16 }, () => rockColor(rnd).lerp(soil, 0.45));
     this.cx = this.cy = Infinity;
   }
 
@@ -263,10 +264,10 @@ export class Pebbles {
         if (Math.hypot(cx - x, cy - y) > R || !t.inside(cx, cy)) continue;
         const rnd = mulberry((ti * 73856093) ^ (tj * 19349663));
         const sandy = this.sand ? this.sand.sample(cx, cy) / 255 : 0;
-        const per = Math.round(18 * (1 - 0.85 * sandy));
+        const per = Math.round(12 * (1 - 0.85 * sandy));
         for (let k = 0; k < per && n < this.count; k++) {
-          const px = (ti + rnd()) * TILE, py = (tj + rnd()) * TILE, s = 0.025 + rnd() ** 3 * 0.18;
-          o.position.set(this.X(px), t.height(px, py) + s * 0.2, this.Z(py));
+          const px = (ti + rnd()) * TILE, py = (tj + rnd()) * TILE, s = 0.02 + rnd() ** 3 * 0.1;
+          o.position.set(this.X(px), t.height(px, py) - s * 0.15, this.Z(py));   // częściowo zagłębione w gruncie
           o.rotation.set(rnd() * 0.6, rnd() * 6.28, rnd() * 0.6);
           o.scale.set(s, s, s * (0.7 + rnd() * 0.6));
           o.updateMatrix();

@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { AIRLOCK, DOOR, FLOOR, GREEN, HALL, HULL, LAB, MAST, PANELS, RAMP, WINDOWS } from '../core/habitat.js';
 import { circlePath, placeShape, rectPath, roofArc, sectionShape, wallShape } from './habitatShapes.js';
+import { mergeStatic } from './mergeStatic.js';
 
 const MAT = () => ({
   white: new THREE.MeshStandardMaterial({ color: 0xe9e4da, roughness: 0.55, metalness: 0.08 }),
@@ -120,5 +121,6 @@ export function habitatModel(mastM = 10) {
   add(new THREE.SphereGeometry(0.12, 10, 8), m.lamp, MAST.x, mastM + 0.65, MAST.z);
 
   g.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+  g.userData.merged = mergeStatic(g);   // jedna siatka na materiał: mniej wywołań rysowania i w przebiegu cieni
   return g;
 }
