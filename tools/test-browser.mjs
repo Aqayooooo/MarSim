@@ -153,3 +153,75 @@ test('z backendem: start EVA, analiza „co jeśli” i raport z przedziałem ni
     await rm(db, { recursive: true, force: true }).catch(() => {});
   }
 });
+
+test('hełm jak w grze: marsz W, tempo +, bieg Shift i skok spacją (bez startu EVA)', async () => {
+  const { page, context, errors } = await openApp(browser, `${staticUrl}?view=helmet`);
+  await page.waitForFunction(() => window.marsim.view3d?.mode === 'helmet', null, { timeout: LOAD_MS });
+  const pos = () => page.evaluate(() => { const h = window.marsim.view3d.helmet; return { x: h.x, y: h.y, z: h.z, speed: h.speed }; });
+  const p0 = await pos();
+  await page.keyboard.down('KeyW'); await page.waitForTimeout(800); await page.keyboard.up('KeyW');
+  const p1 = await pos();
+  const walked = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+  assert.ok(walked > 0.3, `marsz W: ${walked} m`);
+  for (let i = 0; i < 3; i++) await page.keyboard.press('Equal');
+  assert.equal(await page.evaluate(() => window.marsim.view3d.hudInfo().pace), 8);
+  await page.keyboard.down('ShiftLeft'); await page.keyboard.down('KeyW'); await page.waitForTimeout(800);
+  const fast = await pos();
+  await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft');
+  assert.ok(fast.speed > 60, `bieg przy tempie ×8: ${fast.speed} km/h`);
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.marsim.view3d.helmet.z > 0.05, null, { timeout: 5000 });
+  assert.equal(await page.evaluate(() => window.marsim.app.phase), 'idle', 'spacja w hełmie to skok, nie start EVA');
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+test('łazik: F przy łaziku — wsiadanie, jazda W/D, kamera na wysięgniku, kabina C, wysiadanie F', async () => {
+  const { page, context, errors } = await openApp(browser, `${staticUrl}?view=helmet`);
+  await page.waitForFunction(() => window.marsim.view3d?.mode === 'helmet', null, { timeout: LOAD_MS });
+  await page.evaluate(() => { const { app, view3d: v } = window.marsim, r = app.roverPos(); Object.assign(v.helmet, { x: r.x + 5, y: r.y + 3 }); });
+  await page.keyboard.press('KeyF');
+  assert.equal(await page.evaluate(() => !!window.marsim.view3d.ride), true);
+  assert.equal(await page.isVisible('#rideHud'), true);
+  const p0 = await page.evaluate(() => ({ ...window.marsim.app.roverPos() }));
+  await page.keyboard.down('KeyW'); await page.waitForTimeout(1500);
+  await page.keyboard.down('KeyD'); await page.waitForTimeout(600); await page.keyboard.up('KeyD'); await page.keyboard.up('KeyW');
+  const s = await page.evaluate(() => { const { app, view3d: v } = window.marsim, p = app.roverPos(); return { x: p.x, y: p.y, boom: v.boom.visible, heading: v.ride.heading }; });
+  assert.ok(Math.hypot(s.x - p0.x, s.y - p0.y) > 1, 'łazik pojechał');
+  assert.equal(s.boom, true, 'kamera na widocznym wysięgniku');
+  await page.keyboard.press('KeyC');
+  await page.waitForFunction(() => window.marsim.view3d.ride.cabin && !window.marsim.view3d.roverMesh.visible, null, { timeout: 5000 });   // po klatce
+  await page.keyboard.press('KeyF');
+  const out = await page.evaluate(() => { const { app, view3d: v } = window.marsim, p = app.roverPos(); return { ride: !!v.ride, d: Math.hypot(v.helmet.x - p.x, v.helmet.y - p.y) }; });
+  assert.equal(out.ride, false);
+  assert.ok(out.d > 3 && out.d < 6, `wyjście przez śluzę obok łazika: ${out.d} m`);
+  assert.deepEqual(errors, []);
+  await context.close();
+});
+
+test('habitat: z rampy do śluzy, cykl ciśnienia klawiszem E, wejście do modułu bez hełmu', async () => {
+  const { page, context, errors } = await openApp(browser, `${staticUrl}?view=helmet`);
+  await page.waitForFunction(() => window.marsim.view3d?.hab, null, { timeout: LOAD_MS });
+  // na rampie, przodem do drzwi śluzy (−x w układzie habitatu)
+  await page.evaluate(() => {
+    const { app, view3d: v } = window.marsim, hab = app.m.habitat, a = v.habitatMesh.rotation.y, c = Math.cos(a), s = Math.sin(a);
+    window.local = () => { const dx = v.helmet.x - hab.x, dy = v.helmet.y - hab.y; return { x: dx * c - dy * s, z: dx * s + dy * c }; };
+    Object.assign(v.helmet, { x: hab.x + 10 * c, y: hab.y - 10 * s, yaw: (Math.atan2(-c, -s) * 180 / Math.PI + 360) % 360, pitch: -5 });
+  });
+  await page.keyboard.down('KeyW');
+  await page.waitForFunction(() => window.local().x < 6.2, null, { timeout: LOAD_MS });
+  await page.keyboard.up('KeyW');
+  await page.waitForFunction(() => window.marsim.view3d.hab.station?.id === 'airlockPanel', null, { timeout: 10000 });
+  assert.equal(await page.isVisible('#habHud'), true, 'wskaźniki habitatu w śluzie');
+  await page.keyboard.press('KeyE');
+  assert.equal(await page.evaluate(() => window.marsim.view3d.hab.airlock.state), 'cycling');
+  await page.waitForFunction(() => window.marsim.view3d.hab.airlock.state === 'in', null, { timeout: 90000 });
+  await page.keyboard.down('KeyW');
+  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'module', null, { timeout: LOAD_MS });
+  await page.keyboard.up('KeyW');
+  const s = await page.evaluate(() => { const v = window.marsim.view3d; return { off: v.hab.helmetOff, rim: v.interior.group.visible, hud: document.getElementById('hud').hidden }; });
+  assert.deepEqual(s, { off: true, rim: false, hud: true }, 'w module hełm zdjęty, wizjer schowany');
+  assert.equal(await page.evaluate(() => window.marsim.app.phase), 'idle', 'E w habitacie nie startuje EVA bez stanowiska skafandrów');
+  assert.deepEqual(errors, []);
+  await context.close();
+});

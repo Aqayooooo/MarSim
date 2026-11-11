@@ -91,6 +91,8 @@
       <div class="of-btns"><button id="obsOk" class="btn primary" data-i18n="obs.send">Wyślij</button><button id="obsCancel" class="btn" data-i18n="obs.cancel">Anuluj</button></div>
     </div>
     <div id="hoverRead" aria-hidden="true" hidden></div>
+    <div id="rideHud" role="group" data-i18n-aria="ride.title" hidden></div>
+    <div id="habHud" role="group" data-i18n-aria="hab.title" hidden></div>
     <div id="intro" role="dialog" aria-labelledby="introTitle" hidden>
       <h2 id="introTitle" data-i18n="intro.title">Jak zacząć</h2>
       <ol>
@@ -104,8 +106,12 @@
     <div id="fade"></div>
     <div id="loading" role="status"><span data-i18n="loading">Wczytywanie danych terenu…</span> <b id="loadPct"></b><i class="bar"><i></i></i></div>
     <div id="walkPad" role="group" data-i18n-aria="walk.aria" hidden>
+      <button class="btn" data-key="KeyA" data-i18n-aria="walk.left">◀</button>
       <button class="btn" data-key="KeyW" data-i18n-aria="walk.fwd">▲</button>
       <button class="btn" data-key="KeyS" data-i18n-aria="walk.back">▼</button>
+      <button class="btn" data-key="KeyD" data-i18n-aria="walk.right">▶</button>
+      <button class="btn" data-action="ride" data-i18n-aria="walk.ride">F</button>
+      <button class="btn" data-action="use" data-i18n-aria="walk.use">E</button>
     </div>
   </main>
   </div>
@@ -124,6 +130,12 @@
     <div id="o2Rows"></div>
     <h2 class="ph" id="resHead" data-i18n="reserve">Zapas na powrót</h2>
     <div class="reserve" id="reserve">--</div>
+    <h2 class="ph" id="habHead" data-i18n="hab.panel">Habitat</h2>
+    <div class="habsys" id="habSys" role="group" data-i18n-aria="hab.panel">
+      <div class="hs-row"><span data-i18n="hab.p.battery">Bateria</span><div class="hs-bar"><i id="hsBatBar"></i></div><b id="hsBat">--</b></div>
+      <div class="hs-row"><span data-i18n="hab.p.o2">Zbiornik O₂</span><div class="hs-bar"><i id="hsO2Bar"></i></div><b id="hsO2">--</b></div>
+      <div class="hs-note" id="hsNote"></div>
+    </div>
     <h2 class="ph" id="wpViewHead">Widok w WP2</h2>
     <div class="wpview" id="wpView">
       <div class="locked" id="wpLocked">odblokuje się w WP2</div>

@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "test:eva": "node --test tools/test-eva.mjs",
+    "test:habitat": "node --test tools/test-habitat.mjs",
     "test:browser": "node --test --test-concurrency=1 tools/test-browser.mjs"
   },
   "devDependencies": {

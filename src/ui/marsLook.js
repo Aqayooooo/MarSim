@@ -2,6 +2,7 @@
 // niebo ze słońcem, kształty kamieni i drobne kamyki wokół obserwatora. Wszystko liczone w przeglądarce, bez plików.
 import * as THREE from 'three';
 import { mulberry } from '../core/rocks.js';
+import { AIRLOCK, DOOR, FLOOR, GREEN, HULL, MAST, PANELS, RAMP as HAB_RAMP, WINDOW } from '../core/habitat.js';
 
 // paleta terenu (sRGB): ciemny bazaltowy piasek → rdzawy regolit → jasne skały i pył
 const RAMP = ['#2a1c16', '#6b402a', '#b2744a', '#e3bb92'];
@@ -199,13 +200,7 @@ export function sunVector(azDeg, elDeg) {
   return new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
 }
 
-/** Położenie słońca bez backendu: przybliżenie z godziny LTST (wschód 6:00, zachód 18:00) i szerokości obszaru. */
-export function approxSun(hour, latDeg) {
-  const k = clamp((hour - 6) / 12, 0, 1);
-  const el = Math.sin(Math.PI * k) * (90 - Math.min(60, Math.abs(latDeg) + 25));
-  const az = latDeg >= 0 ? 90 + 180 * k : (450 - 180 * k) % 360;   // przez południe na półkuli północnej, przez północ na południowej
-  return { az, el };
-}
+export { approxSun } from '../core/environment.js';   // położenie słońca bez backendu
 
 /** Kilka kształtów kamieni: bryły z nieregularnymi wypukłościami i spłaszczonym spodem. */
 export function rockGeometries(count = 3) {
@@ -303,46 +298,137 @@ const MAT = () => ({
   lamp: new THREE.MeshStandardMaterial({ color: 0xffd9a0, emissive: 0xffc070, emissiveIntensity: 1.2 }),
 });
 
-/** Ciśnieniowy łazik załogowy: kabina z szybą, sześć kół, śluzy skafandrów z tyłu, maszt z anteną. Przód = +x. */
+/**
+ * Ciśnieniowy łazik załogowy wzorowany na koncepcji NASA SEV (Space Exploration Vehicle): kabina ok. 4,5 m długości
+ * i 3 m wysokości, rozstaw osi 4 m, koła ⌀ 0,99 m × 0,3 m (12 kół w 6 skrętnych parach), dwie śluzy skafandrów z tyłu
+ * z przypiętymi skafandrami, duże okna z przodu, radiator i reflektory na dachu. Na dachu z tyłu obrotowa podstawa
+ * wysięgnika kamery (sam wysięgnik rysuje widok 3D, bo zmienia długość i kierunek). Przód = +x, spód = y 0.
+ */
 export function roverModel() {
   const g = new THREE.Group(), m = MAT();
   const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
-  add(new THREE.BoxGeometry(4.2, 0.35, 2.3), m.grey, 0, 0.75, 0);
+  // podwozie: rama i 6 skrętnych modułów po 2 koła (rozstaw osi 4 m)
+  add(new THREE.BoxGeometry(4.6, 0.32, 1.9), m.grey, 0, 1.0, 0);
+  const wheel = new THREE.CylinderGeometry(0.495, 0.495, 0.3, 28); wheel.rotateX(Math.PI / 2);
+  const hub = new THREE.CylinderGeometry(0.2, 0.2, 0.32, 12); hub.rotateX(Math.PI / 2);
+  for (const x of [-2, 0, 2]) for (const side of [-1, 1]) {
+    add(new THREE.BoxGeometry(0.22, 0.75, 0.22), m.grey, x, 1.0, side * 1.05);               // pionowa kolumna skrętu
+    add(new THREE.BoxGeometry(0.9, 0.16, 0.2), m.grey, x, 0.55, side * 1.25);                // wahacz pary kół
+    for (const dz of [0.95, 1.55]) { add(wheel, m.dark, x, 0.495, side * dz); add(hub, m.grey, x, 0.495, side * dz); }
+  }
+  // kabina: zaokrąglony profil boczny wyciągnięty na szerokość
   const side = new THREE.Shape();
-  side.moveTo(-1.9, 0); side.lineTo(1.5, 0); side.quadraticCurveTo(2.05, 0, 2.05, 0.6); side.lineTo(1.75, 1.45);
-  side.quadraticCurveTo(1.6, 1.7, 1.2, 1.7); side.lineTo(-1.6, 1.7); side.quadraticCurveTo(-1.9, 1.7, -1.9, 1.4); side.lineTo(-1.9, 0);
-  const cab = new THREE.ExtrudeGeometry(side, { depth: 2.0, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 2, curveSegments: 8 });
-  cab.translate(0, 0, -1.0);
-  add(cab, m.white, 0, 0.92, 0);
-  add(new THREE.BoxGeometry(0.06, 0.78, 1.8), m.glass, 1.95, 1.96, 0, 0, 0, 0.34);
-  for (const z of [-1.1, 1.1]) add(new THREE.BoxGeometry(1.1, 0.36, 0.04), m.glass, 0.85, 2.1, z);
-  add(new THREE.BoxGeometry(3.7, 0.13, 2.2), m.accent, -0.1, 1.46, 0);
-  for (const z of [-0.5, 0.5]) add(new THREE.CylinderGeometry(0.34, 0.34, 0.1, 24), m.grey, -2.0, 1.75, z, 0, 0, Math.PI / 2);
-  add(new THREE.CylinderGeometry(0.045, 0.045, 0.9, 8), m.grey, -0.9, 3.1, 0.6);
-  add(new THREE.SphereGeometry(0.3, 18, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), m.white, -0.9, 3.55, 0.6, -0.5, 0, 0);
-  for (const z of [-0.7, 0.7]) add(new THREE.BoxGeometry(0.06, 0.12, 0.3), m.lamp, 2.08, 1.3, z);
-  const wheel = new THREE.CylinderGeometry(0.5, 0.5, 0.38, 26); wheel.rotateX(Math.PI / 2);
-  const hub = new THREE.CylinderGeometry(0.22, 0.22, 0.42, 12); hub.rotateX(Math.PI / 2);
-  for (const x of [-1.45, 0, 1.45]) for (const z of [-1.27, 1.27]) { add(wheel, m.dark, x, 0.5, z); add(hub, m.grey, x, 0.5, z); }
+  side.moveTo(-2.25, 0); side.lineTo(1.55, 0); side.quadraticCurveTo(2.3, 0, 2.3, 0.55); side.lineTo(1.95, 1.55);
+  side.quadraticCurveTo(1.75, 1.85, 1.3, 1.85); side.lineTo(-1.95, 1.85); side.quadraticCurveTo(-2.25, 1.85, -2.25, 1.5); side.lineTo(-2.25, 0);
+  const cab = new THREE.ExtrudeGeometry(side, { depth: 2.2, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 3, curveSegments: 10 });
+  cab.translate(0, 0, -1.1);
+  add(cab, m.white, 0, 1.15, 0);
+  // okna: duża szyba przednia, dolne okna do jazdy i obserwacji gruntu, okna boczne
+  add(new THREE.BoxGeometry(0.06, 0.95, 2.0), m.glass, 2.2, 2.25, 0, 0, 0, 0.34);
+  for (const z of [-0.55, 0.55]) add(new THREE.BoxGeometry(0.06, 0.42, 0.75), m.glass, 2.33, 1.5, z);
+  for (const z of [-1.21, 1.21]) { add(new THREE.BoxGeometry(1.3, 0.5, 0.04), m.glass, 0.95, 2.35, z); add(new THREE.BoxGeometry(0.8, 0.4, 0.04), m.glass, -0.6, 2.35, z); }
+  add(new THREE.BoxGeometry(4.1, 0.14, 2.42), m.accent, -0.05, 1.75, 0);
+  // śluzy skafandrów z tyłu z przypiętymi skafandrami (plecak + hełm na zewnątrz kabiny)
+  for (const z of [-0.55, 0.55]) {
+    add(new THREE.CylinderGeometry(0.42, 0.42, 0.1, 28), m.grey, -2.4, 2.05, z, 0, 0, Math.PI / 2);
+    add(new THREE.BoxGeometry(0.42, 0.85, 0.62), m.white, -2.68, 2.0, z);                     // plecak skafandra
+    add(new THREE.SphereGeometry(0.24, 18, 12), m.white, -2.62, 2.62, z);                     // hełm
+    add(new THREE.BoxGeometry(0.34, 0.6, 0.24), m.white, -2.62, 1.35, z + (z < 0 ? -0.12 : 0.12));   // nogawki zwisają do śluzy
+  }
+  // dach: radiator, reflektory, antena, podstawa wysięgnika kamery
+  add(new THREE.BoxGeometry(2.0, 0.06, 1.7), m.panel, 0.1, 3.08, 0);
+  for (const z of [-0.8, -0.27, 0.27, 0.8]) add(new THREE.BoxGeometry(0.1, 0.12, 0.28), m.lamp, 1.55, 3.07, z);
+  for (const z of [-0.7, 0.7]) add(new THREE.BoxGeometry(0.06, 0.14, 0.32), m.lamp, 2.35, 0.95, z);
+  add(new THREE.CylinderGeometry(0.04, 0.04, 0.8, 8), m.grey, -0.4, 3.45, 0.85);
+  add(new THREE.SphereGeometry(0.26, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), m.white, -0.4, 3.85, 0.85, -0.5, 0, 0);
+  add(new THREE.CylinderGeometry(0.2, 0.26, 0.35, 16), m.grey, -1.5, 3.2, 0);                // obrotowa podstawa wysięgnika
   return shadowed(g);
 }
+/** Mocowanie wysięgnika kamery na dachu łazika (w układzie modelu). */
+export const ROVER_BOOM_PIVOT = { x: -1.5, y: 3.35 };
 
-/** Habitat: dwa moduły mieszkalne, śluza, pole paneli słonecznych i maszt łączności o podanej wysokości. */
+export const ROVER_FOOTPRINT = [[-1.9, 0, 1.9], [0, 0, 1.9], [1.9, 0, 1.9]];   // łazik ok. 5 × 3,4 m z kołami
+
+/**
+ * Habitat z zewnątrz: moduł mieszkalny na podporach (płaska gródź z przodu, półkula z tyłu), śluza z drzwiami
+ * zewnętrznymi i rampą, szklarnia z boku, okno, pole paneli słonecznych i maszt łączności o podanej wysokości.
+ * Wymiary i układ z core/habitat.js — te same co plan wnętrza i kolizje. Wnętrze dokłada ui/habitatInterior.js.
+ */
 export function habitatModel(mastM = 10) {
   const g = new THREE.Group(), m = MAT();
   const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); o.rotation.set(rx, ry, rz); g.add(o); return o; };
-  add(new THREE.CapsuleGeometry(2.3, 7, 10, 28), m.white, 0, 2.4, 0, 0, 0, Math.PI / 2);
-  add(new THREE.CapsuleGeometry(1.7, 4, 10, 24), m.white, -1.5, 1.85, 4.2, Math.PI / 2, 0, 0);
-  add(new THREE.BoxGeometry(2.4, 0.16, 4.8), m.accent, 0, 4.72, 0);
-  for (const x of [-4.4, 4.4]) add(new THREE.CylinderGeometry(2.36, 2.36, 0.25, 28), m.grey, x * 0.9, 2.4, 0, 0, 0, Math.PI / 2);
-  add(new THREE.BoxGeometry(1.8, 2.3, 2.0), m.grey, 6.2, 1.15, 0);
-  add(new THREE.BoxGeometry(0.06, 1.7, 0.9), m.dark, 7.12, 1.0, 0);
-  for (let k = 0; k < 3; k++) {
-    add(new THREE.CylinderGeometry(0.06, 0.06, 1.4, 8), m.grey, -3 + k * 3.6, 0.7, -7.5);
-    add(new THREE.BoxGeometry(3.2, 0.06, 1.7), m.panel, -3 + k * 3.6, 1.45, -7.5, -0.55, 0, 0);
+  const { r, cy, x0, x1 } = HULL, len = x1 - x0;
+  // moduł główny: walec, półkula z tyłu i gródź z otworem na śluzę z przodu
+  const body = new THREE.CylinderGeometry(r, r, len, 40, 1, true); body.rotateZ(Math.PI / 2);
+  add(body, m.white, (x0 + x1) / 2, cy, 0);
+  add(new THREE.SphereGeometry(r, 40, 20, 0, Math.PI), m.white, x0, cy, 0, 0, -Math.PI / 2, 0);
+  const front = new THREE.Shape(); front.absarc(0, 0, r, 0, Math.PI * 2, false);
+  front.holes.push(rectPath(-AIRLOCK.z, AIRLOCK.y0 - cy, AIRLOCK.z, AIRLOCK.y1 - cy));
+  const frontGeo = new THREE.ShapeGeometry(front, 40); frontGeo.rotateY(Math.PI / 2);
+  add(frontGeo, m.white, x1, cy, 0);
+  for (const x of [x0 + 0.6, (x0 + x1) / 2, x1 - 0.6]) {
+    const hoop = new THREE.CylinderGeometry(r + 0.06, r + 0.06, 0.28, 40, 1, true); hoop.rotateZ(Math.PI / 2);
+    add(hoop, m.grey, x, cy, 0);
   }
-  add(new THREE.CylinderGeometry(0.08, 0.12, mastM, 10), m.grey, 3.2, mastM / 2, -3.2);
-  add(new THREE.SphereGeometry(0.55, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), m.white, 3.2, mastM + 0.2, -3.2, -0.6, 0.8, 0);
-  add(new THREE.SphereGeometry(0.12, 10, 8), m.lamp, 3.2, mastM + 0.65, -3.2);
+  add(new THREE.BoxGeometry(len - 1, 0.14, 2.2), m.accent, (x0 + x1) / 2, cy + r + 0.02, 0);
+  for (const x of [x0 + 0.8, x1 - 0.8]) for (const z of [-1.3, 1.3]) {
+    add(new THREE.BoxGeometry(0.2, 1.2, 0.2), m.grey, x, 0.1, z);   // podpory (sięgają pod grunt na pochyłym terenie)
+    add(new THREE.BoxGeometry(0.6, 0.06, 0.6), m.grey, x, -0.45, z);
+  }
+  // okno nad konsolą (szyba tylko od zewnątrz — od środka widać przez nią teren)
+  const wc = (WINDOW.x0 + WINDOW.x1) / 2, ww = WINDOW.x1 - WINDOW.x0;
+  const glass = new THREE.Mesh(new THREE.PlaneGeometry(ww, 1.05), m.glass);
+  glass.position.set(wc, cy - 0.12, -r - 0.025); glass.rotation.y = Math.PI; g.add(glass);
+  add(new THREE.BoxGeometry(ww + 0.2, 0.1, 0.1), m.grey, wc, cy + 0.45, -r - 0.03);
+  add(new THREE.BoxGeometry(ww + 0.2, 0.1, 0.1), m.grey, wc, cy - 0.69, -r + 0.02);
+  // śluza: skrzynia bez ścianki od modułu (tam gródź) i z otworem na drzwi z przodu
+  const A = AIRLOCK, aw = A.x1 - A.x0, ah = A.y1 - A.y0, hide = new THREE.MeshBasicMaterial({ visible: false });
+  add(new THREE.BoxGeometry(aw, ah, 2 * A.z), [hide, hide, m.white, m.white, m.white, m.white], (A.x0 + A.x1) / 2, (A.y0 + A.y1) / 2, 0);
+  const face = new THREE.Shape(); face.moveTo(-A.z, 0); face.lineTo(A.z, 0); face.lineTo(A.z, ah); face.lineTo(-A.z, ah); face.closePath();
+  face.holes.push(rectPath(-DOOR.half, FLOOR - A.y0, DOOR.half, DOOR.top - A.y0));
+  const faceGeo = new THREE.ShapeGeometry(face); faceGeo.rotateY(Math.PI / 2);
+  add(faceGeo, m.white, A.x1, A.y0, 0);
+  add(new THREE.BoxGeometry(0.08, 0.1, 2 * DOOR.half + 0.3), m.grey, A.x1 + 0.03, DOOR.top + 0.05, 0);   // nadproże
+  for (const z of [-1, 1]) add(new THREE.BoxGeometry(0.08, DOOR.top - FLOOR, 0.1), m.grey, A.x1 + 0.03, (FLOOR + DOOR.top) / 2, z * (DOOR.half + 0.1));
+  add(new THREE.BoxGeometry(aw + 0.1, 0.14, 2 * A.z + 0.1), m.accent, (A.x0 + A.x1) / 2, A.y1, 0);
+  // rampa od progu do gruntu, z bocznymi poręczami
+  const rl = Math.hypot(HAB_RAMP.x1 - HAB_RAMP.x0, FLOOR), ra = -Math.atan2(FLOOR, HAB_RAMP.x1 - HAB_RAMP.x0);   // w dół ku +x
+  add(new THREE.BoxGeometry(rl, 0.08, 2 * HAB_RAMP.half), m.grey, (HAB_RAMP.x0 + HAB_RAMP.x1) / 2, FLOOR / 2 - 0.04, 0, 0, 0, ra);
+  for (const z of [-1, 1]) {
+    add(new THREE.BoxGeometry(rl, 0.05, 0.05), m.grey, (HAB_RAMP.x0 + HAB_RAMP.x1) / 2, FLOOR / 2 + 0.95, z * HAB_RAMP.half, 0, 0, ra);
+    for (const k of [0.15, 0.55, 0.92]) add(new THREE.BoxGeometry(0.04, 0.95, 0.04), m.grey, HAB_RAMP.x0 + (HAB_RAMP.x1 - HAB_RAMP.x0) * k, FLOOR * (1 - k) + 0.47, z * HAB_RAMP.half);
+  }
+  // szklarnia: walec wzdłuż z z półkulą na końcu, kołnierz przy module (z otworem przejścia)
+  const G = GREEN, gz0 = 2.2, glen = G.z1 - gz0;
+  const gb = new THREE.CylinderGeometry(G.r, G.r, glen, 32, 1, true); gb.rotateX(Math.PI / 2);
+  add(gb, m.white, G.x, G.cy, (gz0 + G.z1) / 2);
+  add(new THREE.SphereGeometry(G.r, 32, 16, 0, Math.PI), m.white, G.x, G.cy, G.z1);   // półkula po stronie +z
+  const collar = new THREE.Shape(); collar.absarc(0, 0, G.r, 0, Math.PI * 2, false);
+  collar.holes.push(rectPath(G.hatch.x0 - G.x, FLOOR - G.cy, G.hatch.x1 - G.x, G.hatch.top - G.cy));
+  const collarMesh = add(new THREE.ShapeGeometry(collar, 32), m.white, G.x, G.cy, gz0);
+  collarMesh.material = collarMesh.material.clone(); collarMesh.material.side = THREE.DoubleSide;
+  for (const z of [3.4, 5.8]) {
+    const hoop = new THREE.CylinderGeometry(G.r + 0.05, G.r + 0.05, 0.22, 32, 1, true); hoop.rotateX(Math.PI / 2);
+    add(hoop, m.grey, G.x, G.cy, z);
+  }
+  const strip = new THREE.CylinderGeometry(G.r + 0.012, G.r + 0.012, G.z1 - G.z0 - 0.6, 24, 1, true, Math.PI * 0.62, Math.PI * 0.76);
+  strip.rotateX(Math.PI / 2);
+  add(strip, m.glass, G.x, G.cy, (G.z0 + G.z1) / 2);   // przeszklony dach szklarni
+  for (const z of [G.z0 + 0.6, G.z1 - 0.6]) for (const x of [-1.2, 1.2]) add(new THREE.BoxGeometry(0.16, 1.0, 0.16), m.grey, G.x + x, 0.2, z);
+  // pole paneli słonecznych
+  for (const p of PANELS) {
+    for (const dx of [-p.w / 2 + 0.4, p.w / 2 - 0.4]) add(new THREE.CylinderGeometry(0.06, 0.06, 1.5, 8), m.grey, p.x + dx, 0.75, p.z);
+    add(new THREE.BoxGeometry(p.w, 0.06, p.d), m.panel, p.x, 1.55, p.z, -0.55, 0, 0);
+  }
+  add(new THREE.CylinderGeometry(0.08, 0.12, mastM, 10), m.grey, MAST.x, mastM / 2, MAST.z);
+  add(new THREE.SphereGeometry(0.55, 20, 8, 0, Math.PI * 2, 0, Math.PI / 2.6), m.white, MAST.x, mastM + 0.2, MAST.z, -0.6, 0.8, 0);
+  add(new THREE.SphereGeometry(0.12, 10, 8), m.lamp, MAST.x, mastM + 0.65, MAST.z);
+  for (const mat of Object.values(m)) mat.shadowSide = THREE.DoubleSide;   // cienkie ściany: cień z obu stron, żeby słońce nie wpadało do środka
   return shadowed(g);
+}
+
+function rectPath(x0, y0, x1, y1) {
+  const p = new THREE.Path();
+  p.moveTo(x0, y0); p.lineTo(x0, y1); p.lineTo(x1, y1); p.lineTo(x1, y0); p.closePath();
+  return p;
 }

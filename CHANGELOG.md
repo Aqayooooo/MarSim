@@ -2,6 +2,18 @@
 
 Najnowsze na górze. Daty z commitów na gałęzi `pages-demo`, z której publikowane jest demo online.
 
+## Niewydane
+
+- Hełm jak w grze: sterowanie myszą po kliknięciu widoku (Esc zwalnia), płynne ruszanie i hamowanie, ślizg wzdłuż przeszkód, kołysanie kroku. Tempo marszu ×1…×32 (kółko myszy, + −), bieg Shift (×3), skok spacją w grawitacji Marsa. Tempo widać na wizjerze.
+- Jazda łazikiem pod **F** w hełmie: napęd i skręt jak w samochodzie, obrót w miejscu, przechył na terenie, kolizje. Kamera z trzeciej osoby na widocznym, obrotowym i wysuwanym wysięgniku na dachu. C przełącza na kamerę kabinową, a do sterowania służą wskaźniki jazdy i przyciski dotykowe.
+- Dokładniejszy model łazika wzorowany na koncepcji NASA SEV (wymiary, 12 kół, śluzy z przypiętymi skafandrami, okna, radiator). Doszły kolizje z habitatem i łazikiem przy chodzeniu oraz poprawki migotania i cieni przy habitacie, a marsz przyspieszył do 2 m/s.
+- **Habitat od środka.** Do habitatu wchodzi się po rampie przez śluzę. Panel w śluzie (**E**) zamyka drzwi, napełnia ją do ciśnienia kabiny 56,5 kPa (atmosfera eksploracyjna NASA, 34% O₂) i otwiera drzwi do modułu; w drugą stronę odpompowuje powietrze. Drzwi przesuwają się i blokują przejście, a światło śluzy jest czerwone przy próżni, żółte w trakcie cyklu i zielone pod ciśnieniem. W module są koje, kuchnia, skafandry, szafa podtrzymywania życia, konsola misji i okno, przez które widać teren. Obok jest szklarnia z grządkami i lampami LED. Po wejściu pod ciśnienie hełm się zdejmuje, a wizjer zastępują wskaźniki habitatu.
+- Działające stanowiska (**E**): konsola z trzema stronami (misja, środowisko, energia), MOXIE na szafie podtrzymywania życia, lampy szklarni, światło, wywołanie śluzy z modułu. Stanowisko skafandrów rozpoczyna wyjście EVA. Ekrany pokazują dane z zegara misji.
+- **Systemy habitatu w czasie misji** (`src/core/habitat.js`): moc paneli słonecznych zależy od wysokości słońca i zapylenia τ, a pobór od grzania, MOXIE, lamp, światła i pompy śluzy. Bateria 30 kWh i zbiornik O₂ 60 kg zmieniają się razem z zegarem misji. Poniżej 15% baterii habitat sam odłącza MOXIE i lampy szklarni, a po naładowaniu do 35% włącza je z powrotem. Nowy panel **Habitat** po prawej pokazuje baterię, zbiornik tlenu i bilans mocy. Model jest uproszczony i służy do pokazania zależności.
+- Nowa bryła habitatu: moduł na podporach, śluza z rampą i poręczami, szklarnia, okno, większe pole paneli (ok. 40 m²). Kolizje habitatu liczone są ze ścian, drzwi i mebli, a nie z kół. Ten sam plan wnętrza obsługuje widok 3D i testy.
+- Testy: `npm run test:habitat` (strefy, kolizje, śluza, stanowiska, bilans energii i tlenu) oraz test w przeglądarce, w którym postać wchodzi z rampy przez śluzę do modułu.
+- Poprawka: `POST /api/plan` jest odrzucany od razu po starcie EVA, także zanim minie pierwszy krok symulacji.
+
 ## 2026-11-10 (noc): wygląd, własny plan wyjścia, telefon, niepewność, testy w przeglądarce
 
 - **Wygląd 3D:**

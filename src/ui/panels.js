@@ -1,8 +1,9 @@
 // Panele boczne i nakładki DOM nad mapą. Aktualizowane z pętli, zmieniają DOM tylko przy zmianie.
-import { num, int, hm, clock, km, parseClock } from '../core/format.js';
+import { num, int, hm, clock, km } from '../core/format.js';
 import { $, esc, setText, setHidden, setClass } from '../core/dom.js';
 import { t, tx, plural } from '../i18n.js';
 import { layerKey } from './help.js';
+import { tempAt } from '../core/environment.js';
 
 const O2_BAR_PX = 190;
 const O2_LOW_PCT = 40, O2_CRITICAL_PCT = 25;        // progi kolorów jak na urządzeniu w hełmie
@@ -111,6 +112,25 @@ export class Panels {
     requestAnimationFrame(() => box.classList.add('open'));
   }
 
+  /** Panel habitatu: bateria, zbiornik tlenu, bilans mocy i odłączone odbiorniki. */
+  #habitat() {
+    const h = this.app.habitat, ls = h.now;
+    if (!ls) return;
+    const bar = (id, pct) => {
+      const el = $(id), w = `${Math.max(0, Math.min(100, pct)).toFixed(1)}%`;
+      if (el.style.width !== w) el.style.width = w;
+      setClass(el, 'low', pct < 40 && pct >= 20);
+      setClass(el, 'crit', pct < 20);
+    };
+    bar('hsBatBar', h.batteryPct);
+    bar('hsO2Bar', h.o2Pct);
+    setText($('hsBat'), `${int(h.batteryPct)}%`);
+    setText($('hsO2'), `${int(h.o2Kg)} kg`);
+    const note = h.shed ? t('hab.p.shed') : t('hab.p.note', { s: num(ls.solarKw, 1), l: num(ls.loadKw, 1) });
+    setText($('hsNote'), note);
+    setClass($('hsNote'), 'warn', h.shed);
+  }
+
   /** Wywoływane w każdej klatce. */
   update() {
     const app = this.app, st = app.state, sim = app.sim, m = app.m;
@@ -143,6 +163,7 @@ export class Panels {
       const tl = snap?.crew?.[j];
       setText(this.o2[i].tele, tl ? t('tele', { co2: num(tl.co2mmHg, 1), bat: int(tl.batteryPct), hr: tl.hr, kpa: num(tl.pressureKPa, 1) }) : '');
     });
+    this.#habitat();
     const reserveH = sim.reserveH(), underway = app.phase !== 'idle' && app.phase !== 'done';
     setText($('reserve'), hm(reserveH));
     setClass($('reserve'), 'low', underway && reserveH <= RESERVE_LOW_H && reserveH > RESERVE_CRITICAL_H);
@@ -172,11 +193,4 @@ export class Panels {
 }
 
 
-export function tempAt(curve, min) {
-  const pts = curve.map(([c, t]) => [parseClock(c), t]);
-  if (min <= pts[0][0]) return pts[0][1];
-  for (let i = 1; i < pts.length; i++) {
-    if (min <= pts[i][0]) { const [a, ta] = pts[i - 1], [b, tb] = pts[i]; return ta + (tb - ta) * (min - a) / (b - a); }
-  }
-  return pts[pts.length - 1][1];
-}
+export { tempAt };

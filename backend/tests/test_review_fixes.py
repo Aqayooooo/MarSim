@@ -128,3 +128,9 @@ def test_telemetry_above_tank_capacity_is_rejected(client):
     r = client.post("/api/telemetry", json={"id": "EV1", "o2L": cap + 1})
     assert r.status_code == 422 and "pojemność" in r.json()["error"]
     assert client.post("/api/telemetry", json={"id": "EV1", "o2L": cap}).status_code == 200
+
+
+def test_plan_is_refused_right_after_start(client):
+    assert client.post("/api/plan").status_code == 200
+    assert client.post("/api/eva/start", json={"timeScale": 600}).status_code == 200  # jeszcze bez kroku symulacji (t = 0)
+    assert client.post("/api/plan").status_code == 409

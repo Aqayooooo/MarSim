@@ -40,7 +40,7 @@ export class Help {
       <h3>${esc(t('help.g.views'))}</h3>${views}
       <h3>${esc(t('help.g.eva'))}</h3>${row([t('key.space')], 'help.k.eva')}${row(['B'], 'help.k.return')}
       <h3>${esc(t('help.g.map'))}</h3>${row(['1–9', '0'], 'help.k.layers')}${row(['C'], 'help.k.compare')}${row(['P'], 'help.k.profile')}${row(['?'], 'help.k.help')}${row(['Esc'], 'help.k.esc')}
-      <h3>${esc(t('help.g.move'))}</h3>${row(['W A S D', '← ↑ ↓ →'], 'help.k.walk')}${row(['Shift'], 'help.k.run')}${row([t('key.space'), '+', '−'], 'help.k.drive')}${row(['C'], 'help.k.cabin')}
+      <h3>${esc(t('help.g.move'))}</h3>${row([t('key.click')], 'help.k.look')}${row(['W A S D', '← ↑ ↓ →'], 'help.k.walk')}${row(['Shift'], 'help.k.run')}${row([t('key.wheel'), '+', '−'], 'help.k.pace')}${row([t('key.space')], 'help.k.jump')}${row(['F'], 'help.k.ride')}${row(['E'], 'help.k.use')}${row([t('key.space'), '+', '−'], 'help.k.drive')}${row(['C'], 'help.k.cabin')}
     </div>`;
   }
 
@@ -51,11 +51,12 @@ export class Help {
     if (this.open) return;
     const app = this.app, key = e.key.toLowerCase(), view = app.state.view;
     const driving = !!app.drive;       // jazda łazikiem ma własne klawisze (spacja, C)
+    const walking = view === 'helmet'; // w hełmie spacja to skok
 
     const layer = LAYER_KEYS.indexOf(e.key);
     if (layer >= 0 && app.m.layers[layer]) { app.toggleLayer(app.m.layers[layer].id); return; }
     if (VIEW_KEYS[key]) { this.actions.setView(VIEW_KEYS[key]); return; }
-    if (e.code === 'Space' && !driving && !e.target.closest?.('button, [role="switch"], [role="button"], a')) {
+    if (e.code === 'Space' && !driving && !walking && !e.target.closest?.('button, [role="switch"], [role="button"], a')) {
       e.preventDefault();
       this.actions.toggleEva();
       return;

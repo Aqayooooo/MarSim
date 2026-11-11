@@ -58,7 +58,8 @@ export class HelmetHud {
     setText($('hudHeading'), `${String(h.heading).padStart(3, '0')}°`);
     setText($('hudDist'), t('hud.to', { t: h.target, d: Math.round(h.dist) }));
     setText($('visorRoute'), planned ? t('visor.route', { l: app.state.route.letter }) : t('visor.noRoute'));
-    setText($('hudSpeed'), `${num(h.speed, 1)} km/h`);
+    setText($('hudSpeed'), `${num(h.speed, 1)} km/h${h.pace > 1 ? ` · ${t('hud.pace', { x: h.pace })}` : ''}`);
+    setText($('hudHelp'), t(h.locked ? 'hud.helpLocked' : 'hud.help'));
     setText($('visorSlope'), `${t('hud.slope')} ${num(h.slope, 0)}°`);
     setText($('visorClock'), `SOL ${app.m.mission.sol} / ${clock(sim.min)} LTST`);
     setText($('visorDecision'), t(state.key));

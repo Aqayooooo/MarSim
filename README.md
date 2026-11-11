@@ -91,7 +91,8 @@ python tools/make_data_sources.py                # odświeża data-sources.json
 - **PL / EN**: przełącznik w nagłówku (albo `?lang=en` w adresie).
 - **Warstwy**: kliknięcie albo spacja na wierszu w lewym panelu.
 - **Mapa 2D / 3D / Hełm EV1 / Urządzenie / Raport / Plan wyjść**: zakładki w nagłówku.
-- **Hełm**: klawisze W A S D lub strzałki to chodzenie, mysz to rozglądanie, Shift przyspiesza. Kolizje z terenem powyżej 25° i z głazami.
+- **Hełm** (jak w grze): kliknięcie widoku przechwytuje mysz (rozglądanie bez przeciągania, Esc zwalnia), W A S D lub strzałki to chodzenie z płynnym ruszaniem i hamowaniem. Tempo marszu ×1…×32 zmienia kółko myszy albo + i −, Shift to bieg (×3), a spacja to skok w grawitacji Marsa. Kolizje z terenem powyżej 25° i z głazami; przy przeszkodzie astronauta ślizga się wzdłuż niej.
+- **Jazda łazikiem** (w hełmie, do 8 m od łazika): **F** — wsiadanie i wysiadanie (przez śluzę skafandra z tyłu). W — gaz, S — hamulec (po zatrzymaniu: wstecz), spacja — hamulec ręczny, A/D — skręt; bez gazu łazik obraca się w miejscu. Widok z kamery na obrotowym, wysuwanym wysięgniku na dachu: mysz obraca wysięgnik, kółko zmienia jego długość (6–18 m). **C** — kamera w kabinie. Kolizje z głazami, habitatem i stokiem powyżej 30°. Model łazika wzorowany na koncepcji NASA SEV: kabina 4,5 × 3 m, rozstaw osi 4 m, 12 kół ⌀ 0,99 m w skrętnych parach, dwie śluzy skafandrów z tyłu.
 - **⇄ Porównaj trasy** (na mapie; bez serwera — dla pierwszej trasy z zapisanych danych backendu): dlaczego wybrano tę trasę. Planer porównuje ją z linią prostą, najkrótszą bezpieczną i wariantem bez stref „uwaga” i podaje liczbowe powody (metry w strefach zakazanych, nachylenie, tlen, czas).
 - **Start EVA**: wyznacza trasę i rusza z załogą. Ten sam przycisk wstrzymuje i wznawia marsz. **Powrót do habitatu** wyznacza trasę powrotną; po dotarciu pojawia się **Nowe wyjście**.
 - **Profil trasy**: wykres wysokości, strefy „uwaga” i bieżąca pozycja załogi. Wskazanie wykresu pokazuje odpowiadające miejsce na mapie.
@@ -102,6 +103,7 @@ python tools/make_data_sources.py                # odświeża data-sources.json
 - **Punkty EVA** (na mapie, przed startem wyjścia): kliknięcie dodaje punkt (najwyżej 8), przeciągnięcie przesuwa. Na liście: postój, kolejność, usuwanie i powrót do punktów misji. Plan zostaje w przeglądarce; z backendem odtwarza się też po odświeżeniu strony.
 - **Co jeśli?**: trasa bieżącego planu przy limitach nachylenia 20–30° (suwak, linia przerywana na mapie) oraz przedział tlenu i czasu.
 - **Odczyt terenu**: wskazanie mapy myszą pokazuje wysokość względną, nachylenie, strefę, piasek i czas oraz tlen na dojście pieszo do habitatu.
+- **Habitat od środka** (w hełmie): wejście po rampie przez śluzę. **E** przy stanowisku: cykl śluzy (zamknięcie, napełnienie do 56,5 kPa, otwarcie — albo odpompowanie), światło, konsola misji (strony: misja, środowisko, energia), MOXIE, lampy szklarni, a przy skafandrach — start wyjścia EVA. Pod ciśnieniem hełm się zdejmuje i pojawiają się wskaźniki habitatu. Panel **Habitat** po prawej pokazuje baterię, zbiornik O₂ i bilans mocy liczone z zegarem misji (model uproszczony: `src/core/habitat.js`).
 - **Telefon i tablet**: zakładki i przyciski w nagłówku, mapa na całą szerokość, panele pod spodem; w hełmie przytrzymanie ▲/▼ to marsz.
 
 ## Co jest w środku

@@ -32,6 +32,8 @@ jobs:
           node tools/test-planner.mjs data/missions/jezero
       - name: EVA regression tests
         run: node --test tools/test-eva.mjs
+      - name: Habitat tests (airlock, collisions, power)
+        run: node --test tools/test-habitat.mjs
       - name: Translation test (PL/EN)
         run: node tools/test-i18n.mjs
 

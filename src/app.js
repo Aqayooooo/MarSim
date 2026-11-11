@@ -5,6 +5,8 @@ import { Sim, HABITAT_ID } from './core/sim.js';
 import { RemoteSim } from './core/remoteSim.js';
 import { routeStats } from './core/routeStats.js';
 import { Drive } from './core/drive.js';
+import { HabitatSystems } from './core/habitat.js';
+import { habitatEnv } from './core/environment.js';
 import { hm } from './core/format.js';
 import { t, tx } from './i18n.js';
 
@@ -56,6 +58,7 @@ export class App {
       onLink: (up) => { this.offline = !up; this.emit('net', up); },
     };
     this.sim = this.remote ? new RemoteSim(this.m, ds, hooks) : new Sim(this.m, hooks, world.rasters);
+    this.habitat = new HabitatSystems();   // bateria, tlen i przełączniki habitatu (core/habitat.js)
     this.reset(false);
   }
 
@@ -78,6 +81,8 @@ export class App {
       return this.pendingReset;
     }
     this.sim.reset();
+    this.habitat.reset();
+    this.habMin = null;
     this.drive = null;       // jazda łazikiem po trasie A→B (core/drive.js)
     this.roverAt = null;     // gdzie łazik stanął po jeździe (null = pozycja z misji / z symulacji EVA)
     this.routeBlocked = false;
@@ -425,9 +430,21 @@ export class App {
   }
 
   // ---------- pętla ----------
+  /** Habitat żyje zegarem misji: bilans energii i tlenu całkowany krokami po 15 min czasu misji. */
+  #stepHabitat() {
+    const min = this.sim.min, h = this.habitat, env = habitatEnv(this);
+    let dH = this.habMin == null ? 0 : Math.min(12, Math.max(0, min - this.habMin) / 60);
+    this.habMin = min;
+    const shed = h.shed;
+    while (dH > 0.25) { h.step(0.25, env); dH -= 0.25; }
+    h.step(dH, env);
+    if (h.shed && !shed && !this.state.alert) this.setAlert({ category: t('hab.alert'), text: t('hab.alertShed') });
+  }
+
   update(dt) {
     this.now += dt;
     this.sim.step(dt);
+    this.#stepHabitat();
     const phase = `${this.phase}${this.sim.running ? '' : ':paused'}`;
     if (phase !== this.lastPhase) { this.lastPhase = phase; this.emit('phase', this.phase); }
     if (this.drive) {

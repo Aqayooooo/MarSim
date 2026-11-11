@@ -301,7 +301,7 @@ def create_app(
     def plan(body: PlanRequest | None = None):
         body = body or PlanRequest()
         eng = active()
-        if eng.t > 0 or eng.finished:  # trasę wyjścia wyznacza się przed startem; w trakcie: zgłoszenia i powrót
+        if eng.running or eng.t > 0 or eng.finished:  # trasę wyznacza się przed startem (także zanim minie pierwsza sekunda)
             raise HTTPException(409, "Trasę można wyznaczyć tylko przed startem EVA. Zresetuj symulację, aby zaplanować nowe wyjście.")
         for point in [body.start, *(body.waypoints or [])]:
             if point is not None:

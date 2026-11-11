@@ -14,6 +14,8 @@ import { Director } from './demo.js';
 import { Intro } from './ui/intro.js';
 import { WaypointEditor } from './ui/wpEditor.js';
 import { Sensitivity } from './ui/sensitivity.js';
+import { RideHud } from './ui/rideHud.js';
+import { HabHud } from './ui/habHud.js';
 import { $, setHidden } from './core/dom.js';
 import { t, lang, setLang, applyStatic } from './i18n.js';
 
@@ -91,6 +93,9 @@ const driveHud = new DriveHud(app, () => view3d);
 const profile = new RouteProfile(app);
 const eva = new EvaControls(app, director);
 const helmetHud = new HelmetHud(app);
+const rideHud = new RideHud();
+const habHud = new HabHud();
+app.on('hab-suitup', () => eva.toggle());   // stanowisko skafandrów w habitacie rozpoczyna wyjście
 const sampleMeta = api === null ? await ds.sample('meta') : null;
 const help = new Help(app, {
   setView: (v) => selectView(v),
@@ -114,7 +119,9 @@ function fit() {
 }
 
 // hełm na ekranie dotykowym: przytrzymanie przycisku = marsz (zamiast klawiszy W/S)
-for (const b of $('walkPad').querySelectorAll('button')) {
+$('walkPad').querySelector('[data-action="ride"]').addEventListener('click', () => view3d?.toggleRide());
+$('walkPad').querySelector('[data-action="use"]').addEventListener('click', () => view3d?.useStation());
+for (const b of $('walkPad').querySelectorAll('button[data-key]')) {
   const keys = () => view3d?.helmet.keys;
   b.addEventListener('pointerdown', (e) => { e.preventDefault(); keys()?.add(b.dataset.key); b.setPointerCapture(e.pointerId); });
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) b.addEventListener(type, () => keys()?.delete(b.dataset.key));
@@ -200,6 +207,7 @@ function applyView(v) {
   fit();
   $('view3d').classList.toggle('on', is3d);
   $('hud').hidden = v !== 'helmet';
+  if (v !== 'helmet') $('rideHud').hidden = $('habHud').hidden = true;
   $('view3dLabel').hidden = v !== 'orbit';
   $('view3dLabel').textContent = t('view3d.label', { x: view3d?.exOrbit ?? 10 });
   $('device').hidden = v !== 'device';
@@ -239,7 +247,18 @@ function frame(now) {
   app.update(dt);
   const v = app.state.view;
   if (v === 'map') map.render(dt);
-  else if (VIEWS_3D.includes(v) && view3d) { view3d.render(dt); if (v === 'helmet') helmetHud.update(view3d.hudInfo()); }
+  else if (VIEWS_3D.includes(v) && view3d) {
+    view3d.render(dt);
+    if (v === 'helmet') {          // w hełmie pieszo — wizjer; w łaziku (F) — wskaźniki jazdy; w habitacie — jego wskaźniki
+      const riding = !!view3d.ride, inHab = !riding && view3d.inHabitat;
+      setHidden($('hud'), riding || inHab);
+      setHidden($('rideHud'), !riding);
+      setHidden($('habHud'), !inHab);
+      if (riding) rideHud.update(view3d.rideInfo());
+      else if (inHab) habHud.update(view3d.habInfo());
+      else helmetHud.update(view3d.hudInfo());
+    }
+  }
   if (app.drive) driveHud.update();
   else if (v === 'device') device.update();
   panels.update();

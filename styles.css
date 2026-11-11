@@ -112,6 +112,15 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .o2 span { margin-left: auto; }
 .o2 .tele { font: 11px var(--mono); color: var(--text2); white-space: nowrap; font-weight: 400; }
 .reserve { margin-top: 2px; font: 700 28px var(--mono); }
+.habsys { margin-top: 4px; display: grid; gap: 4px; font-size: 12px; color: var(--text2); }
+.habsys .hs-row { display: grid; grid-template-columns: 82px 1fr 46px; align-items: center; gap: 8px; }
+.habsys .hs-bar { height: 6px; background: var(--card); border-radius: 3px; overflow: hidden; }
+.habsys .hs-bar i { display: block; height: 100%; width: 0; background: var(--ok, #5ee6a0); }
+.habsys .hs-bar i.low { background: var(--warn); }
+.habsys .hs-bar i.crit { background: var(--bad); }
+.habsys b { font: 600 13px var(--mono); color: var(--text); text-align: right; }
+.habsys .hs-note { font: 11px var(--mono); color: var(--text3); }
+.habsys .hs-note.warn { color: var(--warn); }
 .reserve.low { color: var(--warn); }
 .reserve.crit { color: var(--bad); }
 .wpview { position: relative; flex: 1 1 0; min-height: 0; margin-top: 6px; background: var(--card); border: 1px solid #18140e; border-radius: 6px; overflow: hidden; }
@@ -167,6 +176,28 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 .sens-int { font: 12px var(--mono); color: var(--text); }
 .doc .sens-table { width: auto; min-width: 420px; }
 .doc .sens-table tr.cur td { color: var(--text); font-weight: 600; }
+
+/* ręczna jazda łazikiem (F w hełmie) */
+#rideHud { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3; width: 640px; background: rgba(8, 5, 4, .86); border: 1px solid var(--line2);
+  border-left: 3px solid var(--accent); border-radius: 10px; padding: 8px 12px; font-size: 13px; color: var(--text2); }
+#rideHud .rh-top { display: flex; gap: 12px; align-items: baseline; }
+#rideHud .rh-top b { color: var(--text); font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+#rideHud #rhLine { font: 15px var(--mono); color: var(--text); margin-top: 3px; }
+#rideHud .rh-warn { color: var(--warn); font: 700 12px var(--mono); letter-spacing: .08em; margin-top: 3px; }
+#rideHud .rh-help { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* habitat od środka: miejsce, ciśnienie, podpowiedź stanowiska (E) */
+#habHud { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 3; width: 640px; background: rgba(6, 10, 12, .84); border: 1px solid var(--line2);
+  border-left: 3px solid #68dee0; border-radius: 10px; padding: 8px 12px; font-size: 13px; color: var(--text2); pointer-events: none; }
+#habHud.suited { border-left-color: var(--warn); }
+#habHud .hh-top { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+#habHud .hh-top b { color: var(--text); font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+#habHud #hhStatus { font: 13px var(--mono); color: var(--text2); }
+#habHud .hh-bar { height: 4px; background: var(--line2); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+#habHud .hh-bar i { display: block; height: 100%; width: 0; background: var(--warn); }
+#habHud .hh-prompt { font: 600 15px var(--mono); color: #9be8e6; margin-top: 4px; }
+#habHud .hh-flash { font: 700 12px var(--mono); color: var(--warn); letter-spacing: .06em; margin-top: 3px; }
+#habHud .hh-help { font-size: 11px; color: var(--text3); margin-top: 4px; }
 
 /* odczyt terenu pod kursorem (mapa 2D) */
 #hoverRead { position: absolute; right: 12px; bottom: 112px; z-index: 2; pointer-events: none; background: rgba(10, 7, 4, .9); border: 1px solid var(--line2); border-radius: 6px;
@@ -344,7 +375,7 @@ kbd { font: 600 11px var(--mono); color: var(--text); background: var(--card); b
 /* ---------- układ kompaktowy: telefon i tablet (src/main.js: fitStage) ---------- */
 #mainWrap { display: contents; }
 #walkPad { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); z-index: 4; display: flex; gap: 14px; }
-#walkPad .btn { width: 64px; height: 64px; border-radius: 50%; font-size: 24px; background: rgba(13, 9, 5, .75); border-color: var(--line3); touch-action: none; }
+#walkPad .btn { width: 56px; height: 56px; border-radius: 50%; font-size: 24px; background: rgba(13, 9, 5, .75); border-color: var(--line3); touch-action: none; }
 html.compact, html.compact body { overflow: hidden auto; height: auto; min-height: 100%; }
 #stage.compact { position: relative; width: auto; height: auto; transform: none; display: flex; flex-direction: column; gap: 10px; padding-bottom: 18px; }
 #stage.compact #hdr { order: 0; position: relative; width: auto; height: auto; flex-wrap: wrap; gap: 8px; padding: 8px 10px; }
@@ -377,7 +408,7 @@ html.compact, html.compact body { overflow: hidden auto; height: auto; min-heigh
   #stage.compact #left { margin-left: 0; }
 }
 /* elementy na mapie: czytelne mimo zmniejszonej mapy */
-#stage.compact :is(.maplabel, #alert, #routeCard, #mapTools, #scale, #caption, #pickCard, #wpEditor, #sensCard, #intro, #obsForm, #driveHud, #net, #walkPad, .pane.doc) { zoom: var(--uiz); }
+#stage.compact :is(.maplabel, #alert, #routeCard, #mapTools, #scale, #caption, #pickCard, #wpEditor, #sensCard, #rideHud, #habHud, #intro, #obsForm, #driveHud, #net, #walkPad, .pane.doc) { zoom: var(--uiz); }
 #stage.compact #profile { zoom: calc(var(--uiz) * .85); left: 6px; }
 #stage.compact #locLabel, #stage.compact #hoverRead { display: none; }
 #stage.compact #alert { top: 12px; width: 270px; }
