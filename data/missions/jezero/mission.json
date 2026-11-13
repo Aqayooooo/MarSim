@@ -343,6 +343,72 @@
           "text": "wiatr z modelu, dawka z pomiaru RAD"
         }
       ]
+    },
+    {
+      "id": "geology",
+      "name": "Geologia",
+      "desc": "USGS SIM 3464, 1:75 000",
+      "colorOff": "#4a3f5c",
+      "colorOn": "#B39DDB",
+      "raster": {
+        "file": "geology.png",
+        "encoding": "png-class8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0,
+        "classes": {
+          "1": {
+            "color": "#C98B5E",
+            "text": "dolna jednostka wytrawiona (Nle) — popiół wulkaniczny?, oliwin i węglany"
+          },
+          "2": {
+            "color": "#8E7DB8",
+            "text": "jednostka dna krateru (Njf) — popiół lub osad eoliczny, skład maficzny"
+          },
+          "3": {
+            "color": "#3B3F52",
+            "text": "ciemny materiał płaszczowy (cienka pokrywa)"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#C98B5E",
+          "text": "dolna jednostka wytrawiona (Nle) — popiół wulkaniczny?, oliwin i węglany"
+        },
+        {
+          "color": "#8E7DB8",
+          "text": "jednostka dna krateru (Njf) — popiół lub osad eoliczny, skład maficzny"
+        },
+        {
+          "color": "#3B3F52",
+          "text": "ciemny materiał płaszczowy (cienka pokrywa)"
+        },
+        {
+          "color": "#888888",
+          "text": "granice z mapy 1:75 000, dokładność ~100–200 m"
+        }
+      ]
+    },
+    {
+      "id": "rover",
+      "name": "Trasa łazika",
+      "desc": "Perseverance 2021–2022",
+      "colorOff": "#2d4f5c",
+      "colorOn": "#6FD3F2",
+      "vector": {
+        "file": "roverTrack.json"
+      },
+      "legend": [
+        {
+          "color": "#6FD3F2",
+          "text": "przejazd łazika (lokalizacje NASA)"
+        },
+        {
+          "color": "#FFFFFF",
+          "text": "postój — kliknij: zdjęcia z łazika"
+        }
+      ]
     }
   ],
   "habitat": {

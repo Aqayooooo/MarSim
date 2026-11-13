@@ -359,6 +359,26 @@
           "text": "wiatr z modelu, dawka z pomiaru RAD"
         }
       ]
+    },
+    {
+      "id": "rover",
+      "name": "Trasa łazika",
+      "desc": "Curiosity 2015–2016",
+      "colorOff": "#2d4f5c",
+      "colorOn": "#6FD3F2",
+      "vector": {
+        "file": "roverTrack.json"
+      },
+      "legend": [
+        {
+          "color": "#6FD3F2",
+          "text": "przejazd łazika (lokalizacje NASA)"
+        },
+        {
+          "color": "#FFFFFF",
+          "text": "postój — kliknij: zdjęcia z łazika"
+        }
+      ]
     }
   ],
   "habitat": {

@@ -9,6 +9,7 @@ MarSim pokazuje teren z prawdziwych danych NASA i wyznacza bezpieczną trasę pi
   - krater Gale, wydmy Bagnold u podnóża Mount Sharp (4,67° S, 137,38° E);
   - krater Jezero, okolica lądowiska łazika Perseverance (18,44° N, 77,45° E).
 - **Dane:** HiRISE (DTM 1 m i zdjęcia 0,25 m), CTX, THEMIS, MOLA, CRISM, NASA DONKI, NOAA SWPC. Pełna lista z adresami i sumami SHA-256 jest w [data-sources.json](data-sources.json).
+- **Prawdziwe łaziki w obu obszarach** (warstwa „Trasa łazika”): Curiosity przejechał przez wycinek Gale w sole 956–1262 (IV 2015 – II 2016), a Perseverance przez wycinek Jezero w sole 13–382 (2021–2022). Trasa i postoje pochodzą z lokalizacji zespołów misji (NASA MMGIS). Po kliknięciu postoju widać surowe zdjęcia Navcam z tego miejsca, z kierunkiem z modelu kamery. W Jezero jest też warstwa „Geologia” z mapy USGS SIM 3464 (Sun & Stack 2020). Kroki budowania: `python -m backend.pipeline.rover_track`, `python -m backend.pipeline.rover_photos`, `python -m backend.pipeline.geology`.
 - **Bez uczenia maszynowego w produkcie.** Głazy wykrywa geometria cieni, piasek pięć wskaźników fizycznych, minerały parametry spektralne CRISM, a trasę algorytm A* z modelem wysiłku.
 
 ## Wynik prac · 10 listopada 2026

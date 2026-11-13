@@ -16,6 +16,11 @@ SC = {
     "Mars Odyssey THEMIS": ("2001 Mars Odyssey", "THEMIS", "NASA/JPL-Caltech/Arizona State University; mosaic: USGS Astrogeology"),
     "MRO CTX": ("Mars Reconnaissance Orbiter", "CTX", "NASA/JPL-Caltech/Malin Space Science Systems; mosaic: USGS Astrogeology"),
     "MGS MOLA": ("Mars Global Surveyor", "MOLA", "NASA/GSFC; mosaic: USGS Astrogeology"),
+    "MSL localization": ("Mars Science Laboratory (Curiosity)", "rover localization", "NASA/JPL-Caltech/MSL localization team (MMGIS)"),
+    "M20 localization": ("Mars 2020 (Perseverance)", "rover localization", "NASA/JPL-Caltech/Mars 2020 localization team (MMGIS)"),
+    "MSL Navcam": ("Mars Science Laboratory (Curiosity)", "Navcam", "NASA/JPL-Caltech"),
+    "M20 Navcam": ("Mars 2020 (Perseverance)", "Navcam", "NASA/JPL-Caltech"),
+    "USGS SIM 3464": ("—", "geologic map", "Sun & Stack (2020), USGS SIM 3464, doi:10.3133/sim3464"),
     "MRO CRISM": (
         "Mars Reconnaissance Orbiter",
         "CRISM",
@@ -81,6 +86,33 @@ KINDS = [
             "CRISM MTRDR (produkt odwzorowany), parametry sumaryczne, 18 m/px",
             "Minerals layer: olivine, pyroxene, hydration and sulfate indices (informational, does not change the hazard map)",
             "warstwa Minerały: oliwin, piroksen, wskaźniki uwodnienia i siarczanów (informacyjna, nie zmienia mapy zagrożeń)",
+        ),
+    ),
+    (
+        "_traverse",
+        (
+            "Rover traverse and stops (mission team localizations, NASA MMGIS GeoJSON)",
+            "Trasa i postoje łazika (lokalizacje zespołu misji, NASA MMGIS)",
+            "Rover track layer: real drive and stops inside the area (illustrative, offset vs HiRISE up to tens of metres)",
+            "warstwa Trasa łazika: prawdziwy przejazd i postoje w obszarze (poglądowo, przesunięcie względem HiRISE do kilkudziesięciu m)",
+        ),
+    ),
+    (
+        "_raw_navcam",
+        (
+            "Raw Navcam images taken at stops inside the area (320 px thumbnails bundled, full size online)",
+            "Surowe zdjęcia Navcam z postojów w obszarze (miniatury 320 px w danych, pełny rozmiar z sieci)",
+            "stop card on the Rover track layer: what the rover saw, with view direction from the CAHV camera model",
+            "karta postoju w warstwie Trasa łazika: co widział łazik, kierunek z modelu kamery CAHV",
+        ),
+    ),
+    (
+        "USGS_SIM3464",
+        (
+            "Geologic map of Jezero crater and Nili Planum, 1:75,000 (USGS SIM 3464, ArcGIS feature service)",
+            "Mapa geologiczna krateru Jezero i Nili Planum, 1:75 000 (USGS SIM 3464)",
+            "Geology layer (Jezero only): geologic units, illustrative (map offsets ~100–200 m), not used for hazards or planning",
+            "warstwa Geologia (tylko Jezero): jednostki geologiczne, poglądowo (przesunięcia ~100–200 m), bez wpływu na zagrożenia i planowanie",
         ),
     ),
     (
@@ -194,7 +226,7 @@ def main():
                 s["id"],
                 {
                     "id": s["id"],
-                    "type": "orbital",
+                    "type": "rover" if ("localization" in s["instrument"] or "Navcam" in s["instrument"]) else "map" if s["instrument"].startswith("USGS") else "orbital",
                     "spacecraft": sc,
                     "instrument": ins,
                     "missions": [],
@@ -203,6 +235,7 @@ def main():
                     "url": s["url"],
                     "access": "remote window (only the area of interest is read)"
                     if s.get("access") == "zdalny fragment"
+                    else "downloaded at build time, clipped to the area" if s["instrument"].endswith(("localization", "Navcam", "3464"))
                     else "downloaded file",
                     **({"bytes": s["bytes"]} if s.get("bytes") else {}),
                     **({"sha256": s["sha256"]} if s.get("sha256") else {}),
@@ -222,11 +255,13 @@ def main():
         "crs": "Mars 2000 sphere (IAU), planetocentric latitude, east longitude",
         "notUsed": {
             "en": [
-                "Mastcam / rover images: the waypoint view is a render from the HiRISE DTM, not a photograph",
+                "Rover photos in the waypoint view: it is still a render from the HiRISE DTM (real Navcam images are shown on the Rover track layer)",
+                "MSL Mastcam images: no camera pointing in the raw catalogue, so they cannot be placed on the map",
                 "Synthetic sample data in data/demo/ (used only without the backend)",
             ],
             "pl": [
-                "Mastcam / zdjęcia z łazika: widok w punkcie trasy to render z DTM HiRISE, nie zdjęcie",
+                "Zdjęcia w widoku punktu trasy: nadal render z DTM HiRISE (prawdziwe zdjęcia Navcam są w warstwie Trasa łazika)",
+                "Mastcam łazika Curiosity: brak kierunku kamery w katalogu surowych zdjęć, więc nie da się ich umieścić na mapie",
                 "Syntetyczne dane przykładowe w data/demo/ (tylko bez backendu)",
             ],
         },

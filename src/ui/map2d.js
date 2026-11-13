@@ -1,6 +1,6 @@
 // Mapa 2D na canvasie: zdjęcie, nakładki 6 warstw, trasa, załoga, łazik, strefy, etykiety.
 // Rysuje w układzie 972 × 648 px (obszar główny z nagrania); skala okna jest uwzględniana przez k.
-import { t as tr } from '../i18n.js';
+import { t as tr, tx } from '../i18n.js';
 import { hm, int, num } from '../core/format.js';
 export const MAIN_W = 972, MAIN_H = 648;
 const MONO = "700 15px 'JetBrains Mono', Consolas, monospace";
@@ -8,7 +8,7 @@ const ROUTE = '#FFDC52', TRAIL = '#F28586', ACCENT = '#F17778';   // ACCENT/TRAI
 const PICK = '#5EE6D0';                                            // własna trasa (Dijkstra)
 export const ALT_COLORS = { chosen: ROUTE, straight: '#FF5A4A', shortest: '#FFA94D', strict: '#7FB2FF' };
 // krycie warstwy, gdy nie jest bieżąca (wyróżniona): zgodnie z obrazem końcowym z nagrania
-const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
+const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, rover: 1, geology: 0.6, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -39,6 +39,14 @@ export class Map2D {
     this.wind = Array.from({ length: 110 }, () => ({ x: Math.random() * this.W, y: Math.random() * this.H, l: 0.7 + Math.random() * 0.6 }));
     app.on('reset', () => { this.#makeTiles(); for (const id in this.alpha) this.alpha[id] = 0; });
     this.#hoverReadout();
+    // klik w postój łazika NASA (warstwa „Trasa łazika”) otwiera kartę ze zdjęciami; inne tryby mapy mają pierwszeństwo
+    this.c.addEventListener('click', (e) => {
+      const st = app.state;
+      if (st.view !== 'map' || st.reportMode || st.pick || st.wpEdit) return;
+      const stop = this.#stopAt(this.worldAt(e.clientX, e.clientY));
+      if (stop) app.emit('rover-click', stop);
+    });
+    app.on('rover-stop', (s) => { this.selStop = s; });
   }
 
   /** Punkt terenu (m) pod kursorem albo null poza obszarem. */
@@ -54,16 +62,19 @@ export class Map2D {
     const box = document.getElementById('hoverRead');
     if (!box) return;
     const { terrain, rasters } = this.app.world;
-    this.c.addEventListener('pointerleave', () => { box.hidden = true; });
+    this.c.addEventListener('pointerleave', () => { box.hidden = true; this.hoverStop = null; });
     this.c.addEventListener('pointermove', (e) => {
       const p = e.pointerType === 'mouse' ? this.worldAt(e.clientX, e.clientY) : null;
+      this.hoverStop = this.app.state.view === 'map' ? this.#stopAt(p) : null;
       if (!p || this.app.state.view !== 'map') { box.hidden = true; return; }
       const zone = Math.min(2, rasters.hazards?.sample(p.x, p.y) ?? 0), sand = rasters.sand?.sample(p.x, p.y);
       const tHome = rasters.timeToHabitat?.sample(p.x, p.y), o2Home = rasters.o2ToHabitat?.sample(p.x, p.y);
       const home = tHome == null ? '' : tHome >= 9000 ? tr('probe.noHome') : tr('probe.home', { t: hm(tHome / 3600), o: num(o2Home, 0) });
       box.innerHTML = `<b>x ${int(p.x)} · y ${int(p.y)} m</b> · ${tr('probe.elev')} ${int(terrain.height(p.x, p.y) + terrain.minH)} m<br>`
         + `${tr('probe.slope')} ${num(terrain.slope(p.x, p.y), 0)}° · <span class="z${zone}">${tr(`probe.z${zone}`)}</span>`
-        + `${sand == null ? '' : ` · ${tr('probe.sand')} ${int(sand / 2.55)}%`}${home ? `<br>${home}` : ''}`;
+        + `${sand == null ? '' : ` · ${tr('probe.sand')} ${int(sand / 2.55)}%`}${home ? `<br>${home}` : ''}`
+        + (rasters.geology && this.app.state.layers.geology?.on ? (() => { const v = rasters.geology.sample(p.x, p.y); const c = v && rasters.geology.meta.classes[v]; return c ? `<br>${tx(c.text)}` : ''; })() : '')
+        + (this.hoverStop ? `<br><span class="rv">${tr('probe.rover', { r: rasters.rover.rover, sol: this.hoverStop.sol, d: this.hoverStop.date || '—', site: this.hoverStop.site, drive: this.hoverStop.drive })} · ${tr('probe.roverClick')}</span>` : '');
       box.hidden = false;
     });
   }
@@ -97,6 +108,22 @@ export class Map2D {
 
   #buildLayerCanvases() {
     const { terrain, rasters } = this.app.world;
+    // geologia (USGS, klasy): wypełnienie półprzezroczyste, granice jednostek wyraźniej; etykiety w środkach ciężkości
+    if (rasters.geology) {
+      const R = rasters.geology, cls = R.meta.classes, [c, g] = this.#canvas(R.width, R.height), im = g.createImageData(R.width, R.height);
+      const sums = {};
+      const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      for (let j = 0; j < R.height; j++) for (let i = 0; i < R.width; i++) {
+        const k = j * R.width + i, v = R.data[k];
+        if (!v || !cls[v]) continue;
+        const edge = (i > 0 && R.data[k - 1] !== v) || (j > 0 && R.data[k - R.width] !== v) || (i < R.width - 1 && R.data[k + 1] !== v) || (j < R.height - 1 && R.data[k + R.width] !== v);
+        im.data.set([...rgb(cls[v].color), edge ? 255 : 120], k * 4);
+        const s = (sums[v] ||= { x: 0, y: 0, n: 0 }); s.x += i; s.y += j; s.n++;
+      }
+      g.putImageData(im, 0, 0);
+      this.geoCanvas = c;
+      this.geoLabels = Object.entries(sums).map(([v, s]) => ({ x: (s.x / s.n + 0.5) * R.cellM, y: (s.y / s.n + 0.5) * R.cellM, text: (/\((\w+)\)/.exec(cls[v].text) || [])[1] || '' })).filter((l) => l.text);
+    }
     // nachylenie: jaśniej = bardziej stromo
     {
       const [c, g] = this.#canvas(terrain.w, terrain.hgt), im = g.createImageData(terrain.w, terrain.hgt);
@@ -198,10 +225,12 @@ export class Map2D {
     this.#thermal(A('thermal'));
     if (this.app.world.rasters.minerals) this.#minerals(A('minerals'));
     if (this.sandCanvas && A('sand') > 0) this.#imageLayer(this.sandCanvas, A('sand'), false);
+    if (this.geoCanvas && A('geology') > 0) this.#geology(A('geology'));
     if (A('hazards') > 0) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = A('hazards'); ctx.drawImage(this.hazBlur, 0, 0); ctx.restore(); }
     if (this.commsCanvas && A('comms') > 0) this.#imageLayer(this.commsCanvas, A('comms'), false);
     if (A('shadow') > 0) { const sc = this.#shadowCanvas(app.shadowHour); if (sc) this.#imageLayer(sc, A('shadow'), false); }
     if (A('boulders') > 0) this.#boulders(A('boulders'));
+    if (A('rover') > 0) this.#roverTrack(A('rover'));
     this.#wind(dt, A('sky'));
     ctx.globalAlpha = 1;
     this.#walkback();
@@ -304,6 +333,55 @@ export class Map2D {
       ctx.beginPath(); ctx.arc(this.sx(b.x), this.sy(b.y), r, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  #geology(a) {
+    this.#imageLayer(this.geoCanvas, a, false);
+    for (const l of this.geoLabels || []) this.#label(l.text, this.sx(l.x), this.sy(l.y), a, 'center');
+  }
+
+  /** Prawdziwa trasa łazika NASA (Curiosity / Perseverance) i jego postoje; najechany postój z etykietą solu. */
+  #roverTrack(a) {
+    const T = this.app.world.rasters.rover;
+    if (!T) return;
+    const ctx = this.ctx;
+    ctx.globalAlpha = a;
+    for (const seg of T.segments) this.#line(seg.map(([x, y]) => ({ x, y })), { color: '#6FD3F2', width: 2.2, outline: 'rgba(0,0,0,.55)' });
+    const focus = this.selStop || this.hoverStop;
+    if (focus && T.photos) {   // kierunki zdjęć z wybranego postoju: kliny pola widzenia
+      const idx = T.stops.indexOf(focus), R = 70 * this.ps;
+      for (const p of T.photos) {
+        if (p.stop !== idx) continue;
+        const a = (p.az - 90) * Math.PI / 180, h = Math.min(60, p.hfov) / 2 * Math.PI / 180;
+        ctx.beginPath(); ctx.moveTo(this.sx(focus.x), this.sy(focus.y));
+        ctx.arc(this.sx(focus.x), this.sy(focus.y), R, a - h, a + h); ctx.closePath();
+        ctx.fillStyle = 'rgba(111,211,242,.22)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(111,211,242,.8)'; ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+    const withPhoto = new Set((T.photos || []).map((p) => p.stop));
+    for (const [i, s] of T.stops.entries()) {
+      const hi = s === this.hoverStop || s === this.selStop;
+      if (withPhoto.has(i)) {   // postój ze zdjęciami: dodatkowy pierścień
+        ctx.beginPath(); ctx.arc(this.sx(s.x), this.sy(s.y), (hi ? 9 : 5.6) * this.ui, 0, Math.PI * 2);
+        ctx.strokeStyle = '#6FD3F2'; ctx.lineWidth = 1.6; ctx.stroke();
+      }
+      ctx.beginPath(); ctx.arc(this.sx(s.x), this.sy(s.y), (hi ? 6 : 3.2) * this.ui, 0, Math.PI * 2);
+      ctx.fillStyle = hi ? '#6FD3F2' : '#fff'; ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = '#06202a'; ctx.stroke();
+    }
+    const h = this.hoverStop || this.selStop;
+    if (h) this.#label(`${T.rover} · SOL ${h.sol}${h.date ? ` · ${h.date}` : ''}`, this.sx(h.x) + 10, this.sy(h.y) - 16, a);
+    ctx.globalAlpha = 1;
+  }
+
+  /** Najbliższy postój łazika w promieniu ~10 px (gdy warstwa jest włączona). */
+  #stopAt(p) {
+    const T = this.app.world.rasters.rover;
+    if (!T || !p || !this.app.state.layers.rover?.on) return null;
+    let best = null, bd = 10 / this.ps;
+    for (const s of T.stops) { const d = Math.hypot(s.x - p.x, s.y - p.y); if (d < bd) { bd = d; best = s; } }
+    return best;
   }
 
   #walkback() {

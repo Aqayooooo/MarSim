@@ -98,6 +98,7 @@ export class View3D {
     app.on('route', () => this.#buildRoute());
     app.on('waypoints', () => this.#buildWaypoints());
     app.on('drive', () => this.#buildDriveRoute());
+    app.on('layers', () => this.#roverTrackVisibility());
     app.on('obstacle', (ob) => this.#addBoulderField(ob));
     app.on('reset', () => this.reset());
     this.reset();
@@ -325,6 +326,39 @@ export class View3D {
     this.#applyMode();
   }
 
+  // prawdziwa trasa łazika NASA (warstwa „Trasa łazika”): z orbity szeroka wstęga, z gruntu wąska koleina i słupki postojów
+  #buildRoverTrack() {
+    const T = this.app.world.rasters.rover;
+    this.roverTrack = { orbit: [], near: [] };
+    if (!T) return;
+    for (const seg of T.segments) {
+      const pts = seg.map(([x, y]) => ({ x, y }));
+      if (pts.length < 2) continue;
+      this.roverTrack.orbit.push(this.#ribbon(pts, 7, 0.9, 0x6fd3f2, 0.85));
+      this.roverTrack.near.push(this.#ribbon(pts, 1.6, 0.05, 0x6fd3f2, 0.45));
+    }
+    const post = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.06, 1.4, 6).translate(0, 0.7, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }), T.stops.length);
+    const dot = new THREE.InstancedMesh(new THREE.CylinderGeometry(3.5, 3.5, 0.12, 14), new THREE.MeshBasicMaterial({ color: 0xffffff }), T.stops.length);
+    const m = new THREE.Matrix4();
+    T.stops.forEach((st, i) => {
+      const h = this.t.height(st.x, st.y);
+      post.setMatrixAt(i, m.makeTranslation(this.X(st.x), h, this.Z(st.y)));
+      dot.setMatrixAt(i, m.makeTranslation(this.X(st.x), h + 0.95, this.Z(st.y)));   // płaski krążek: z orbity świat jest rozciągnięty w pionie
+    });
+    this.roverTrack.near.push(post);
+    this.roverTrack.orbit.push(dot);
+    this.world.add(...this.roverTrack.orbit, ...this.roverTrack.near);
+  }
+  #roverTrackVisibility() {
+    if (!this.world) return;
+    const on = !!this.app.state.layers?.rover?.on;
+    if (on && !this.roverTrack) this.#buildRoverTrack();
+    if (!this.roverTrack) return;
+    const ground = this.mode === 'helmet' || this.mode === 'drive';
+    this.roverTrack.orbit.forEach((o) => (o.visible = on && !ground));
+    this.roverTrack.near.forEach((o) => (o.visible = on && ground));
+  }
+
   // trasa A→B jazdy łazikiem (turkusowa, jak na mapie 2D)
   #buildDriveRoute() {
     for (const m of this.driveMeshes || []) { this.world.remove(m); m.geometry.dispose(); }
@@ -386,6 +420,7 @@ export class View3D {
     (this.routeHelmet || []).forEach((m) => (m.visible = ground));
     (this.driveOrbit || []).forEach((m) => (m.visible = !ground));
     (this.driveNear || []).forEach((m) => (m.visible = ground));
+    this.#roverTrackVisibility();
     this.controls.enabled = !ground && !this.flight;
     this.camera.fov = this.mode === 'helmet' ? 64 : FOV;
     this.camera.near = this.mode === 'helmet' ? .1 : ground ? .15 : 2;

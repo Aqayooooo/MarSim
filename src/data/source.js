@@ -93,6 +93,8 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
     mode,
     api: API,
     sample,
+    /** Adres pliku bieżącej misji (np. miniatury zdjęć łazika: photos/….jpg). */
+    fileUrl: (f) => url(f),
     /** onProgress(f): część wczytanych warstw 0–1 (do paska postępu). */
     async loadMission({ onProgress } = {}) {
       if (mode === 'http') {

@@ -204,6 +204,19 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
   padding: 6px 10px; font: 12px/1.55 var(--mono); color: var(--text2); white-space: nowrap; }
 #hoverRead b { color: var(--text); font-weight: 600; }
 #hoverRead .z1 { color: var(--warn); }
+#hoverRead .rv { color: #6FD3F2; }
+#roverCard { position: absolute; left: 12px; top: 64px; z-index: 5; width: 372px; max-height: calc(100% - 80px); overflow: auto; background: rgba(8, 10, 12, .95);
+  border: 1px solid var(--line2); border-left: 3px solid #6FD3F2; border-radius: 8px; padding: 9px 12px 10px; font-size: 13px; color: var(--text2); }
+#roverCard header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#roverCard header b { color: var(--text); font: 700 13px var(--mono); letter-spacing: .08em; }
+#roverCard header .btn { padding: 0 9px; font-size: 16px; line-height: 24px; }
+#roverCard .rc-meta { margin: 4px 0 8px; font: 12px var(--mono); color: var(--text2); }
+#roverCard .rc-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 6px; }
+#roverCard figure { margin: 0; }
+#roverCard img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 4px; background: #111; }
+#roverCard a[aria-disabled="true"] { pointer-events: none; }
+#roverCard figcaption { margin-top: 3px; font: 11px var(--mono); color: var(--text3); }
+#roverCard .rc-none, #roverCard .rc-note { margin: 8px 0 0; font-size: 11.5px; color: var(--text3); }
 #hoverRead .z2 { color: var(--bad); }
 
 /* karta „Jak zacząć” */
@@ -408,7 +421,7 @@ html.compact, html.compact body { overflow: hidden auto; height: auto; min-heigh
   #stage.compact #left { margin-left: 0; }
 }
 /* elementy na mapie: czytelne mimo zmniejszonej mapy */
-#stage.compact :is(.maplabel, #alert, #routeCard, #mapTools, #scale, #caption, #pickCard, #wpEditor, #sensCard, #rideHud, #habHud, #intro, #obsForm, #driveHud, #net, #walkPad, .pane.doc) { zoom: var(--uiz); }
+#stage.compact :is(.maplabel, #alert, #routeCard, #mapTools, #scale, #caption, #pickCard, #wpEditor, #sensCard, #rideHud, #habHud, #intro, #obsForm, #driveHud, #net, #walkPad, #roverCard, .pane.doc) { zoom: var(--uiz); }
 #stage.compact #profile { zoom: calc(var(--uiz) * .85); left: 6px; }
 #stage.compact #locLabel, #stage.compact #hoverRead { display: none; }
 #stage.compact #alert { top: 12px; width: 270px; }

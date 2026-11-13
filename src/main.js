@@ -15,6 +15,7 @@ import { Intro } from './ui/intro.js';
 import { WaypointEditor } from './ui/wpEditor.js';
 import { Sensitivity } from './ui/sensitivity.js';
 import { RideHud } from './ui/rideHud.js';
+import { RoverCard } from './ui/roverPhotos.js';
 import { HabHud } from './ui/habHud.js';
 import { $, setHidden } from './core/dom.js';
 import { t, lang, setLang, applyStatic } from './i18n.js';
@@ -95,6 +96,8 @@ const eva = new EvaControls(app, director);
 const helmetHud = new HelmetHud(app);
 const rideHud = new RideHud(app);
 app.on('teleport-request', (i) => view3d?.teleport(i));
+const roverCard = new RoverCard(app);
+app.on('rover-click', (stop) => roverCard.open(stop));
 const habHud = new HabHud();
 app.on('hab-suitup', () => eva.toggle());   // stanowisko skafandrów w habitacie rozpoczyna wyjście
 const sampleMeta = api === null ? await ds.sample('meta') : null;

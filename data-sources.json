@@ -15,7 +15,7 @@
         960
       ],
       "pipelineVersion": "1.1.0",
-      "builtUtc": "2026-11-06T20:55:21+00:00"
+      "builtUtc": "2026-11-08T18:11:44+00:00"
     },
     {
       "mission": "mount-sharp",
@@ -27,17 +27,19 @@
         960
       ],
       "pipelineVersion": "1.1.0",
-      "builtUtc": "2026-11-06T20:53:51+00:00"
+      "builtUtc": "2026-11-08T18:09:07+00:00"
     }
   ],
   "crs": "Mars 2000 sphere (IAU), planetocentric latitude, east longitude",
   "notUsed": {
     "en": [
-      "Mastcam / rover images: the waypoint view is a render from the HiRISE DTM, not a photograph",
+      "Rover photos in the waypoint view: it is still a render from the HiRISE DTM (real Navcam images are shown on the Rover track layer)",
+      "MSL Mastcam images: no camera pointing in the raw catalogue, so they cannot be placed on the map",
       "Synthetic sample data in data/demo/ (used only without the backend)"
     ],
     "pl": [
-      "Mastcam / zdjęcia z łazika: widok w punkcie trasy to render z DTM HiRISE, nie zdjęcie",
+      "Zdjęcia w widoku punktu trasy: nadal render z DTM HiRISE (prawdziwe zdjęcia Navcam są w warstwie Trasa łazika)",
+      "Mastcam łazika Curiosity: brak kierunku kamery w katalogu surowych zdjęć, więc nie da się ich umieścić na mapie",
       "Syntetyczne dane przykładowe w data/demo/ (tylko bez backendu)"
     ]
   },
@@ -238,6 +240,67 @@
       "credit": "NASA/JPL-Caltech/JHUAPL; parameters: Viviano-Beck et al. (2014), JGR Planets 119"
     },
     {
+      "id": "USGS_SIM3464_Jezero",
+      "type": "map",
+      "spacecraft": "—",
+      "instrument": "geologic map",
+      "missions": [
+        "jezero"
+      ],
+      "description": {
+        "en": "Geologic map of Jezero crater and Nili Planum, 1:75,000 (USGS SIM 3464, ArcGIS feature service)",
+        "pl": "Mapa geologiczna krateru Jezero i Nili Planum, 1:75 000 (USGS SIM 3464)"
+      },
+      "usedFor": {
+        "en": "Geology layer (Jezero only): geologic units, illustrative (map offsets ~100–200 m), not used for hazards or planning",
+        "pl": "warstwa Geologia (tylko Jezero): jednostki geologiczne, poglądowo (przesunięcia ~100–200 m), bez wpływu na zagrożenia i planowanie"
+      },
+      "url": "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Jezero_FeatureServiceFromPro/FeatureServer",
+      "access": "downloaded at build time, clipped to the area",
+      "credit": "Sun & Stack (2020), USGS SIM 3464, doi:10.3133/sim3464"
+    },
+    {
+      "id": "M20_raw_navcam",
+      "type": "rover",
+      "spacecraft": "Mars 2020 (Perseverance)",
+      "instrument": "Navcam",
+      "missions": [
+        "jezero"
+      ],
+      "description": {
+        "en": "Raw Navcam images taken at stops inside the area (320 px thumbnails bundled, full size online)",
+        "pl": "Surowe zdjęcia Navcam z postojów w obszarze (miniatury 320 px w danych, pełny rozmiar z sieci)"
+      },
+      "usedFor": {
+        "en": "stop card on the Rover track layer: what the rover saw, with view direction from the CAHV camera model",
+        "pl": "karta postoju w warstwie Trasa łazika: co widział łazik, kierunek z modelu kamery CAHV"
+      },
+      "url": "https://mars.nasa.gov/rss/api/?feed=raw_images&category=mars2020",
+      "access": "downloaded at build time, clipped to the area",
+      "bytes": 1429565,
+      "credit": "NASA/JPL-Caltech"
+    },
+    {
+      "id": "M20_traverse",
+      "type": "rover",
+      "spacecraft": "Mars 2020 (Perseverance)",
+      "instrument": "rover localization",
+      "missions": [
+        "jezero"
+      ],
+      "description": {
+        "en": "Rover traverse and stops (mission team localizations, NASA MMGIS GeoJSON)",
+        "pl": "Trasa i postoje łazika (lokalizacje zespołu misji, NASA MMGIS)"
+      },
+      "usedFor": {
+        "en": "Rover track layer: real drive and stops inside the area (illustrative, offset vs HiRISE up to tens of metres)",
+        "pl": "warstwa Trasa łazika: prawdziwy przejazd i postoje w obszarze (poglądowo, przesunięcie względem HiRISE do kilkudziesięciu m)"
+      },
+      "url": "https://mars.nasa.gov/mmgis-maps/M20/Layers/json/M20_traverse.json",
+      "access": "downloaded at build time, clipped to the area",
+      "credit": "NASA/JPL-Caltech/Mars 2020 localization team (MMGIS)"
+    },
+    {
       "id": "DTEEC_040770_1755_039280_1755_U01",
       "type": "orbital",
       "spacecraft": "Mars Reconnaissance Orbiter",
@@ -406,6 +469,47 @@
       "bytes": 145162320,
       "sha256": "bb1f683ba6b868196a3df00c01c12d42d52d071b2ed8f994c9d70c47abbfb396",
       "credit": "NASA/JPL-Caltech/JHUAPL; parameters: Viviano-Beck et al. (2014), JGR Planets 119"
+    },
+    {
+      "id": "MSL_raw_navcam",
+      "type": "rover",
+      "spacecraft": "Mars Science Laboratory (Curiosity)",
+      "instrument": "Navcam",
+      "missions": [
+        "mount-sharp"
+      ],
+      "description": {
+        "en": "Raw Navcam images taken at stops inside the area (320 px thumbnails bundled, full size online)",
+        "pl": "Surowe zdjęcia Navcam z postojów w obszarze (miniatury 320 px w danych, pełny rozmiar z sieci)"
+      },
+      "usedFor": {
+        "en": "stop card on the Rover track layer: what the rover saw, with view direction from the CAHV camera model",
+        "pl": "karta postoju w warstwie Trasa łazika: co widział łazik, kierunek z modelu kamery CAHV"
+      },
+      "url": "https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=msl:mission",
+      "access": "downloaded at build time, clipped to the area",
+      "bytes": 6270870,
+      "credit": "NASA/JPL-Caltech"
+    },
+    {
+      "id": "MSL_traverse",
+      "type": "rover",
+      "spacecraft": "Mars Science Laboratory (Curiosity)",
+      "instrument": "rover localization",
+      "missions": [
+        "mount-sharp"
+      ],
+      "description": {
+        "en": "Rover traverse and stops (mission team localizations, NASA MMGIS GeoJSON)",
+        "pl": "Trasa i postoje łazika (lokalizacje zespołu misji, NASA MMGIS)"
+      },
+      "usedFor": {
+        "en": "Rover track layer: real drive and stops inside the area (illustrative, offset vs HiRISE up to tens of metres)",
+        "pl": "warstwa Trasa łazika: prawdziwy przejazd i postoje w obszarze (poglądowo, przesunięcie względem HiRISE do kilkudziesięciu m)"
+      },
+      "url": "https://mars.nasa.gov/mmgis-maps/MSL/Layers/json/MSL_traverse.json",
+      "access": "downloaded at build time, clipped to the area",
+      "credit": "NASA/JPL-Caltech/MSL localization team (MMGIS)"
     },
     {
       "id": "DONKI",

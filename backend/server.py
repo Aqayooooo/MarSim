@@ -285,7 +285,7 @@ def create_app(
                 engine_for(body.id).add_log("EVA", f"Przełączono misję: {previous} → {body.id}", to_earth=False)
         return {"ok": True, "active": current["active"]}
 
-    @app.get("/missions/{mission_id}/{name}", include_in_schema=False)
+    @app.get("/missions/{mission_id}/{name:path}", include_in_schema=False)   # także podkatalogi (photos/…)
     def mission_file(mission_id: str, name: str):
         selected = active().cfg["id"] if mission_id == "current" else mission_id
         if selected not in ready:
