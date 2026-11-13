@@ -1,8 +1,9 @@
-// Reżyser prezentacji: 8 kroków jak w nagraniu. Kroki 04–06 czekają na zdarzenia symulacji,
-// więc scenariusz działa także na innym terenie i innej trasie.
+// Reżyser prezentacji: 6 kroków, łącznie najwyżej ok. 30 s. Każdy krok ma stały czas; krok 03 (EVA) pokazuje
+// zdarzenia symulacji (nowa trasa, burza słoneczna), jeśli zdążą zajść w swoim oknie — inaczej idzie dalej.
 import { t, tx } from './i18n.js';
 
 const STOP = Symbol('stop');
+const MAX_S = 29.5;   // twardy limit długości prezentacji (s)
 
 export class Director {
   constructor(app, getView3d, loadView3d = async () => getView3d()) {
@@ -11,10 +12,12 @@ export class Director {
     this.loadView3d = loadView3d;
     this.token = 0;
     this.playing = false;
+    this.clock = () => performance.now() / 1000;   // sekundy czasu rzeczywistego (testy podstawiają własny zegar)
   }
 
   stop() {
     this.token++;
+    this.view3d()?.demoCleanup?.();
     this.playing = false;
     this.app.autoEvents = true;
     this.app.state.fadeOut = false;
@@ -29,82 +32,94 @@ export class Director {
     this.playing = true;
     app.emit('director', true);
     const alive = () => { if (this.token !== my) throw STOP; };
-    const wait = (s) => new Promise((res, rej) => {
-      const t0 = app.now;
-      const chk = () => { if (this.token !== my) return rej(STOP); if (app.now - t0 >= s) return res(); requestAnimationFrame(chk); };
+    // czas rzeczywisty, a nie zegar aplikacji: na wolnym komputerze (mało klatek) prezentacja też trwa ≤ 30 s
+    const now = () => this.clock(), end = now() + MAX_S;
+    const left = () => Math.max(0, end - now());
+    const until = (cond, s) => new Promise((res, rej) => {
+      const t0 = now();
+      const chk = () => {
+        if (this.token !== my) return rej(STOP);
+        const v = cond();
+        if (v) return res(v);
+        if (now() - t0 >= Math.min(s, left())) return res(null);
+        setTimeout(chk, 50);
+      };
       chk();
     });
-    // czeka na warunek stanu (odporne na kolejność zdarzeń na innym terenie)
-    const until = (cond) => new Promise((res, rej) => {
-      const chk = () => { if (this.token !== my) return rej(STOP); const v = cond(); if (v) return res(v); requestAnimationFrame(chk); };
-      chk();
-    });
+    const wait = (s) => until(() => false, s);   // czeka s sekund, ale nie dłużej niż do końca limitu
+    // widok 3D; null, gdy przeglądarka nie ma WebGL — wtedy kroki 3D są pomijane, a prezentacja kończy się na mapie
+    const v3d = async () => { let v = null; try { await this.loadView3d(); v = this.view3d(); } catch { /* bez 3D */ } alive(); return v; };
 
     try {
+      // 01 · warstwy NASA (z trasą łazika NASA) — 3 s
       app.reset(true, { bare: true });
       app.autoEvents = false;
       app.setView('map');
-      await wait(0.6);
-      app.setCaption('01', t('demo.c1'));
-      for (const l of app.m.layers) { alive(); app.toggleLayer(l.id, true); await wait(1.2); }
+      await wait(0.3);
+      const nasaRover = app.world?.rasters?.rover?.rover;
+      app.setCaption('01', nasaRover ? t('demo.c1r', { rover: nasaRover }) : t('demo.c1'));
+      const layers = app.m.layers, step = 2.4 / Math.max(1, layers.length);
+      for (const l of layers) { alive(); app.toggleLayer(l.id, true); await wait(step); }
+      await wait(0.3);
 
+      // 02 · bezpieczna trasa i porównanie wariantów — ok. 4 s
       app.setCaption('02', t('demo.c2'));
       app.clearFocus('hazards');
-      await wait(0.36);
       const route = await app.planInitial({ animate: true });
       alive();
       if (!route) throw new Error(t('noRoute'));
-      await wait(3.64);
-      if (app.state.route?.alternatives) {           // „dlaczego ta trasa”: porównanie wariantów przez chwilę
+      await wait(2.4);
+      if (app.state.route?.alternatives) {
         app.setCaption('02', t('demo.c2b'));
         app.emit('compare', true);
-        await wait(5.5);
+        await wait(1.8);
         app.emit('compare', false);
       }
 
+      // 03 · EVA na żywo: załoga, O₂, zdarzenia — 6 s
       app.setCaption('03', t('demo.c3', { crew: app.m.crew.map((c) => c.id).join(t('and')) }));
       app.showCrew();
-      await wait(0.2);
-      const started = await app.startEva(470);
+      const started = await app.startEva(1200);
       alive();
       if (!started) throw new Error(app.state.alert?.text || t('eva.error'));
-
-      const wps = app.m.waypoints, done = () => app.sim.nextWp >= wps.length;
-      const rp = await until(() => app.lastReplan || (done() && {}));
-      if (app.lastReplan) {
+      const evaEnd = now() + 6;
+      const rp = await until(() => app.lastReplan, 3.2);
+      if (rp) {
         const d = Math.round(rp.deltaM ?? 0);
-        app.setCaption('04', t('demo.c4', { d: `${d >= 0 ? '+' : '−'}${Math.abs(d)}` }));
+        app.setCaption('03', t('demo.c4', { d: `${d >= 0 ? '+' : '−'}${Math.abs(d)}` }));
       }
-      await until(() => app.sim.sep || done());
-      if (app.sim.sep) app.setCaption('05', t('demo.c5'));
-
-      await until(done);
-      const wp = wps[wps.length - 1];
-      app.setCaption('06', t('demo.c6', { wp: wp.id, t: wp.target ? t('demo.c6t', { t: tx(wp.target) }) : '' }));
-      app.setTimeScale(150);
-      await wait(2.0);
-      app.endSep();
-      await wait(0.8);
-      app.setAlert(null);
-      await wait(0.48);
-
-      app.setCaption('07', t('demo.c7', { x: this.view3d()?.exOrbit ?? 10 }));
-      app.setView('orbit');
-      await this.loadView3d();
-      alive();
-      this.view3d()?.flyover(7.5);
-      await wait(8.0);
-
-      app.setCaption('08', t('demo.c8', { id: app.m.crew[0].id }));
-      const r = app.state.route;
-      app.setView('helmet');
-      this.view3d()?.autoWalk({ fromS: r.wpS[r.wpS.length - 1], toS: r.wpS[0], timelapse: 15 });
-      await wait(10.7);
-      app.state.fadeOut = true;
-      await wait(0.6);
+      if (await until(() => app.sim.sep, Math.max(0, evaEnd - now() - 1.6))) app.setCaption('03', t('demo.c5'));
+      await wait(Math.max(0, evaEnd - now()));
       if (!(await app.pauseEva(true))) throw new Error(app.state.alert?.text || t('eva.error'));
       alive();
-      await wait(0.8);
+      app.endSep();
+      app.setAlert(null);
+
+      // 04 · ta sama trasa w 3D — 5 s
+      const view = await v3d();
+      if (view) {
+        app.setCaption('04', t('demo.c7', { x: view.exOrbit ?? 10 }));
+        app.setView('orbit');
+        view.flyover(4.6);
+        await wait(5.0);
+        app.setView('helmet');
+      }
+
+      // 05 · habitat od środka: moduł dzienny, mesa, systemy bazy — 5 s
+      if (view && left() > 2.5 && view.habitatTour?.(Math.min(4.8, left() - 2))) {
+        app.setCaption('05', t('demo.c8'));
+        await wait(Math.min(5.0, left() - 2));
+      }
+
+      // 06 · jazda łazikiem z kamerą na wysięgniku — do 4,5 s (reszta limitu)
+      if (view && left() > 1.5 && view.demoRide?.()) {
+        app.setCaption('06', t('demo.c9'));
+        await wait(Math.max(0, left() - 0.4));
+      }
+      app.state.fadeOut = true;
+      await new Promise((r) => setTimeout(r, 400));
+      alive();
+      view?.demoCleanup?.();
       app.setView('map');               // po prezentacji zostaje mapa z przebytą trasą, a nie czarny ekran
       app.setCaption(null);
       app.state.fadeOut = false;

@@ -109,7 +109,7 @@ python tools/make_data_sources.py                # odświeża data-sources.json
 - **Profil trasy**: wykres wysokości, strefy „uwaga” i bieżąca pozycja załogi. Wskazanie wykresu pokazuje odpowiadające miejsce na mapie.
 - **?**: pomoc i skróty. M/O/H/U/R/G zmieniają widok, 1–9 i 0 przełączają warstwy, spacja steruje EVA, B wyznacza powrót, P otwiera profil, C porównuje trasy.
 - **Plan wyjść**: harmonogram z kontrolą zapasów, odpoczynku i światła dziennego. Wpis można dodać, edytować i usunąć. Pierwsze wyjście na bieżący sol ustala godzinę startu i załogę EVA; zmiana działa po resecie wyjścia.
-- **Prezentacja** odtwarza scenariusz w 8 krokach. Zatrzymanie wstrzymuje EVA. Po końcu zostaje mapa z przebytą trasą.
+- **Prezentacja** trwa najwyżej 30 s (liczone zegarem rzeczywistym, także na wolnym komputerze) i ma 6 kroków: warstwy NASA z trasą łazika, bezpieczna trasa i porównanie wariantów, EVA na żywo (nowa trasa, burza słoneczna), przelot 3D, habitat od środka, jazda łazikiem. Bez WebGL kroki 3D są pomijane. Zatrzymanie wstrzymuje EVA. Po końcu zostaje mapa z przebytą trasą.
 - **＋ Zgłoś z terenu**: kliknięcie na mapie dodaje przeszkodę albo bezpieczne przejście. Trasa przelicza się, jeśli trzeba.
 - **Punkty EVA** (na mapie, przed startem wyjścia): kliknięcie dodaje punkt (najwyżej 8), przeciągnięcie przesuwa. Na liście: postój, kolejność, usuwanie i powrót do punktów misji. Plan zostaje w przeglądarce; z backendem odtwarza się też po odświeżeniu strony.
 - **Co jeśli?**: trasa bieżącego planu przy limitach nachylenia 20–30° (suwak, linia przerywana na mapie) oraz przedział tlenu i czasu.

@@ -566,6 +566,39 @@ export class View3D {
     Object.assign(this.helmet, { x: p.x, y: p.y, pitch: -6, yaw: this.app.state.route.poly.heading(fromS, this.helmet.auto.dir) });
   }
 
+  /** Prezentacja: przejście od śluzy przez moduł dzienny do węzła z mesą (dur sekund). False, gdy misja nie ma habitatu. */
+  habitatTour(dur = 5) {
+    const hab = this.app.m.habitat;
+    if (!hab || !this.hab) return false;
+    this.setMode('helmet');
+    if (this.ride) this.#exitRide();
+    Object.assign(this.helmet, { auto: null, vx: 0, vy: 0, z: 0, vz: 0, pitch: -6, tour: { t: 0, dur, x0: 3.6, x1: -8.6, hab, angle: this.hab.angle } });
+    this.#helmetStep(0);
+    return true;
+  }
+
+  /** Prezentacja: wsiada do łazika obok niego i jedzie z kamerą na wysięgniku (W + lekki skręt). */
+  demoRide() {
+    this.setMode('helmet');
+    const h = this.helmet, rp = this.app.roverPos();
+    h.tour = null; h.auto = null;
+    Object.assign(h, { x: rp.x + 3, y: rp.y + 3 });
+    if (!this.ride) this.toggleRide();
+    if (!this.ride) return false;
+    Object.assign(this.ride, { camYaw: -35, camPitch: 16 });
+    h.keys.clear();
+    h.keys.add('KeyW'); h.keys.add('KeyD');
+    return true;
+  }
+
+  /** Koniec lub przerwanie prezentacji: puszcza klawisze, kończy spacer i jazdę. */
+  demoCleanup() {
+    const h = this.helmet;
+    h.keys.clear();
+    h.tour = null; h.auto = null;
+    if (this.ride) this.#exitRide();
+  }
+
   /** Lista celów teleportu: punkty trasy (WP1…) i habitat. */
   teleportTargets() {
     const hab = this.app.m.habitat;
@@ -902,6 +935,15 @@ export class View3D {
       let d = ((target - h.yaw + 540) % 360) - 180;
       h.yaw = (h.yaw + d * Math.min(1, dt * 3) + 360) % 360;
       h.speed = a.v * 3.6; h.scale = a.timelapse;
+    } else if (h.tour) {
+      // spacer prezentacji po wnętrzu bazy: odcinki w osi modułu (przejścia leżą na z = 0), bez kolizji
+      const tu = h.tour;
+      tu.t = Math.min(tu.dur, tu.t + dt);
+      const m = ease(tu.t / tu.dur), x = tu.x0 + (tu.x1 - tu.x0) * m;
+      const p = toPlan(x, 0, tu.hab.x, tu.hab.y, tu.angle), q = toPlan(x - 4, Math.sin(tu.t * 0.9) * 1.6, tu.hab.x, tu.hab.y, tu.angle);
+      h.x = p.x; h.y = p.y;
+      h.yaw = headingDeg(q.x - p.x, q.y - p.y);
+      h.speed = 0; h.scale = 1;
     } else {
       const fwd = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
       const side = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);

@@ -198,6 +198,8 @@ test('prezentacja kończy się z komunikatem po odrzuconym starcie EVA', async (
   app.m.layers = [];
   app.startEva = async () => null;
   const director = new Director(app, () => null);
+  let clock = 0;
+  director.clock = () => (clock += 100);   // każdy odczyt zegara przesuwa czas: kroki prezentacji kończą się od razu
   const saved = globalThis.requestAnimationFrame;
   globalThis.requestAnimationFrame = (fn) => setImmediate(() => { app.now += 100; fn(); });
   try {
