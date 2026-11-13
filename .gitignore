@@ -11,3 +11,4 @@ backend/config/paths.local.json
 *.db-journal
 # zależności narzędzi testowych (npm ci)
 node_modules/
+data/cache/

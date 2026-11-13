@@ -14,7 +14,7 @@
 .visor-glass::after { content: ''; position: absolute; left: 8%; width: 12%; top: 19%; height: 43%; border-radius: 70%;
   border-left: 8px solid #c4fbff09; transform: rotate(12deg); filter: blur(3px); }
 .visor-id { position: absolute; left: 11%; top: 11%; font-size: 18px; letter-spacing: .22em; font-weight: 600; }
-.visor-id > span:last-of-type { color: #b3d3d1a6; }
+.visor-id > span:last-of-type { color: var(--visor-dim); }
 .visor-id small { display: block; margin: 7px 0 0 19px; font-size: 9px; letter-spacing: .2em; color: var(--visor-dim); }
 .visor-led { display: inline-block; width: 5px; height: 5px; margin-right: 9px; border-radius: 50%; background: var(--visor); box-shadow: 0 0 9px var(--visor); vertical-align: 3px; }
 .visor-compass { position: absolute; left: 38%; right: 38%; top: 10%; height: 57px; text-align: center; }
@@ -74,3 +74,47 @@
 #stage.compact.helmet-mode #left, #stage.compact.helmet-mode #right { display: flex; }
 #stage.compact.helmet-mode #caption { top: auto; bottom: 13px; left: 12px; right: 12px; font-size: 16px; }
 #stage.compact .visor-summary { display: none; }   /* te same dane są w panelu stanu pod obrazem; na telefonie byłyby nieczytelne */
+
+/* ---------- panele nad widokiem 3D: przezroczyste tło, tekst biały na ciemnym i czarny na jasnym ----------
+   data-bg ustawia src/ui/backdrop.js z jasności obrazu pod panelem. */
+#hud { --visor: #f2fcfb; --visor-dim: #cfe3e1; --visor-line: #e6fbfa55; text-shadow: 0 1px 2px #000b, 0 0 10px #0007; }
+.visor-summary { background: linear-gradient(118deg, #06222c66, #0c242a40 72%, #09313b30); backdrop-filter: blur(3px); }
+.visor-motion { background: linear-gradient(90deg, #08202c55, #08202c00); }
+.visor-compass b { background: #0a25211f; }
+.visor-warning { background: #351b1580; }
+#visorDetail, .visor-metric > span, .visor-motion > span, .visor-motion small { color: var(--visor-dim); }
+:is(#rideHud, #habHud, #driveHud)[data-bg] { background: rgba(8, 6, 5, .45); backdrop-filter: blur(4px); text-shadow: 0 1px 2px #000a; }
+#caption[data-bg] { background: rgba(12, 9, 6, .5); backdrop-filter: blur(4px); }   /* tylko nad widokiem 3D; na mapie 2D bez zmian */
+#rideHud, #habHud, #driveHud, #caption { transition: background-color .35s, color .35s; }
+
+/* jasne tło: czarny tekst, jasna półprzezroczysta szyba */
+:where(#hud [data-bg]) { color: var(--visor); }   /* kolor liczony w panelu, nie dziedziczony z #hud — inaczej zmiana zmiennych nie działa */
+#hud [data-bg="light"] { --visor: #071214; --visor-dim: #1f3a3d; --visor-line: #0712145c; text-shadow: 0 0 6px #ffffff8c; }
+#hud[data-tone="danger"] [data-bg="light"] { --visor: #7a2306; --visor-dim: #5e2a14; --visor-line: #7a23065c; }
+#hud[data-tone="warning"] [data-bg="light"] { --visor: #5c4300; --visor-dim: #4a3a12; --visor-line: #5c43005c; }
+#hud .visor-summary[data-bg="light"] { background: linear-gradient(118deg, #ffffff73, #ffffff4d 72%, #ffffff40); }
+#hud .visor-motion[data-bg="light"] { background: linear-gradient(90deg, #ffffff66, #ffffff00); }
+#hud .visor-compass[data-bg="light"] b { background: #ffffff59; }
+#hud .visor-warning[data-bg="light"] { color: #5a1a00; background: #ffffffa6; }
+#hud .visor-help[data-bg="light"] { color: #1f3a3d; }
+#hud [data-bg="light"] .visor-led { background: var(--visor); box-shadow: none; }
+#hud [data-bg="light"] #visorExample { color: var(--visor); background: #ffffff59; }
+:is(#rideHud, #habHud, #driveHud, #caption)[data-bg="light"] { background: rgba(255, 255, 255, .5); color: #1d2a2c; text-shadow: 0 0 6px #fff8; }
+:is(#rideHud, #habHud, #driveHud, #caption)[data-bg="light"] :where(b, #rhLine, #dhLine, #hhStatus, .dh-x, span) { color: #071214; }
+:is(#rideHud, #habHud, #driveHud)[data-bg="light"] :is(.rh-help, .hh-help, .dh-help, .muted) { color: #2c3e40; }
+:is(#rideHud, #habHud, #driveHud)[data-bg="light"] :is(.rh-warn, .hh-flash, .warn) { color: #8a2c00; }
+#habHud[data-bg="light"] .hh-prompt { color: #0b4b4a; }
+:is(#rideHud, #driveHud)[data-bg="light"] .btn { color: #071214; border-color: #0712145c; background: #ffffff66; }
+
+/* teleport do punktów trasy (klawisze 1–9, 0 — habitat) */
+.visor-teleport { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 12px; pointer-events: auto; }
+.visor-teleport small { width: 100%; margin: 0 0 1px !important; }
+.visor-teleport button { cursor: pointer; font: 600 11px var(--mono); letter-spacing: .04em; padding: 4px 7px; border: 1px solid var(--visor-line, #ffffff40);
+  border-radius: 3px; color: var(--visor, inherit); background: #0a252140; text-shadow: inherit; }
+.visor-teleport button:hover { border-color: var(--visor, currentColor); background: #34777b66; }
+.visor-teleport kbd { font: inherit; opacity: .6; margin-right: 5px; }
+.rh-teleport { margin-top: 6px; }
+.rh-teleport small { display: none; }
+.rh-teleport button { color: inherit; border-color: #ffffff38; background: #ffffff12; }
+#rideHud[data-bg="light"] .rh-teleport button { color: #071214; border-color: #0712145c; background: #ffffff66; }
+[data-bg="light"] .visor-teleport button:hover { background: #ffffffa6; }

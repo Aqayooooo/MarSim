@@ -8,7 +8,8 @@ import { headingDeg } from '../core/path.js';
 import { t as tr } from '../i18n.js';
 import { clearings, makeRocks, mulberry } from '../core/rocks.js';
 import { HelmetInterior } from './helmetInterior.js';
-import { HABITAT_FOOTPRINT } from '../core/habitat.js';
+import { Backdrop } from './backdrop.js';
+import { HABITAT_FOOTPRINT, RAMP, toPlan } from '../core/habitat.js';
 import { HabitatView } from './habitatView.js';
 import { FOG_COLOR, ROVER_BOOM_PIVOT, ROVER_FOOTPRINT, Pebbles, approxSun, detailTexture, habitatModel, orbitBackground, reliefColors, rockColor, rockGeometries, roverModel, skyDome, sunVector, terrainBlock, terrainMaterial } from './marsLook.js';
 
@@ -419,7 +420,8 @@ export class View3D {
       this.habitatSprite.visible = (helmet && !(this.hab?.dist < 25)) || drive;   // z orbity etykieta nachodziłaby na łazik; z bliska zasłaniałaby śluzę
       this.habitatSprite.position.set(this.X(hab.x), hh + 7, this.Z(hab.y));
     }
-    const heading = this.app.drive ? (drive && this.camYaw !== undefined ? this.camYaw : this.app.drive.heading()) : this.ride ? this.ride.heading : null;
+    // nadwozie zawsze z modelu skrętu łazika (core/drive.js); wygładzanie kamery nie obraca bryły
+    const heading = this.app.drive ? this.app.drive.heading() : this.ride ? this.ride.heading : null;
     if (heading !== null) {
       let pitch = 0, roll = 0;
       if (this.ex === 1) {   // z gruntu łazik pochyla się razem z terenem (wzdłuż i w poprzek)
@@ -491,6 +493,76 @@ export class View3D {
     Object.assign(this.helmet, { x: p.x, y: p.y, pitch: -6, yaw: this.app.state.route.poly.heading(fromS, this.helmet.auto.dir) });
   }
 
+  /** Lista celów teleportu: punkty trasy (WP1…) i habitat. */
+  teleportTargets() {
+    const hab = this.app.m.habitat;
+    return [...this.app.m.waypoints.map((w) => ({ id: w.id, x: w.x, y: w.y })), ...(hab ? [{ id: 'HAB', x: hab.x, y: hab.y, hab: true }] : [])];
+  }
+
+  /**
+   * Teleport do punktu trasy (indeks z teleportTargets()). Pieszo: staje kilka metrów przed punktem, twarzą do niego.
+   * W łaziku: łazik przenosi się razem z załogą.
+   */
+  teleport(i) {
+    const tg = this.teleportTargets()[i];
+    if (!tg) return;
+    if (this.app.drive) { this.flash = { text: tr('ride.busy'), t: performance.now() }; return; }
+    if (this.mode !== 'helmet') return;   // klawisze i przyciski teleportu działają tylko w widoku z hełmu
+    const h = this.helmet, riding = !!this.ride;
+    let x, y, ux, uy;   // punkt startowy i kierunek „cofania się”, gdy miejsce jest zajęte
+    if (tg.hab) {
+      // habitat: zawsze przed rampą śluzy, twarzą do drzwi (nie w środku bazy ani w ścianie)
+      const angle = this.hab?.angle ?? this.habitatMesh?.rotation.y ?? 0, hab = this.app.m.habitat;
+      const p = toPlan(RAMP.x1 + (riding ? 9 : 4), 0, hab.x, hab.y, angle), q = toPlan(RAMP.x1 + 20, 0, hab.x, hab.y, angle);
+      x = p.x; y = p.y; ux = q.x - p.x; uy = q.y - p.y;
+    } else {
+      // punkt trasy: kilka metrów przed nim, od strony, z której prowadzi trasa (albo od obecnej pozycji)
+      const route = this.app.state.route;
+      let from = { x: h.x, y: h.y };
+      if (route) { const s = route.poly.project(tg); from = route.poly.at(Math.max(0, s - 12)); }
+      ux = from.x - tg.x; uy = from.y - tg.y;
+      if (Math.hypot(ux, uy) < 0.5) { ux = 0; uy = 1; }
+      const L = Math.hypot(ux, uy), back = riding ? 9 : 3;
+      x = tg.x + ux / L * back; y = tg.y + uy / L * back;
+    }
+    const L = Math.hypot(ux, uy) || 1;
+    ux /= L; uy /= L;
+    // wolne miejsce: odsuwanie od kamieni, a jeśli wypada w bazie, ścianie albo poza mapą — krok dalej
+    const radius = riding ? RIDE_RADIUS : 0.4;
+    const solids = riding ? this.rocks.filter((rk) => rk.collide && rk.r > 0.35).concat(this.#habOutline()) : this.#solids();
+    let spot = null;
+    for (let k = 0; k < 12 && !spot; k++) {
+      let px = Math.max(4, Math.min(this.W - 4, x + ux * k * 2)), py = Math.max(4, Math.min(this.H - 4, y + uy * k * 2));
+      for (const rk of solids) {
+        if (!rk.collide) continue;
+        const ex = px - rk.x, ey = py - rk.y, dd = Math.hypot(ex, ey), min = rk.r + radius;
+        if (dd < min) { px = rk.x + (ex / (dd || 1)) * min; py = rk.y + (ey / (dd || 1)) * min; }
+      }
+      const inBase = this.hab && (this.hab.zoneAtPlan(px, py) || !this.hab.canStandPlan(px, py));
+      const hitsSolid = solids.some((rk) => rk.collide && Math.hypot(px - rk.x, py - rk.y) < rk.r + radius - 0.05);
+      if (this.t.inside(px, py, 4) && !inBase && !hitsSolid) spot = { x: px, y: py };
+    }
+    if (!spot) { this.flash = { text: tr('hud.teleportBlocked', { t: tg.id }), t: performance.now() }; return; }
+    const yaw = headingDeg(tg.x - spot.x, tg.y - spot.y);
+    if (riding) {
+      this.app.roverAt = { ...spot };
+      Object.assign(this.ride, { heading: yaw, speed: 0, steer: 0 });
+      this.rideCam = null;
+    } else {
+      Object.assign(h, { x: spot.x, y: spot.y, yaw, pitch: -4, vx: 0, vy: 0, z: 0, vz: 0, auto: null });
+      this.hab?.track(h.x, h.y, h.yaw);
+    }
+    this.flash = { text: tr('hud.teleported', { t: tg.id }), t: performance.now() };
+    this.app.emit('teleport', tg.id);
+  }
+
+  /** Obrys habitatu do kolizji łazika (to samo co w toggleRide). */
+  #habOutline() {
+    const hab = this.app.m.habitat;
+    this.habSolids ||= hab ? rotate(HABITAT_FOOTPRINT, hab.x, hab.y, this.habitatMesh?.rotation.y ?? 0) : [];
+    return this.habSolids;
+  }
+
   // ---------- sterowanie w hełmie ----------
   /** Tempo marszu: o stopień szybciej (+1) albo wolniej (−1). */
   changePace(step) {
@@ -552,6 +624,9 @@ export class View3D {
       if (this.app.state.view !== 'helmet' || e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input,select,textarea,[contenteditable],[role="dialog"]')) return;
       if (keys.includes(e.code)) { h.keys.add(e.code); h.auto = null; e.preventDefault(); return; }
       if (e.code === 'KeyF') { this.toggleRide(); e.preventDefault(); return; }
+      const digit = /^(Digit|Numpad)([1-9])$/.exec(e.code);
+      if (digit) { const n = Number(digit[2]) - 1, wps = this.app.m.waypoints.length; if (n < wps) { this.teleport(n); e.preventDefault(); } return; }
+      if (e.code === 'Digit0' || e.code === 'Numpad0') { this.teleport(this.app.m.waypoints.length); e.preventDefault(); return; }
       if (e.code === 'KeyE' && !this.ride) { this.useStation(); e.preventDefault(); return; }
       if (e.code === 'Space' && this.ride) { h.keys.add('Space'); e.preventDefault(); return; }   // w łaziku: hamulec ręczny
       if (e.code === 'KeyC' && this.ride) { this.ride.cabin = !this.ride.cabin; this.rideCam = null; this.app.emit('ride', true); e.preventDefault(); return; }
@@ -680,9 +755,12 @@ export class View3D {
   /** Dane dla wskaźników jazdy łazikiem. */
   rideInfo() {
     const r = this.ride, p = this.app.roverPos();
+    // prędkość jak na liczniku łazika (bez przyspieszenia czasu), a przyspieszenie (tempo × Shift) osobno jako skala ×N
+    const k = this.helmet.keys, scale = PACE_LEVELS[this.helmet.pace] * (k.has('ShiftLeft') || k.has('ShiftRight') ? SPRINT : 1);
     return {
-      speed: Math.abs(r.speed) * 3.6, reverse: r.speed < -0.05, heading: Math.round(r.heading) % 360, slope: this.t.slope(p.x, p.y),
-      pace: PACE_LEVELS[this.helmet.pace], cabin: r.cabin, boom: r.boom, warn: r.warn || (r.braking ? tr('ride.brake') : null), locked: !!this.locked,
+      speed: Math.min(Math.abs(r.speed) * 3.6 / scale, this.app.m.rover.speedKmh),   // po zmianie tempa łazik zwalnia stopniowo — licznik nie pokazuje wtedy setek km/h
+      reverse: r.speed < -0.05, heading: Math.round(r.heading) % 360, slope: this.t.slope(p.x, p.y),
+      pace: scale, teleports: this.teleportTargets().map((x) => x.id), cabin: r.cabin, boom: r.boom, warn: r.warn || (this.flash && performance.now() - this.flash.t < 2500 ? this.flash.text : null) || (r.braking ? tr('ride.brake') : null), locked: !!this.locked,
     };
   }
 
@@ -750,7 +828,7 @@ export class View3D {
       const target = poly.heading(a.s, a.dir);
       let d = ((target - h.yaw + 540) % 360) - 180;
       h.yaw = (h.yaw + d * Math.min(1, dt * 3) + 360) % 360;
-      h.speed = a.v / a.timelapse * 3.6;
+      h.speed = a.v * 3.6; h.scale = a.timelapse;
     } else {
       const fwd = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
       const side = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
@@ -760,6 +838,7 @@ export class View3D {
       const sprint = k.has('ShiftLeft') || k.has('ShiftRight') ? SPRINT : 1;
       const indoors = this.hab?.indoors && this.hab.zone.id !== 'ramp';
       const v = Math.min(WALK_MS * PACE_LEVELS[h.pace] * sprint, indoors ? 3.5 : Infinity), y = h.yaw * Math.PI / 180;   // w ciasnym wnętrzu bez tempa ×32
+      h.scale = v / WALK_MS;   // przyspieszenie czasu względem zwykłego marszu (tempo × bieg); HUD pokazuje prędkość chodu i skalę ×N osobno
       let tx = 0, ty = 0;
       if (fwd || side) {
         const fx = Math.sin(y), fy = -Math.cos(y), rx = Math.cos(y), ry = Math.sin(y);
@@ -838,7 +917,8 @@ export class View3D {
     const rp = app.roverPos(), nearRover = !app.drive && Math.hypot(rp.x - h.x, rp.y - h.y) <= RIDE_REACH_M;
     const flash = this.flash && performance.now() - this.flash.t < 2500 ? this.flash.text : null;
     return {
-      heading: Math.round(h.yaw) % 360, target, dist, speed: h.speed, pace: PACE_LEVELS[h.pace], locked: !!this.locked,
+      heading: Math.round(h.yaw) % 360, target, dist, speed: h.speed / (h.scale || 1), pace: h.scale || 1, locked: !!this.locked,
+      teleports: this.teleportTargets().map((x) => x.id),
       slope: this.t.slope(h.x, h.y), zone: haz, warn: h.warn || flash || (nearRover && !h.auto ? tr('ride.hint') : null) || this.hab?.info().flash || (!h.auto && this.hab?.prompt()) || null, timelapse: h.auto?.timelapse ?? 1,
     };
   }
@@ -910,6 +990,7 @@ export class View3D {
       r.clearDepth();
       r.render(this.overlay, cam);
     }
+    (this.backdrop ||= new Backdrop(r.domElement)).sample();   // kolor tekstu paneli wg jasności tła
   }
 
   render(dt) {

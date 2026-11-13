@@ -1,5 +1,5 @@
 // Projekcja danych na wizjer. Przykład niedoboru zmienia wyłącznie podgląd HUD.
-import { $, setText } from '../core/dom.js';
+import { $, esc, setText } from '../core/dom.js';
 import { num, hm, clock } from '../core/format.js';
 import { t } from '../i18n.js';
 
@@ -15,6 +15,23 @@ export function helmetStatus({ oxygen, battery, reserve, zone, sep, offline, pla
   return { tone: 'normal', key: planned ? 'visor.nominal' : 'visor.ready', detail: planned ? 'visor.nominalDetail' : 'visor.planDetail' };
 }
 
+/**
+ * Pasek teleportu: przyciski WP1…WPn i HAB z klawiszami 1–9 / 0. Odświeża się tylko po zmianie listy punktów.
+ * Kliknięcie emituje „teleport-request” z indeksem celu (obsługa w View3D.teleport).
+ */
+export function renderTeleportBar(el, app, ids) {
+  const sig = ids.join('|');
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  const key = (id, i) => (id === 'HAB' ? '0' : i < 9 ? String(i + 1) : '');
+  el.innerHTML = `<small>${esc(t('hud.teleport'))}</small>` + ids.map((id, i) =>
+    `<button type="button" data-i="${i}" title="${esc(t('hud.teleportTo', { t: id }))}">${key(id, i) ? `<kbd>${key(id, i)}</kbd>` : ''}${esc(id)}</button>`).join('');
+  if (!el.dataset.wired) {
+    el.dataset.wired = '1';
+    el.addEventListener('click', (e) => { const b = e.target.closest('button[data-i]'); if (b) { app.emit('teleport-request', Number(b.dataset.i)); b.blur(); } });
+  }
+}
+
 export class HelmetHud {
   constructor(app) {
     this.app = app;
@@ -25,7 +42,7 @@ export class HelmetHud {
       <div class="visor-id"><span class="visor-led"></span> MARSIM <span id="visorWearer">/ EV1</span><small>${t('visor.system')}</small></div>
       <div class="visor-compass"><div class="compass-ruler" aria-hidden="true"></div><b id="hudHeading"></b><span>▼</span></div>
       <div class="visor-cross" aria-hidden="true"><i></i><span>+</span><i></i></div>
-      <div class="visor-nav"><small>${t('visor.navigation')}</small><b id="hudDist"></b><span id="visorRoute"></span></div>
+      <div class="visor-nav"><small>${t('visor.navigation')}</small><b id="hudDist"></b><span id="visorRoute"></span><div class="visor-teleport" id="visorTeleport"></div></div>
       <div class="visor-motion"><b id="hudSpeed"></b><span id="visorSlope"></span><small id="visorClock"></small></div>
       <div class="visor-wordmark" aria-hidden="true">EXPLORER <span>01</span> / EVA SYSTEM</div>
       <section class="visor-summary" aria-labelledby="visorSummaryTitle">
@@ -57,8 +74,9 @@ export class HelmetHud {
     this.el.classList.toggle('example', this.example);
     setText($('hudHeading'), `${String(h.heading).padStart(3, '0')}°`);
     setText($('hudDist'), t('hud.to', { t: h.target, d: Math.round(h.dist) }));
+    renderTeleportBar($('visorTeleport'), app, h.teleports || []);
     setText($('visorRoute'), planned ? t('visor.route', { l: app.state.route.letter }) : t('visor.noRoute'));
-    setText($('hudSpeed'), `${num(h.speed, 1)} km/h${h.pace > 1 ? ` · ${t('hud.pace', { x: h.pace })}` : ''}`);
+    setText($('hudSpeed'), `${num(h.speed, 1)} km/h${h.pace > 1.01 ? ` · ${t('hud.pace', { x: num(h.pace, Number.isInteger(h.pace) ? 0 : 1) })}` : ''}`);
     setText($('hudHelp'), t(h.locked ? 'hud.helpLocked' : 'hud.help'));
     setText($('visorSlope'), `${t('hud.slope')} ${num(h.slope, 0)}°`);
     setText($('visorClock'), `SOL ${app.m.mission.sol} / ${clock(sim.min)} LTST`);

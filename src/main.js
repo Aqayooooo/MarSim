@@ -93,7 +93,8 @@ const driveHud = new DriveHud(app, () => view3d);
 const profile = new RouteProfile(app);
 const eva = new EvaControls(app, director);
 const helmetHud = new HelmetHud(app);
-const rideHud = new RideHud();
+const rideHud = new RideHud(app);
+app.on('teleport-request', (i) => view3d?.teleport(i));
 const habHud = new HabHud();
 app.on('hab-suitup', () => eva.toggle());   // stanowisko skafandrów w habitacie rozpoczyna wyjście
 const sampleMeta = api === null ? await ds.sample('meta') : null;
@@ -246,7 +247,7 @@ function frame(now) {
   last = now;
   app.update(dt);
   const v = app.state.view;
-  if (v === 'map') map.render(dt);
+  if (v === 'map') { map.render(dt); if (view3d?.backdrop?.last) view3d.backdrop.clear(); }
   else if (VIEWS_3D.includes(v) && view3d) {
     view3d.render(dt);
     if (v === 'helmet') {          // w hełmie pieszo — wizjer; w łaziku (F) — wskaźniki jazdy; w habitacie — jego wskaźniki

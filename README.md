@@ -56,6 +56,16 @@ Wymagania: Windows, macOS albo Linux, **Python 3.10+** i przeglądarka z WebGL. 
 | `URUCHOM.bat en` | to samo po angielsku |
 | `URUCHOM.bat demo` | sam interfejs na danych przykładowych, bez instalacji: http://localhost:5173 |
 
+### Linux i macOS: launcher
+
+| Polecenie | Co robi |
+|---|---|
+| `./uruchom.sh` | pełna wersja z backendem: http://localhost:8000 (przy pierwszym uruchomieniu tworzy `.venv` i instaluje pakiety) |
+| `./uruchom.sh en` / `./uruchom.sh demo` | po angielsku / sam interfejs bez instalacji: http://localhost:5173 |
+| `./uruchom.sh install` | dodaje MarSim do menu aplikacji (skrót z akcjami „demo” i „English”) |
+
+Gdy MarSim już działa na porcie, launcher tylko otwiera przeglądarkę. Inny port: `PORT=8001 ./uruchom.sh`.
+
 ### Ręcznie (każdy system)
 
 ```
