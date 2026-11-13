@@ -123,7 +123,7 @@
       "description": "Surowe zdjęcia Navcam łazika Perseverance z postojów w obszarze (miniatury 320 px)",
       "url": "https://mars.nasa.gov/rss/api/?feed=raw_images&category=mars2020",
       "sha256": null,
-      "bytes": 1429565,
+      "bytes": 1321417,
       "access": "pobrany plik"
     },
     {
@@ -179,13 +179,22 @@
     "comms": "linia widoczności z masztu habitatu 10 m do odbiornika 1.8 m nad gruntem",
     "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST",
     "minerals": "CRISM MTRDR, parametry Viviano-Beck i in. (2014); klasy: 1: oliwin wyraźny (bazalt lub piasek bazaltowy) (OLINDEX3 > 0,08); 2: oliwin słaby / materiał mieszany (0,05 < OLINDEX3 ≤ 0,08); 3: piroksen (max(LCPINDEX2, HCPINDEX2) > 0,01); 4: uwodnienie / siarczany (słaby sygnał) (BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02); 5: krzemiany warstwowe Fe/Mg (D2300 > 0,01). Warstwa informacyjna — nie zmienia mapy zagrożeń.",
-    "rover": "trasa i postoje z lokalizacji zespołu misji (NASA MMGIS GeoJSON), przeliczone liniowo z lon/lat do siatki równokątnej misji i przycięte do okna (Liang–Barsky); elevCheck porównuje wysokości postojów z DTM HiRISE",
+    "rover": "trasa i postoje z lokalizacji zespołu misji (NASA MMGIS GeoJSON), przeliczone liniowo z lon/lat do siatki równokątnej misji, przesunięte o korektę układu (checks.frameShiftM: kontrolowane mozaiki bazowe misji vs niekontrolowany DTM HiRISE z PDS, wyznaczona z wysokości postojów) i przycięte do okna (Liang–Barsky)",
     "geology": "jednostki USGS SIM 3464 (wielokąty z usługi ArcGIS, wkid 104905) zrasteryzowane do siatki 3 m; ciemny płaszcz na wierzchu. Poglądowo: przesunięcia mapy ~100–200 m, nie używane w zagrożeniach ani planowaniu. Sun, V.Z., and Stack, K.M., 2020, Geologic map of Jezero crater and the Nili Planum region, Mars: USGS SIM 3464, 1:75,000, doi:10.3133/sim3464",
     "roverPhotos": "zdjęcia Navcam połączone z postojami po (site, drive); kierunek z modelu CAHV + kurs łazika, elewacja −32…+12°, do 3 miniatur na postój w różnych kierunkach"
   },
   "checks": {
     "dtmMinusMolaM": -4.0,
-    "hiriseVsCtxCorrelation": 0.174
+    "hiriseVsCtxCorrelation": 0.174,
+    "frameShiftM": {
+      "dxM": 7.5,
+      "dyM": 99.5,
+      "spreadBeforeM": 0.78,
+      "spreadAfterM": 0.163,
+      "applied": true,
+      "n": 53,
+      "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)"
+    }
   },
   "stats": {
     "boulders": 340,
@@ -204,16 +213,25 @@
       "pixels": 4240
     },
     "rover": {
-      "lengthM": 2756.2,
-      "stops": 53,
+      "lengthM": 2588.1,
+      "stops": 50,
       "sols": [
         13,
-        382
+        383
       ],
       "elevCheck": {
-        "medianOffsetM": -2588.32,
-        "spreadM": 0.79,
-        "n": 53
+        "medianOffsetM": -2587.89,
+        "spreadM": 0.16,
+        "n": 50
+      },
+      "frameShift": {
+        "dxM": 7.5,
+        "dyM": 99.5,
+        "spreadBeforeM": 0.78,
+        "spreadAfterM": 0.163,
+        "applied": true,
+        "n": 53,
+        "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)"
       }
     },
     "geology": {
@@ -222,10 +240,10 @@
       "mantle": 0.073
     },
     "roverPhotos": {
-      "photos": 156,
-      "stopsWithPhotos": 52,
-      "imagesScanned": 3155,
-      "thumbBytes": 1429565
+      "photos": 147,
+      "stopsWithPhotos": 49,
+      "imagesScanned": 3066,
+      "thumbBytes": 1321417
     }
   },
   "sun": {
@@ -343,7 +361,7 @@
     "slopeSigma.f32": "37635b0aa12c4e657c9ca4cb2e4cd870cc4e1027b2c47c728452eb0823b8fc7b",
     "thermal.png": "f705ed493ab25a1e34b53582116418b2bd5408e0262f9e45ff47f37cc8467270",
     "timeToHabitat.f32": "bbfeddc056065f0ae1e25ade860c0e835503c672c8476b655ee3cdb59aa6b30f",
-    "roverTrack.json": "ef303fa8925d44e08994477c3e1df281da3ef947a1c6b9f79f7a3127e0ac6989",
+    "roverTrack.json": "0d3ee5bf59b1d9c3ea8eeceacfb9a81e42c1fadb1b86610fa81ac8ef3c51fee2",
     "geology.png": "c59069c5a3b0b47c9b5880997b669fd0af740725948059dd556f5035304c19f6"
   }
 }

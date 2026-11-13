@@ -114,7 +114,7 @@
       "description": "Surowe zdjęcia Navcam łazika Curiosity z postojów w obszarze (miniatury 320 px)",
       "url": "https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=msl:mission",
       "sha256": null,
-      "bytes": 6270870,
+      "bytes": 6963381,
       "access": "pobrany plik"
     },
     {
@@ -170,12 +170,21 @@
     "comms": "linia widoczności z masztu habitatu 10 m do odbiornika 1.8 m nad gruntem",
     "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST",
     "minerals": "CRISM MTRDR, parametry Viviano-Beck i in. (2014); klasy: 1: oliwin wyraźny (bazalt lub piasek bazaltowy) (OLINDEX3 > 0,08); 2: oliwin słaby / materiał mieszany (0,05 < OLINDEX3 ≤ 0,08); 3: piroksen (max(LCPINDEX2, HCPINDEX2) > 0,01); 4: uwodnienie / siarczany (słaby sygnał) (BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02); 5: krzemiany warstwowe Fe/Mg (D2300 > 0,01). Warstwa informacyjna — nie zmienia mapy zagrożeń.",
-    "rover": "trasa i postoje z lokalizacji zespołu misji (NASA MMGIS GeoJSON), przeliczone liniowo z lon/lat do siatki równokątnej misji i przycięte do okna (Liang–Barsky); elevCheck porównuje wysokości postojów z DTM HiRISE",
+    "rover": "trasa i postoje z lokalizacji zespołu misji (NASA MMGIS GeoJSON), przeliczone liniowo z lon/lat do siatki równokątnej misji, przesunięte o korektę układu (checks.frameShiftM: kontrolowane mozaiki bazowe misji vs niekontrolowany DTM HiRISE z PDS, wyznaczona z wysokości postojów) i przycięte do okna (Liang–Barsky)",
     "roverPhotos": "zdjęcia Navcam połączone z postojami po (site, drive); kierunek z modelu CAHV + kurs łazika, elewacja −32…+12°, do 3 miniatur na postój w różnych kierunkach"
   },
   "checks": {
     "dtmMinusMolaM": 11.3,
-    "hiriseVsCtxCorrelation": 0.286
+    "hiriseVsCtxCorrelation": 0.286,
+    "frameShiftM": {
+      "dxM": 150.0,
+      "dyM": 79.5,
+      "spreadBeforeM": 4.93,
+      "spreadAfterM": 0.184,
+      "applied": true,
+      "n": 95,
+      "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)"
+    }
   },
   "stats": {
     "boulders": 649,
@@ -196,23 +205,32 @@
       "pixels": 4240
     },
     "rover": {
-      "lengthM": 2388.0,
-      "stops": 95,
+      "lengthM": 2725.0,
+      "stops": 104,
       "sols": [
-        956,
-        1262
+        950,
+        1282
       ],
       "elevCheck": {
-        "medianOffsetM": -4462.31,
-        "spreadM": 5.11,
-        "n": 95
+        "medianOffsetM": -4472.93,
+        "spreadM": 0.18,
+        "n": 104
+      },
+      "frameShift": {
+        "dxM": 150.0,
+        "dyM": 79.5,
+        "spreadBeforeM": 4.93,
+        "spreadAfterM": 0.184,
+        "applied": true,
+        "n": 95,
+        "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)"
       }
     },
     "roverPhotos": {
-      "photos": 265,
-      "stopsWithPhotos": 90,
-      "imagesScanned": 5771,
-      "thumbBytes": 6270870
+      "photos": 292,
+      "stopsWithPhotos": 99,
+      "imagesScanned": 6573,
+      "thumbBytes": 6963381
     }
   },
   "sun": {
@@ -330,6 +348,6 @@
     "slopeSigma.f32": "79a76ed8b1cc75753023325fa77539bf4a16ef5e61e5dfa8ae4e0c032095ea12",
     "thermal.png": "01642ab71713f0b858e702d8b1c437b8f9aad179d55ce4bc4e64a81cf0301d47",
     "timeToHabitat.f32": "c1f5d55d0b0db5f38ad6f17804ec693628fa9a599019dc7d0f6525df8cc33dab",
-    "roverTrack.json": "aefbebb429487e10f10f3c05f252c37c948b456cd35c20c8fd78534bc5d08336"
+    "roverTrack.json": "6c025fc10d43f94c0c6864922671f02c24606fa23b0b0368d4d642747f205999"
   }
 }

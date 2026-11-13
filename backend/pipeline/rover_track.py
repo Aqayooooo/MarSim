@@ -142,18 +142,48 @@ def merge_segments(segs: list[list[list[float]]], tol: float = 1.0) -> list[list
 
 
 def dem_sampler(mdir: Path, mission: dict):
-    """Wysokość z DTM misji (do porównania z wysokościami lokalizacji łazika)."""
+    """Wysokość z DTM misji (dwuliniowo); DEM jest liczony od własnego minimum, więc porównujemy tylko różnice."""
     d = mission["dem"]
     w, h, cell = d["width"], d["height"], d["cellM"]
     raw = (mdir / d["file"]).read_bytes()
     vals = struct.unpack(f"<{w * h}f", raw[: 4 * w * h])
 
     def at(x: float, y: float) -> float | None:
-        i, j = int(min(w - 1, max(0, x / cell))), int(min(h - 1, max(0, y / cell)))
-        v = vals[j * w + i]
+        fx, fy = x / cell - 0.5, y / cell - 0.5
+        i, j = int(math.floor(fx)), int(math.floor(fy))
+        if i < 0 or j < 0 or i >= w - 1 or j >= h - 1:
+            return None
+        tx, ty = fx - i, fy - j
+        a, b, c, e = vals[j * w + i], vals[j * w + i + 1], vals[(j + 1) * w + i], vals[(j + 1) * w + i + 1]
+        v = a * (1 - tx) * (1 - ty) + b * tx * (1 - ty) + c * (1 - tx) * ty + e * tx * ty
         return None if math.isnan(v) else v
 
     return at
+
+
+def frame_shift(points: list[tuple[float, float, float]], dem, search: int = 300) -> dict:
+    """Przesunięcie układu: lokalizacje łazika (mozaiki bazowe misji, kontrolowane) vs nasz DTM HiRISE z PDS
+    (niekontrolowany). Szukamy (dx, dy) [m, na wschód / na południe], przy którym wysokości postojów najlepiej
+    pasują do DTM (najmniejszy rozrzut różnic, odporny na odstające punkty). Pojedyncza translacja — bez obrotu i skali.
+    Pomiar niezależny od zdjęć zgadza się z dopasowaniem do kontrolowanych mozaik NASA Trek (Gale ~150/80 m)."""
+    def spread(dx: float, dy: float):
+        r = sorted(z - v for x, y, z in points if (v := dem(x + dx, y + dy)) is not None)
+        return ((r[int(len(r) * 0.84)] - r[int(len(r) * 0.16)]) / 2, len(r)) if len(r) >= 20 else (None, len(r))
+
+    s0, n0 = spread(0, 0)
+    best = (s0 if s0 is not None else float("inf"), 0.0, 0.0)
+    for step, rng, centre in ((4, search, (0.0, 0.0)), (0.5, 6, None)):
+        cx, cy = centre if centre else (best[1], best[2])
+        k = int(rng / step)
+        for i in range(-k, k + 1):
+            for j in range(-k, k + 1):
+                sp, _ = spread(cx + i * step, cy + j * step)
+                if sp is not None and sp < best[0]:
+                    best = (sp, cx + i * step, cy + j * step)
+    s1, dx, dy = best
+    ok = s0 is not None and s1 < 0.5 * s0 and s1 < 1.0
+    return {"dxM": round(dx, 1) if ok else 0.0, "dyM": round(dy, 1) if ok else 0.0, "spreadBeforeM": round(s0, 2) if s0 is not None else None,
+            "spreadAfterM": round(s1, 3), "applied": ok, "n": n0, "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)"}
 
 
 def build(mission_id: str, fresh: bool = False) -> dict | None:
@@ -169,24 +199,38 @@ def build(mission_id: str, fresh: bool = False) -> dict | None:
     trav = fetch_json(urls["traverse"], CACHE / f"{key}_traverse.json", fresh)
     wps = fetch_json(urls["waypoints"], CACHE / f"{key}_waypoints.json", fresh)
 
-    # trasa: linie → metry → przycięcie do okna
+    # przesunięcie układu (kontrolowane lokalizacje misji → nasz niekontrolowany DTM), liczone z postojów w okolicy okna
+    dem = dem_sampler(mdir, mission)
+    near = []
+    for f in wps["features"]:
+        p = f["properties"]
+        x, y = win.xy(*f["geometry"]["coordinates"][:2])
+        if -400 < x < win.W + 400 and -400 < y < win.H + 400 and isinstance(p.get("elev_geoid"), (int, float)):
+            near.append((x, y, p["elev_geoid"]))
+    shift = frame_shift(near, dem)
+    sdx, sdy = shift["dxM"], shift["dyM"]
+
+    def xy(lon: float, lat: float) -> tuple[float, float]:
+        x, y = win.xy(lon, lat)
+        return x + sdx, y + sdy
+
+    # trasa: linie → metry (z przesunięciem) → przycięcie do okna
     lines, sol_of_line = [], []
     for f in trav["features"]:
         g = f["geometry"]
         parts = g["coordinates"] if g["type"] == "MultiLineString" else [g["coordinates"]]
         for part in parts:
-            lines.append([win.xy(p[0], p[1]) for p in part])
+            lines.append([xy(p[0], p[1]) for p in part])
             sol_of_line.append(f["properties"].get("sol"))
     segments = merge_segments(clip_lines(lines, win.W, win.H))
     length = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for s in segments for a, b in zip(s, s[1:]))
 
     # postoje w oknie
-    dem = dem_sampler(mdir, mission)
     stops, dz = [], []
     for f in wps["features"]:
         p = f["properties"]
         lon, lat = f["geometry"]["coordinates"][:2]
-        x, y = win.xy(lon, lat)
+        x, y = xy(lon, lat)
         if not win.inside(x, y):
             continue
         stop = {
@@ -220,16 +264,23 @@ def build(mission_id: str, fresh: bool = False) -> dict | None:
         "segments": segments,
         "stops": stops,
         "dates": [sol_date(min(sols), rv["landing"]), sol_date(max(sols), rv["landing"])] if sols else None,
+        "frameShift": shift,
         # zgodność wysokości lokalizacji łazika z naszym DTM: stała różnica = inny poziom odniesienia (DEM misji jest
-        # liczony od własnego minimum), rozrzut = błąd położenia / modelu. Przesunięcia poziomego to nie wyznacza
-        # (rzędu do kilkudziesięciu m między mozaiką bazową misji a ortoobrazem HiRISE) — trasa jest poglądowa.
+        # liczony od własnego minimum), rozrzut = błąd położenia / modelu — po korekcie układu (frameShift) ok. 0,2 m.
         "elevCheck": {"medianOffsetM": round(med, 2) if med is not None else None, "spreadM": round(spread, 2) if spread is not None else None, "n": len(dz)},
     }
     out = mdir / "roverTrack.json"
     if out.exists():   # zdjęcia dopisuje osobny krok (rover_photos.py) — nie gubimy ich przy odświeżeniu trasy
         prev = json.loads(out.read_text(encoding="utf-8"))
-        if prev.get("photos"):
-            data["photos"] = prev["photos"]
+        if prev.get("photos"):   # indeksy postojów mogą się zmienić — przemapowanie po (site, drive)
+            key_of = lambda st: (st.get("site"), st.get("drive"))
+            new_idx = {key_of(st): i for i, st in enumerate(stops)}
+            moved = []
+            for ph in prev["photos"]:
+                k = key_of(prev["stops"][ph["stop"]]) if ph["stop"] < len(prev["stops"]) else None
+                if k in new_idx:
+                    moved.append({**ph, "stop": new_idx[k]})
+            data["photos"] = moved
     out.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     sha = hashlib.sha256(out.read_bytes()).hexdigest()
     years = f"{data['dates'][0][:4]}–{data['dates'][1][:4]}" if data["dates"] else ""
@@ -247,7 +298,7 @@ def build(mission_id: str, fresh: bool = False) -> dict | None:
         "bytes": None,
         "access": "pobrany plik",
     }
-    stats = {"lengthM": data["lengthM"], "stops": len(stops), "sols": data["sols"], "elevCheck": data["elevCheck"], "sha256": sha}
+    stats = {"lengthM": data["lengthM"], "stops": len(stops), "sols": data["sols"], "elevCheck": data["elevCheck"], "frameShift": shift, "sha256": sha}
     return {"layer": layer, "source": source, "stats": stats}
 
 
@@ -268,14 +319,16 @@ def apply(mission_id: str, fresh: bool = False) -> int:
     prov["sources"] = [s for s in prov["sources"] if s["id"] != res["source"]["id"]] + [res["source"]]
     prov.setdefault("methods", {})["rover"] = (
         "trasa i postoje z lokalizacji zespołu misji (NASA MMGIS GeoJSON), przeliczone liniowo z lon/lat do siatki równokątnej "
-        "misji i przycięte do okna (Liang–Barsky); elevCheck porównuje wysokości postojów z DTM HiRISE"
+        "misji, przesunięte o korektę układu (checks.frameShiftM: kontrolowane mozaiki bazowe misji vs niekontrolowany DTM HiRISE "
+        "z PDS, wyznaczona z wysokości postojów) i przycięte do okna (Liang–Barsky)"
     )
     prov.setdefault("stats", {})["rover"] = {k: v for k, v in res["stats"].items() if k != "sha256"}
+    prov.setdefault("checks", {})["frameShiftM"] = res["stats"]["frameShift"]   # przesunięcie naszej siatki względem układu map NASA
     prov.setdefault("outputs", {})["roverTrack.json"] = res["stats"]["sha256"]
     (mdir / "provenance.json").write_text(json.dumps(prov, indent=2, ensure_ascii=False), encoding="utf-8")
     (mdir / "mission.json").write_text(json.dumps(mission, indent=2, ensure_ascii=False), encoding="utf-8")
     s = res["stats"]
-    print(f"[rover] {mission_id}: {s['lengthM']} m trasy, {s['stops']} postojów, sole {s['sols']}, wysokość vs DTM {s['elevCheck']}")
+    print(f"[rover] {mission_id}: {s['lengthM']} m trasy, {s['stops']} postojów, sole {s['sols']}, przesunięcie układu {s['frameShift']}")
     return 0
 
 

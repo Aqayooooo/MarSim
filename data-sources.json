@@ -277,7 +277,7 @@
       },
       "url": "https://mars.nasa.gov/rss/api/?feed=raw_images&category=mars2020",
       "access": "downloaded at build time, clipped to the area",
-      "bytes": 1429565,
+      "bytes": 1321417,
       "credit": "NASA/JPL-Caltech"
     },
     {
@@ -488,7 +488,7 @@
       },
       "url": "https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=msl:mission",
       "access": "downloaded at build time, clipped to the area",
-      "bytes": 6270870,
+      "bytes": 6963381,
       "credit": "NASA/JPL-Caltech"
     },
     {
