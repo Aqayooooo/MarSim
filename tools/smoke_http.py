@@ -86,7 +86,7 @@ try:
         if state["finished"]:
             break
         time.sleep(0.2)
-    print("koniec", state["phase"], state["reached"], "t =", state["t"], "O2 EV1", state["crew"][0]["o2Pct"], "%")
+    print("koniec", state["phase"], state["reached"], "t =", state["t"], "O2 Bartek", state["crew"][0]["o2Pct"], "%")
     assert state["finished"]
     assert all(member["o2Pct"] > 0 for member in state["crew"]), "Załoga wróciła bez tlenu"
     print("start po końcu", call("/api/eva/start", {}))

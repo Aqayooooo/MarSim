@@ -81,11 +81,11 @@ BAD_REQUESTS = [
     ("/api/eva/timescale", {}),
     ("/api/eva/timescale", {"timeScale": "szybko"}),
     ("/api/eva/inject", {"kind": "wybuch"}),
-    ("/api/telemetry", {"id": "EV1"}),
-    ("/api/telemetry", {"id": "EV1", "x": 100}),
-    ("/api/telemetry", {"id": "EV1", "x": 1e6, "y": 5}),
-    ("/api/telemetry", {"id": "EV1", "o2L": -1}),
-    ("/api/telemetry", {"id": "EV1", "hr": 400}),
+    ("/api/telemetry", {"id": "Bartek"}),
+    ("/api/telemetry", {"id": "Bartek", "x": 100}),
+    ("/api/telemetry", {"id": "Bartek", "x": 1e6, "y": 5}),
+    ("/api/telemetry", {"id": "Bartek", "o2L": -1}),
+    ("/api/telemetry", {"id": "Bartek", "hr": 400}),
     ("/api/observations", {"kind": "glazy", "x": 100}),
     ("/api/observations", {"kind": "ufo", "x": 100, "y": 100}),
     ("/api/observations", {"kind": "glazy", "x": 100, "y": 100, "radiusM": 0}),
@@ -93,9 +93,9 @@ BAD_REQUESTS = [
     ("/api/observations", {"kind": "glazy", "x": 100, "y": 100, "source": "kosmita"}),
     ("/api/link/send", {"text": ""}),
     ("/api/link/send", {"text": "x" * 501}),
-    ("/api/schedule", {"id": "E 9", "sol": 1, "startLtst": "10:00", "durationH": 2, "crew": ["EV1"]}),
-    ("/api/schedule", {"id": "E9", "sol": 1, "startLtst": "25:00", "durationH": 2, "crew": ["EV1"]}),
-    ("/api/schedule", {"id": "E9", "sol": 1, "startLtst": "10:00", "durationH": 0, "crew": ["EV1"]}),
+    ("/api/schedule", {"id": "E 9", "sol": 1, "startLtst": "10:00", "durationH": 2, "crew": ["Bartek"]}),
+    ("/api/schedule", {"id": "E9", "sol": 1, "startLtst": "25:00", "durationH": 2, "crew": ["Bartek"]}),
+    ("/api/schedule", {"id": "E9", "sol": 1, "startLtst": "10:00", "durationH": 0, "crew": ["Bartek"]}),
     ("/api/schedule", {"id": "E9", "sol": 1, "startLtst": "10:00", "durationH": 2, "crew": []}),
     ("/api/schedule", {"id": "E9", "sol": 1, "startLtst": "10:00", "durationH": 2, "crew": ["EV9"]}),
     ("/api/missions/select", {"id": "../etc"}),
@@ -109,7 +109,7 @@ def test_bad_input_gives_422_never_500(client, path, body):
 
 @pytest.mark.parametrize("path", ["/api/plan", "/api/observations", "/api/telemetry", "/api/schedule"])
 @pytest.mark.parametrize(
-    "raw", ["{", "[]", "null", '"tekst"', '{"x": NaN, "y": NaN, "kind": "glazy", "id": "EV1"}', '{"kind":"glazy","x":Infinity,"y":1}']
+    "raw", ["{", "[]", "null", '"tekst"', '{"x": NaN, "y": NaN, "kind": "glazy", "id": "Bartek"}', '{"kind":"glazy","x":Infinity,"y":1}']
 )
 def test_garbage_body_never_500(client, path, raw):
     r = client.post(path, content=raw, headers={"Content-Type": "application/json"})
@@ -120,7 +120,7 @@ def test_garbage_body_never_500(client, path, raw):
 
 
 def test_schedule_rejects_same_person_twice(client):
-    r = client.post("/api/schedule", json={"id": "E9", "sol": 200, "startLtst": "10:00", "durationH": 2, "crew": ["EV1", "EV1"]})
+    r = client.post("/api/schedule", json={"id": "E9", "sol": 200, "startLtst": "10:00", "durationH": 2, "crew": ["Bartek", "Bartek"]})
     error_ok(r, 422)
 
 
@@ -129,7 +129,7 @@ def test_unknown_resources_give_404(client):
     error_ok(client.post("/api/telemetry", json={"id": "EV7", "o2L": 100}), 404)
     error_ok(client.delete("/api/schedule/NIE-MA"), 404)
     error_ok(client.post("/api/missions/select", json={"id": "olympus"}), 404)
-    item = {"id": "NIE-MA", "sol": 1, "startLtst": "10:00", "durationH": 2, "crew": ["EV1"]}
+    item = {"id": "NIE-MA", "sol": 1, "startLtst": "10:00", "durationH": 2, "crew": ["Bartek"]}
     error_ok(client.put("/api/schedule/NIE-MA", json=item), 404)
 
 
@@ -201,18 +201,18 @@ def test_inject_requires_route(client):
 def test_telemetry_overrides_model_then_expires(client):
     client.post("/api/eva/start", json={"timeScale": 10})
     eng = client.app.state.active()
-    assert client.post("/api/telemetry", json={"id": "EV2", "o2L": 321.0, "hr": 111, "x": 500.0, "y": 400.0}).json() == {"ok": True}
+    assert client.post("/api/telemetry", json={"id": "Hubert", "o2L": 321.0, "hr": 111, "x": 500.0, "y": 400.0}).json() == {"ok": True}
     eng.step(0.1)
-    ev2 = next(c for c in client.get("/api/state").json()["crew"] if c["id"] == "EV2")
+    ev2 = next(c for c in client.get("/api/state").json()["crew"] if c["id"] == "Hubert")
     assert ev2["source"] == "skafander" and ev2["o2L"] == 321.0 and ev2["hr"] == 111 and (ev2["x"], ev2["y"]) == (500.0, 400.0)
     for _ in range(100):  # 100 s misji bez nowych pomiarów
         eng.step(0.1)
-    ev2 = next(c for c in client.get("/api/state").json()["crew"] if c["id"] == "EV2")
+    ev2 = next(c for c in client.get("/api/state").json()["crew"] if c["id"] == "Hubert")
     assert ev2["source"] == "model" and ev2["o2L"] < 321.0 and (ev2["x"], ev2["y"]) != (500.0, 400.0)
 
 
 def test_telemetry_o2_is_capped_at_capacity(client):
-    client.post("/api/telemetry", json={"id": "EV1", "o2L": 4000})
+    client.post("/api/telemetry", json={"id": "Bartek", "o2L": 4000})
     ev1 = client.get("/api/state").json()["crew"][0]
     assert ev1["o2Pct"] <= 100
 
@@ -240,7 +240,7 @@ def test_link_send_and_delivery(client):
 def test_schedule_crud_and_log(client):
     base = client.get("/api/schedule").json()
     n = len(base["items"])
-    new = {"id": "EVA-9", "sol": 300, "startLtst": "10:00", "durationH": 2.0, "crew": ["EV1"], "purpose": "test"}
+    new = {"id": "EVA-9", "sol": 300, "startLtst": "10:00", "durationH": 2.0, "crew": ["Bartek"], "purpose": "test"}
     assert len(client.post("/api/schedule", json=new).json()["items"]) == n + 1
     error_ok(client.post("/api/schedule", json=new), 409)
     changed = client.put("/api/schedule/EVA-9", json={**new, "durationH": 9.0}).json()
@@ -278,7 +278,7 @@ def test_mission_switch_isolates_state(client):
 def test_state_survives_restart_where_promised(tmp_path):
     from backend.server import create_app
 
-    new = {"id": "EVA-9", "sol": 300, "startLtst": "10:00", "durationH": 2.0, "crew": ["EV1"], "purpose": "test"}
+    new = {"id": "EVA-9", "sol": 300, "startLtst": "10:00", "durationH": 2.0, "crew": ["Bartek"], "purpose": "test"}
     with TestClient(create_app(start_loop=False, live_feeds=False, db_dir=tmp_path)) as c:
         first = c.get("/api/health").json()["session"]
         c.post("/api/schedule", json=new)

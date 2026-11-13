@@ -39,7 +39,7 @@ export class HelmetHud {
     this.el = $('hud');
     this.el.innerHTML = `
       <div class="visor-glass" aria-hidden="true"></div>
-      <div class="visor-id"><span class="visor-led"></span> MARSIM <span id="visorWearer">/ EV1</span><small>${t('visor.system')}</small></div>
+      <div class="visor-id"><span class="visor-led"></span> MARSIM <span id="visorWearer">/ Bartek</span><small>${t('visor.system')}</small></div>
       <div class="visor-compass"><div class="compass-ruler" aria-hidden="true"></div><b id="hudHeading"></b><span>▼</span></div>
       <div class="visor-cross" aria-hidden="true"><i></i><span>+</span><i></i></div>
       <div class="visor-nav"><small>${t('visor.navigation')}</small><b id="hudDist"></b><span id="visorRoute"></span><div class="visor-teleport" id="visorTeleport"></div></div>

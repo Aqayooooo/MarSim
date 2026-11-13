@@ -4,6 +4,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -12,7 +13,8 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const PYTHON = process.env.PYTHON || (process.platform === 'win32' ? join(ROOT, '.venv', 'Scripts', 'python.exe') : 'python3');
+const VENV_PY = process.platform === 'win32' ? join(ROOT, '.venv', 'Scripts', 'python.exe') : join(ROOT, '.venv', 'bin', 'python');
+const PYTHON = process.env.PYTHON || (existsSync(VENV_PY) ? VENV_PY : process.platform === 'win32' ? 'python' : 'python3');   // backend wymaga pakietów z .venv
 const LOAD_MS = 30000;
 
 const freePort = () => new Promise((resolve, reject) => {
@@ -36,11 +38,16 @@ async function startServer(args, url) {
   throw new Error(`Serwer nie odpowiedział w ${LOAD_MS / 1000} s: ${stderr.slice(-800)}`);
 }
 
+// Linux bez okna domyślnie renderuje WebGL programowo (SwiftShader, < 1 kl./s) — testy marszu i jazdy, liczone w czasie
+// rzeczywistym, wtedy nie przechodzą. Gdy jest karta graficzna (/dev/dri), używamy jej; PW_GPU=0 wyłącza.
+const GPU_ARGS = process.platform === 'linux' && process.env.PW_GPU !== '0' && existsSync('/dev/dri/renderD128')
+  ? ['--enable-gpu', '--use-angle=gl', '--ignore-gpu-blocklist'] : [];
+
 async function launch() {
-  const channel = process.env.PW_CHANNEL || undefined;
-  try { return await chromium.launch({ channel }); } catch (e) {
+  const channel = process.env.PW_CHANNEL || undefined, args = GPU_ARGS;
+  try { return await chromium.launch({ channel, args }); } catch (e) {
     if (channel) throw e;
-    for (const c of ['chrome', 'msedge']) { try { return await chromium.launch({ channel: c }); } catch { /* następna */ } }
+    for (const c of ['chrome', 'msedge']) { try { return await chromium.launch({ channel: c, args }); } catch { /* następna */ } }
     throw e;
   }
 }
@@ -125,6 +132,19 @@ test('telefon: układ kolumnowy, bez przewijania w poziomie, czytelne panele', a
   await page.click('#viewSeg [data-view="helmet"]');
   await page.waitForFunction(() => window.marsim.view3d?.mode === 'helmet', null, { timeout: LOAD_MS });
   assert.equal(await page.isVisible('#walkPad'), true, 'przyciski marszu na ekranie dotykowym');
+  // otwarty profil trasy nie może zasłonić przycisków mapy (wcześniej „Co jeśli?” i „Profil trasy” były pod nim)
+  await page.click('#viewSeg [data-view="map"]');
+  await page.click('#evaBtn');
+  await page.waitForSelector('#profileBtn', { state: 'visible', timeout: LOAD_MS });
+  await page.click('#profileBtn');
+  await page.waitForSelector('#profile', { state: 'visible', timeout: LOAD_MS });
+  for (const id of ['profileBtn', 'sensBtn']) {
+    const onTop = await page.evaluate((id) => {
+      const b = document.getElementById(id), r = b.getBoundingClientRect();
+      return b.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+    }, id);
+    assert.ok(onTop, `#${id} klikalny przy otwartym profilu`);
+  }
   assert.deepEqual(errors, []);
   await context.close();
 });
@@ -164,7 +184,8 @@ test('hełm jak w grze: marsz W, tempo +, bieg Shift i skok spacją (bez startu 
   const walked = Math.hypot(p1.x - p0.x, p1.y - p0.y);
   assert.ok(walked > 0.3, `marsz W: ${walked} m`);
   for (let i = 0; i < 3; i++) await page.keyboard.press('Equal');
-  assert.equal(await page.evaluate(() => window.marsim.view3d.hudInfo().pace), 8);
+  // hudInfo().pace (h.scale) odświeża się w klatce po naciśnięciu klawisza — czekamy na nią zamiast czytać od razu
+  await page.waitForFunction(() => window.marsim.view3d.hudInfo().pace === 8, null, { timeout: 5000 });
   await page.keyboard.down('ShiftLeft'); await page.keyboard.down('KeyW'); await page.waitForTimeout(800);
   const fast = await pos();
   await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft');

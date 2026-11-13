@@ -28,6 +28,13 @@ def _polish_number_format(text):
     return re.sub(r"(?<=\d)\.(?=\d)", ",", text).replace("-", "−") if isinstance(text, str) else text
 
 
+def _stops_pl(n: int) -> str:
+    """Polska odmiana: 1 przystanek, 2–4 przystanki (poza 12–14), pozostałe przystanków."""
+    if n == 1:
+        return "przystanek"
+    return "przystanki" if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14) else "przystanków"
+
+
 def _sample_path(path, step=3.0):
     out = []
     for a, b in zip(path[:-1], path[1:]):
@@ -202,7 +209,8 @@ def build(e) -> dict:
     matrix = [[sum(1 for h in H if h["likelihood"] == l and h["severity"] == s) for s in range(1, 6)] for l in range(5, 0, -1)]
     top = [h for h in H if h["level"] != "niskie"]
     summary = [
-        f"Trasa {r['letter']}: {r['lengthM'] / 1000:.2f} km, {r['durationH'] * 60:.0f} min, {r['stops']} przystanki, ocena: {r['rating']}.",
+        f"Trasa {r['letter']}: {r['lengthM'] / 1000:.2f} km, {r['durationH'] * 60:.0f} min, "
+        f"{r['stops']} {_stops_pl(r['stops'])}, ocena: {r['rating']}.",
         f"Nachylenie maks. {ms:.1f}° ±{ss:.1f}° (DTM HiRISE {e.mission['dem']['year']}, σz {e.mission['dem']['sigmaZM']} m).",
         f"Ryzyka średnie/wysokie: {', '.join(h['hazard'].split(' (')[0] for h in top) or 'brak'}.",
         f"Szansa ukończenia: {p_success * 100:.0f}% · zapas O₂ ponad rezerwę: {margin:.0f} L.",

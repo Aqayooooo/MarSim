@@ -11,6 +11,8 @@ export const ALT_COLORS = { chosen: ROUTE, straight: '#FF5A4A', shortest: '#FFA9
 const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, rover: 1, geology: 0.6, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
+/** Piksel k obrazu RGBA — bez tworzenia tablicy dla każdego piksela (warstwy mają po 150–600 tys. pikseli). */
+function px(d, k, r, g, b, a) { const o = k * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = a; }
 function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
 function ramp(t) { // luźny piasek (niebieski) → żółty → lita skała (pomarańczowy)
   const s = [[0, [32, 70, 156]], [0.55, [232, 212, 77]], [1, [237, 95, 38]]];
@@ -88,13 +90,20 @@ export class Map2D {
     this.ui = ui;
     this.c.width = Math.round(MAIN_W * this.k);
     this.c.height = Math.round(MAIN_H * this.k);
-    // rozmyte strefy zagrożeń w rozdzielczości ekranu
+    // rozmyte strefy zagrożeń w rozdzielczości ekranu — liczone od nowa tylko przy zmianie skali
+    // (fit() woła resize przy każdej zmianie widoku, a rozmycie całego płótna to kilkadziesiąt ms)
+    if (this.hazBlur && this.hazBlurK === this.k) return this.#scaleBar();
+    this.hazBlurK = this.k;
     const hz = document.createElement('canvas');
     hz.width = this.c.width; hz.height = this.c.height;
     const g = hz.getContext('2d');
     g.filter = `blur(${7 * this.k}px)`;
     g.drawImage(this.hazCanvas, this.ox * this.k, this.oy * this.k, this.W * this.ps * this.k, this.H * this.ps * this.k);
     this.hazBlur = hz;
+    this.#scaleBar();
+  }
+
+  #scaleBar() {
     const sb = document.querySelector('#scale .bar');
     if (sb) sb.style.width = `${100 * this.ps}px`;
   }
@@ -117,7 +126,7 @@ export class Map2D {
         const k = j * R.width + i, v = R.data[k];
         if (!v || !cls[v]) continue;
         const edge = (i > 0 && R.data[k - 1] !== v) || (j > 0 && R.data[k - R.width] !== v) || (i < R.width - 1 && R.data[k + 1] !== v) || (j < R.height - 1 && R.data[k + R.width] !== v);
-        im.data.set([...rgb(cls[v].color), edge ? 255 : 120], k * 4);
+        px(im.data, k, ...rgb(cls[v].color), edge ? 255 : 120);
         const s = (sums[v] ||= { x: 0, y: 0, n: 0 }); s.x += i; s.y += j; s.n++;
       }
       g.putImageData(im, 0, 0);
@@ -129,7 +138,7 @@ export class Map2D {
       const [c, g] = this.#canvas(terrain.w, terrain.hgt), im = g.createImageData(terrain.w, terrain.hgt);
       for (let k = 0; k < terrain.slopeGrid.length; k++) {
         const a = clamp01((terrain.slopeGrid[k] - 3) / 20);
-        im.data.set([255, 248, 236, Math.round(a * 215)], k * 4);
+        px(im.data, k, 255, 248, 236, Math.round(a * 215));
       }
       g.putImageData(im, 0, 0);
       this.slopeCanvas = c;
@@ -141,7 +150,7 @@ export class Map2D {
       const col = { 1: hexToRgb(cls[1].color), 2: hexToRgb(cls[2].color) };
       for (let k = 0; k < R.data.length; k++) {
         const v = R.data[k];
-        if (col[v]) im.data.set([...col[v], v === 2 ? 105 : 80], k * 4);      // nieznana wartość (uszkodzone dane) — pomijamy
+        if (col[v]) px(im.data, k, col[v][0], col[v][1], col[v][2], v === 2 ? 105 : 80);      // nieznana wartość (uszkodzone dane) — pomijamy
       }
       g.putImageData(im, 0, 0);
       this.hazCanvas = c;
@@ -154,7 +163,8 @@ export class Map2D {
         const k = ((j / sc) | 0) * R.width + ((i / sc) | 0), p = R.data[k] / 255, conf = C ? C.data[k] / 255 : 1;
         if (p < 0.3) continue;
         const hatch = conf < 0.4 && (i + j) % 6 < 2;
-        im.data.set(hatch ? [60, 45, 25, 200] : [232, 177, 58, Math.round(clamp01((p - 0.3) / 0.5) * 170)], (j * R.width * sc + i) * 4);
+        if (hatch) px(im.data, j * R.width * sc + i, 60, 45, 25, 200);
+        else px(im.data, j * R.width * sc + i, 232, 177, 58, Math.round(clamp01((p - 0.3) / 0.5) * 170));
       }
       g.putImageData(im, 0, 0);
       this.sandCanvas = c;
@@ -164,8 +174,8 @@ export class Map2D {
       const R = rasters.comms, [c, g] = this.#canvas(R.width, R.height), im = g.createImageData(R.width, R.height);
       for (let k = 0; k < R.data.length; k++) {
         const v = R.data[k];
-        if (v === 0) im.data.set([192, 57, 43, 120], k * 4);
-        else if (v === 1) im.data.set([241, 196, 15, 110], k * 4);
+        if (v === 0) px(im.data, k, 192, 57, 43, 120);
+        else if (v === 1) px(im.data, k, 241, 196, 15, 110);
       }
       g.putImageData(im, 0, 0);
       this.commsCanvas = c;
@@ -179,7 +189,7 @@ export class Map2D {
     const h = sh.hours.reduce((a, b) => (Math.abs(b - hour) < Math.abs(a - hour) ? b : a));
     if (!this.shadowCanvases[h]) {
       const R = sh.hourly[h], [c, g] = this.#canvas(R.width, R.height), im = g.createImageData(R.width, R.height);
-      for (let k = 0; k < R.data.length; k++) if (R.data[k] > 127) im.data.set([18, 14, 40, 190], k * 4);
+      for (let k = 0; k < R.data.length; k++) if (R.data[k] > 127) px(im.data, k, 18, 14, 40, 190);
       g.putImageData(im, 0, 0);
       this.shadowCanvases[h] = c;
     }
@@ -197,9 +207,9 @@ export class Map2D {
     for (let j = 1; j < R.height - 1; j++) for (let i = 1; i < W - 1; i++) {
       const k = j * W + i, v = d[k];
       if (v >= 9000) continue;                                   // strefa zakazana — osobna warstwa
-      if (v > budgetL) { im.data.set([0, 0, 0, 90], k * 4); continue; }
+      if (v > budgetL) { px(im.data, k, 0, 0, 0, 90); continue; }
       const out = (n) => d[n] > budgetL && d[n] < 9000;          // granica tylko tam, gdzie kończy się tlen
-      if (out(k - 1) || out(k + 1) || out(k - W) || out(k + W)) im.data.set([120, 230, 255, 255], k * 4);
+      if (out(k - 1) || out(k + 1) || out(k - W) || out(k + W)) px(im.data, k, 120, 230, 255, 255);
     }
     g.putImageData(im, 0, 0);
     this.wbKey = key; this.wbCanvas = c;

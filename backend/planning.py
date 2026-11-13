@@ -14,6 +14,7 @@ zakazaną i nie kosztuje więcej niż ten fragment.
 from __future__ import annotations
 
 import math
+from collections import OrderedDict
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -32,6 +33,7 @@ EXPANDED_STRIDE = 10  # co która komórka trafia do animacji „przeszukiwania�
 EXPANDED_LIMIT = 600
 STRAIGHTEN_LOOKAHEAD = 80  # ile wierzchołków naprzód sprawdza prostowanie trasy
 _GRAPH_CACHE_SIZE = 4
+_REACH_CACHE_SIZE = 6  # ile wyników Dijkstry (różne punkty startu) pamięta jeden graf; ~1,8 MB każdy przy 480×320
 
 
 def walk_speed_ms(slope_deg: np.ndarray | float, base_kmh: float) -> np.ndarray | float:
@@ -56,11 +58,12 @@ class CostModel:
         hazard = layers["hazard"]
         self.slope_up = layers["slope"] + sigma_margin * layers["slopeSigma"]
         speed = np.maximum(walk_speed_ms(self.slope_up, eva["walkKmh"]), MIN_SPEED_MS)
-        terrain = np.where(layers["sand"] > SAND_TERRAIN_THRESHOLD, "sand", np.where(hazard == 1, "rough", "rock"))
+        # kody podłoża zamiast tablicy napisów (te same maski, kilkanaście razy szybciej): 0 skała, 1 teren trudny, 2 piasek
+        terrain = np.where(layers["sand"] > SAND_TERRAIN_THRESHOLD, 2, np.where(hazard == 1, 1, 0)).astype(np.int8)
         grade_pct = np.tan(np.radians(self.slope_up)) * 100
         metabolic = np.zeros_like(speed)
-        for kind in ("rock", "rough", "sand"):
-            mask = terrain == kind
+        for code, kind in enumerate(("rock", "rough", "sand")):
+            mask = terrain == code
             if mask.any():
                 metabolic[mask] = metabolic_w(person, speed[mask], grade_pct[mask], kind)
         factor = np.where(hazard == 1, CAUTION_FACTOR, 1.0)
@@ -105,41 +108,56 @@ def obstacle_mask(shape, cell: float, obstacles: list[dict], buffer_m: float = O
 def _grid_graph(cost: np.ndarray) -> csr_matrix:
     """Graf 8 sąsiadów. Krok po przekątnej jest dozwolony tylko wtedy, gdy oba pola obok niego są przejezdne."""
     rows, cols = cost.shape
-    index = np.arange(rows * cols).reshape(rows, cols)
     free = np.isfinite(cost)
     square_free = free[:-1, :-1] & free[1:, 1:] & free[:-1, 1:] & free[1:, :-1]
-    moves = (
-        (index[:, :-1], index[:, 1:], free[:, :-1] & free[:, 1:], 1.0),  # wschód
-        (index[:-1, :], index[1:, :], free[:-1, :] & free[1:, :], 1.0),  # południe
-        (index[:-1, :-1], index[1:, 1:], square_free, math.sqrt(2)),  # południowy wschód
-        (index[:-1, 1:], index[1:, :-1], square_free, math.sqrt(2)),  # południowy zachód
-    )
-    flat = cost.ravel()
-    src, dst, weight = [], [], []
-    for a, b, allowed, step in moves:
-        a, b = a[allowed], b[allowed]
-        src.append(a)
-        dst.append(b)
-        weight.append((flat[a] + flat[b]) * 0.5 * step)
-    return csr_matrix((np.concatenate(weight), (np.concatenate(src), np.concatenate(dst))), shape=(rows * cols,) * 2)
+    # Macierz CSR budowana wprost (bez konwersji z COO i sortowania): każda komórka ma krawędzie do sąsiadów o wyższym
+    # indeksie, w kolejności rosnącej: wschód (+1), południowy zachód (+cols-1), południe (+cols), południowy wschód (+cols+1).
+    # Wynik jest identyczny z csr_matrix((wagi, (źródła, cele))) — ta sama postać kanoniczna, te same wagi.
+    allowed = np.zeros((rows, cols, 4), bool)
+    weight = np.zeros((rows, cols, 4))
+    diagonal = math.sqrt(2)
+    with np.errstate(invalid="ignore"):  # pola zakazane (inf) i tak są odrzucane przez maskę
+        allowed[:, :-1, 0] = free[:, :-1] & free[:, 1:]  # wschód
+        weight[:, :-1, 0] = (cost[:, :-1] + cost[:, 1:]) * 0.5 * 1.0
+        allowed[:-1, 1:, 1] = square_free  # południowy zachód
+        weight[:-1, 1:, 1] = (cost[:-1, 1:] + cost[1:, :-1]) * 0.5 * diagonal
+        allowed[:-1, :, 2] = free[:-1, :] & free[1:, :]  # południe
+        weight[:-1, :, 2] = (cost[:-1, :] + cost[1:, :]) * 0.5 * 1.0
+        allowed[:-1, :-1, 3] = square_free  # południowy wschód
+        weight[:-1, :-1, 3] = (cost[:-1, :-1] + cost[1:, 1:]) * 0.5 * diagonal
+    n = rows * cols
+    targets = np.arange(n, dtype=np.int32)[:, None] + np.array([1, cols - 1, cols, cols + 1], dtype=np.int32)
+    flat_allowed = allowed.reshape(n, 4)
+    indptr = np.zeros(n + 1, dtype=np.int32)
+    np.cumsum(flat_allowed.sum(axis=1), out=indptr[1:])
+    return csr_matrix((weight.reshape(n, 4)[flat_allowed], targets[flat_allowed], indptr), shape=(n, n))
 
 
 class _Search:
-    """Graf kosztów dla jednego zestawu przeszkód. Pamięta ostatni wynik Dijkstry (kilka celów z jednego punktu)."""
+    """Graf kosztów dla jednego zestawu przeszkód. Pamięta ostatnie wyniki Dijkstry (kilka celów z jednego punktu,
+    powtórne planowanie tej samej trasy, pole powrotu do habitatu po resecie)."""
 
     def __init__(self, cost: np.ndarray):
         self.cost = cost
         self.blocked = np.isinf(cost)
         self.graph = _grid_graph(cost)
-        self._last: tuple | None = None
+        self._reach: OrderedDict[tuple[int, int], tuple[np.ndarray, np.ndarray]] = OrderedDict()
 
     def from_cell(self, rc: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
-        """(koszt dojścia do każdej komórki, tablica poprzedników) dla startu w komórce rc."""
-        if self._last is None or self._last[0] != rc:
-            cols = self.cost.shape[1]
-            dist, pred = dijkstra(self.graph, directed=False, indices=rc[0] * cols + rc[1], return_predecessors=True)
-            self._last = (rc, dist.reshape(self.cost.shape), pred)
-        return self._last[1], self._last[2]
+        """(koszt dojścia do każdej komórki, tablica poprzedników) dla startu w komórce rc. Tablice tylko do odczytu."""
+        rc = (int(rc[0]), int(rc[1]))
+        hit = self._reach.get(rc)
+        if hit is not None:
+            self._reach.move_to_end(rc)
+            return hit
+        cols = self.cost.shape[1]
+        dist, pred = dijkstra(self.graph, directed=False, indices=rc[0] * cols + rc[1], return_predecessors=True)
+        dist = dist.reshape(self.cost.shape)
+        dist.flags.writeable = pred.flags.writeable = False  # wynik współdzielony przez kolejne zapytania
+        self._reach[rc] = (dist, pred)
+        while len(self._reach) > _REACH_CACHE_SIZE:
+            self._reach.popitem(last=False)
+        return dist, pred
 
     def trace(self, pred: np.ndarray, start: tuple[int, int], goal: tuple[int, int]) -> list[tuple[int, int]]:
         cols = self.cost.shape[1]
@@ -173,14 +191,19 @@ def _search(model: CostModel, kind: str, obstacles: list[dict] | None, strict: b
 
 
 # ---------------- geometria łamanej ----------------
+def _clip(index: np.ndarray, high: int) -> np.ndarray:
+    """np.clip(index, 0, high) dla indeksów całkowitych — bez narzutu np.clip (wołane tysiące razy przy prostowaniu)."""
+    return np.minimum(np.maximum(index, 0), high)
+
+
 def _segment_samples(model: CostModel, a: dict, b: dict) -> tuple[np.ndarray, np.ndarray, float]:
     """Komórki pod odcinkiem, próbkowane co pół komórki: (wiersze, kolumny, długość przypadająca na próbkę)."""
     length = math.hypot(b["x"] - a["x"], b["y"] - a["y"])
     n = max(1, math.ceil(2 * length / model.cell))
     t = (np.arange(n) + 0.5) / n
     rows, cols = model.blocked.shape
-    r = np.clip(((a["y"] + (b["y"] - a["y"]) * t) // model.cell).astype(int), 0, rows - 1)
-    c = np.clip(((a["x"] + (b["x"] - a["x"]) * t) // model.cell).astype(int), 0, cols - 1)
+    r = _clip(((a["y"] + (b["y"] - a["y"]) * t) // model.cell).astype(int), rows - 1)
+    c = _clip(((a["x"] + (b["x"] - a["x"]) * t) // model.cell).astype(int), cols - 1)
     return r, c, length / n
 
 
@@ -201,6 +224,15 @@ def _segment_cost(model: CostModel, per_m: np.ndarray, a: dict, b: dict) -> floa
 
 def _segment_clear(model: CostModel, a: dict, b: dict, blocked: np.ndarray) -> bool:
     """Sprawdza każde pole przecięte przez odcinek, w tym punkty na granicach pól."""
+    # szybka droga: prostokąt otaczający odcinek (z zapasem jednego pola na zaokrąglenia) bez pól zakazanych
+    # (indeksy przycięte do siatki tak samo jak próbki niżej)
+    rows, cols = blocked.shape
+    r0, r1 = sorted((int(a["y"] // model.cell), int(b["y"] // model.cell)))
+    c0, c1 = sorted((int(a["x"] // model.cell), int(b["x"] // model.cell)))
+    r0, r1 = min(max(r0 - 1, 0), rows - 1), min(max(r1 + 1, 0), rows - 1)
+    c0, c1 = min(max(c0 - 1, 0), cols - 1), min(max(c1 + 1, 0), cols - 1)
+    if not blocked[r0 : r1 + 1, c0 : c1 + 1].any():
+        return True
     cuts = [np.array([0.0, 1.0])]
     for axis in ("x", "y"):
         origin = a[axis]
@@ -209,10 +241,11 @@ def _segment_clear(model: CostModel, a: dict, b: dict, blocked: np.ndarray) -> b
             low, high = sorted((origin, b[axis]))
             borders = np.arange(math.floor(low / model.cell) + 1, math.ceil(high / model.cell)) * model.cell
             cuts.append((borders - origin) / delta)
-    times = np.unique(np.concatenate(cuts))
+    # sortowanie zamiast np.unique: powtórzone chwile dają te same próbki (środek dwóch równych chwil to ta sama chwila)
+    times = np.sort(np.concatenate(cuts))
     samples = np.concatenate((times, (times[:-1] + times[1:]) * 0.5))
-    cols = np.clip(np.floor((a["x"] + (b["x"] - a["x"]) * samples) / model.cell).astype(int), 0, blocked.shape[1] - 1)
-    rows = np.clip(np.floor((a["y"] + (b["y"] - a["y"]) * samples) / model.cell).astype(int), 0, blocked.shape[0] - 1)
+    cols = _clip(np.floor((a["x"] + (b["x"] - a["x"]) * samples) / model.cell).astype(int), blocked.shape[1] - 1)
+    rows = _clip(np.floor((a["y"] + (b["y"] - a["y"]) * samples) / model.cell).astype(int), blocked.shape[0] - 1)
     return not bool(blocked[rows, cols].any())
 
 
@@ -261,6 +294,12 @@ def _straighten(
 
 
 # ---------------- plan trasy ----------------
+def _cells_xy(model: CostModel, rows: np.ndarray, cols: np.ndarray) -> list[dict]:
+    """Środki komórek jako punkty {x, y} — to samo co CostModel.to_xy, ale dla całej tablicy naraz."""
+    xs, ys = ((cols + 0.5) * model.cell).tolist(), ((rows + 0.5) * model.cell).tolist()
+    return [{"x": x, "y": y} for x, y in zip(xs, ys)]
+
+
 def plan(
     model: CostModel,
     start: dict,
@@ -285,14 +324,18 @@ def plan(
         if len(leg) == 1:
             leg = [prev, goal]
         # komórki „przeszukane” przed dojściem do celu, w kolejności kosztu — do animacji w interfejsie
-        coarse = reach[::EXPANDED_STRIDE, ::EXPANDED_STRIDE]
-        rr, cc = np.nonzero(coarse <= reach[goal])
-        order = np.argsort(coarse[rr, cc])
-        expanded += [model.to_xy((r * EXPANDED_STRIDE, c * EXPANDED_STRIDE)) for r, c in zip(rr[order], cc[order])]
+        # (tylko tyle, ile zmieści się w limicie EXPANDED_LIMIT; reszta i tak byłaby odcięta)
+        room = EXPANDED_LIMIT - len(expanded)
+        if room > 0:
+            coarse = reach[::EXPANDED_STRIDE, ::EXPANDED_STRIDE]
+            rr, cc = np.nonzero(coarse <= reach[goal])
+            order = np.argsort(coarse[rr, cc])[:room]
+            expanded += _cells_xy(model, rr[order] * EXPANDED_STRIDE, cc[order] * EXPANDED_STRIDE)
         cells += leg[1:] if cells else leg
         wp_idx.append(len(cells) - 1)
         prev = goal
-    pts = [model.to_xy(rc) for rc in cells]
+    grid = np.array(cells)
+    pts = _cells_xy(model, grid[:, 0], grid[:, 1])
     pts[0] = {"x": start["x"], "y": start["y"]}
     for i, wp in zip(wp_idx, waypoints):
         pts[i] = {"x": wp["x"], "y": wp["y"]}
@@ -524,9 +567,10 @@ def route_interval(model: CostModel, layers: dict, path: list[dict], waypoints: 
             "high": round((high["o2L"] + rest) * (1 + EFFORT_UNCERTAINTY), 1),
         },
         "durationH": {
-            "low": round(low["walkH"] * (1 - SPEED_UNCERTAINTY) + stop_min / 60, 3),
+            # prędkość ±15% → czas marszu = droga / prędkość: od t/1,15 do t/0,85 (nie t·(1∓0,15))
+            "low": round(low["walkH"] / (1 + SPEED_UNCERTAINTY) + stop_min / 60, 3),
             "mid": round(mid["walkH"] + stop_min / 60, 3),
-            "high": round(high["walkH"] * (1 + SPEED_UNCERTAINTY) + stop_min / 60, 3),
+            "high": round(high["walkH"] / (1 - SPEED_UNCERTAINTY) + stop_min / 60, 3),
         },
         "assumptions": {
             "effortPct": round(EFFORT_UNCERTAINTY * 100),

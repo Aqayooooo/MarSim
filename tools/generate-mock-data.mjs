@@ -231,8 +231,8 @@ const mission = {
   waypoints: WP.map((w) => ({ ...w, stopMin: 15, target: w.id === 'WP2' ? 'cel próbki S-02' : null,
     view: w.id === 'WP2' ? { source: 'render', caption: 'Render z DTM · widok z hełmu' } : null })),
   crew: [
-    { id: 'EV1', o2: 100, o2RatePctH: 12 },
-    { id: 'EV2', o2: 100, o2RatePctH: 14 },
+    { id: 'Bartek', o2: 100, o2RatePctH: 12 },
+    { id: 'Hubert', o2: 100, o2RatePctH: 14 },
   ],
   eva: { walkKmh: 2.5, maxSlopeDeg: 25, o2ReservePct: 55, sepO2Factor: 1.25, shelterMin: 15, shelterRadiusM: 400 },
   environment: {

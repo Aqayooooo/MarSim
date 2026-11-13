@@ -1,5 +1,5 @@
 // Widok 3D (three.js): teren z DEM, trasa, punkty, łazik, głazy.
-// Tryby: "orbit" (przewyższenie ×10, kamera orbitalna) i "helmet" (skala 1:1, widok z hełmu EV1,
+// Tryby: "orbit" (przewyższenie ×10, kamera orbitalna) i "helmet" (skala 1:1, widok z hełmu Bartka,
 // chodzenie WASD z kolizjami: teren pod nogami, limit nachylenia, głazy, granice obszaru).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -14,6 +14,8 @@ import { HabitatView } from './habitatView.js';
 import { FOG_COLOR, ROVER_BOOM_PIVOT, ROVER_FOOTPRINT, Pebbles, approxSun, detailTexture, habitatModel, orbitBackground, reliefColors, rockColor, rockGeometries, roverModel, skyDome, sunVector, terrainBlock, terrainMaterial } from './marsLook.js';
 
 const EX_ORBIT = 10, EYE = 1.7, FOV = 45;
+// kafle terenu i kamieni (odrzucanie poza kadrem i poza mapą cieni): 80 pól DEM ≈ 240 m przy 3 m/pole
+const TERRAIN_CHUNK = 80, ROCK_TILE_M = 240;
 // chodzenie w hełmie jak w grze: tempo ×1…×32 (kółko, + −), bieg (Shift), skok (spacja) w grawitacji Marsa
 export const WALK_MS = 2.0, PACE_LEVELS = [1, 2, 4, 8, 16, 32], SPRINT = 3;
 const G_MARS = 3.71, JUMP_MS = 2.2, ACCEL = 9, LOOK_SENS = 0.12;
@@ -162,7 +164,7 @@ export class View3D {
     let n = 0;
     for (let j = 0; j < h - 1; j++) for (let i = 0; i < w - 1; i++) {
       const a = j * w + i, b = a + 1, c = a + w, d = c + 1;
-      idx.set([a, c, b, b, c, d], n); n += 6;
+      idx[n] = a; idx[n + 1] = c; idx[n + 2] = b; idx[n + 3] = b; idx[n + 4] = c; idx[n + 5] = d; n += 6;
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
@@ -170,7 +172,7 @@ export class View3D {
     g.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
     g.setAttribute('color', new THREE.BufferAttribute(reliefColors(t), 3));
     g.setIndex(new THREE.BufferAttribute(idx, 1));
-    g.computeVertexNormals();
+    g.computeVertexNormals();   // normalne z całej siatki: na stykach kafli cieniowanie bez szwów
     const tex = new THREE.Texture(this.app.world.rasters.optical.image);
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.flipY = false;
@@ -183,12 +185,40 @@ export class View3D {
     const { mat, uniforms } = terrainMaterial(tex, detail);
     this.terrainMat = mat;
     this.terrainU = uniforms;
-    this.terrainMesh = new THREE.Mesh(g, this.terrainMat);
-    this.terrainMesh.castShadow = true;
-    this.terrainMesh.receiveShadow = true;
+    this.terrainMesh = this.#terrainChunks(g, w, h);
     this.world.add(this.terrainMesh);
     this.block = terrainBlock(t, (x) => this.X(x), (y) => this.Z(y));   // ściany i cień bloku — tylko w widoku orbitalnym
     this.world.add(this.block);
+  }
+
+  /**
+   * Teren jako kafle TERRAIN_CHUNK × TERRAIN_CHUNK pól (wspólne bufory wierzchołków, osobne indeksy). Wygląd bez zmian —
+   * te same trójkąty i normalne — ale three.js pomija kafle poza kadrem: w hełmie mapa cieni (±45 m wokół obserwatora)
+   * i widok do przodu rysują kilka kafli zamiast całego DEM (ok. 300 tys. trójkątów na każdy przebieg).
+   */
+  #terrainChunks(g, w, h) {
+    const group = new THREE.Group(), pos = g.attributes.position.array, idx = g.index.array, qw = w - 1;
+    for (let j0 = 0; j0 < h - 1; j0 += TERRAIN_CHUNK) for (let i0 = 0; i0 < w - 1; i0 += TERRAIN_CHUNK) {
+      const i1 = Math.min(w - 1, i0 + TERRAIN_CHUNK), j1 = Math.min(h - 1, j0 + TERRAIN_CHUNK);
+      const part = new Uint32Array((i1 - i0) * (j1 - j0) * 6);
+      let n = 0;
+      for (let j = j0; j < j1; j++) {   // ta sama kolejność trójkątów co w całej siatce
+        const from = (j * qw + i0) * 6, to = (j * qw + i1) * 6;
+        part.set(idx.subarray(from, to), n); n += to - from;
+      }
+      const cg = new THREE.BufferGeometry();
+      for (const name of ['position', 'normal', 'uv', 'uv1', 'color']) cg.setAttribute(name, g.attributes[name]);
+      cg.setIndex(new THREE.BufferAttribute(part, 1));
+      // obwiednia tylko z wierzchołków kafla (computeBoundingSphere objęłaby cały wspólny bufor)
+      const box = new THREE.Box3(), v = new THREE.Vector3();
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const k = (j * w + i) * 3; box.expandByPoint(v.set(pos[k], pos[k + 1], pos[k + 2])); }
+      cg.boundingBox = box;
+      cg.boundingSphere = box.getBoundingSphere(new THREE.Sphere());
+      const mesh = new THREE.Mesh(cg, this.terrainMat);
+      mesh.castShadow = mesh.receiveShadow = true;
+      group.add(mesh);
+    }
+    return group;
   }
 
   #buildSky() {
@@ -260,9 +290,16 @@ export class View3D {
 
   #rebuildRocks() {
     for (const m of this.rockMeshes || []) { this.scene.remove(m); m.dispose(); }
-    const groups = this.rockGeos.map(() => []);
-    this.rocks.forEach((rk, i) => groups[i % groups.length].push(rk));   // kilka kształtów kamieni na zmianę
-    this.rockMeshes = groups.map((list, v) => {
+    // kilka kształtów kamieni na zmianę; każdy kształt dodatkowo w kaflach ROCK_TILE_M, żeby three.js pomijał kamienie
+    // poza kadrem i poza mapą cieni (jedna siatka na cały obszar byłaby rysowana zawsze w całości)
+    const tiles = new Map();
+    this.rocks.forEach((rk, i) => {
+      const key = `${i % this.rockGeos.length}:${Math.floor(rk.x / ROCK_TILE_M)}:${Math.floor(rk.y / ROCK_TILE_M)}`;
+      if (!tiles.has(key)) tiles.set(key, { v: i % this.rockGeos.length, list: [] });
+      tiles.get(key).list.push(rk);
+    });
+    const groups = tiles.size ? [...tiles.values()] : this.rockGeos.map((_, v) => ({ v, list: [] }));
+    this.rockMeshes = groups.map(({ v, list }) => {
       const m = new THREE.InstancedMesh(this.rockGeos[v], this.rockMat, Math.max(1, list.length));
       m.count = list.length;
       m.castShadow = m.receiveShadow = true;
@@ -285,6 +322,7 @@ export class View3D {
       });
       m.instanceMatrix.needsUpdate = true;
       if (m.instanceColor) m.instanceColor.needsUpdate = true;
+      if (m.count) m.computeBoundingSphere();   // obwiednia kafla po zmianie przewyższenia (do odrzucania poza kadrem)
       m.visible = this.mode === 'helmet' || this.mode === 'drive';
     }
   }

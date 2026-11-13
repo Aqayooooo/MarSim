@@ -69,7 +69,7 @@ try {
         Write-Host "OK misja $mission, trasa $([Math]::Round($plan.lengthM)) m"
     }
     Invoke-Api 'missions/select' @{ id = 'mount-sharp' } | Out-Null
-    $item = @{ id = "CHECK-$tag"; sol = 200; startLtst = '10:00'; durationH = 1; crew = @('EV1'); purpose = 'test zapisu w kontenerze' }
+    $item = @{ id = "CHECK-$tag"; sol = 200; startLtst = '10:00'; durationH = 1; crew = @('Bartek'); purpose = 'test zapisu w kontenerze' }
     Invoke-Api 'schedule' $item | Out-Null
     Invoke-Docker restart $container | Out-Null
     Wait-Ready

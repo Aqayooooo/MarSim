@@ -5,7 +5,6 @@ import { t, tx, plural } from '../i18n.js';
 import { layerKey } from './help.js';
 import { tempAt } from '../core/environment.js';
 
-const O2_BAR_PX = 190;
 const O2_LOW_PCT = 40, O2_CRITICAL_PCT = 25;        // progi kolorów jak na urządzeniu w hełmie
 const RESERVE_LOW_H = 1, RESERVE_CRITICAL_H = 0.3;
 
@@ -157,7 +156,7 @@ export class Panels {
       const i = m.crew.findIndex((x) => x.id === c.id);
       if (i < 0) return;
       const p = Math.round(c.o2);
-      const w = `${(c.o2 / 100) * O2_BAR_PX}px`;
+      const w = `${Math.max(0, Math.min(100, c.o2))}%`;   // procent szerokości paska (pasek ma zmienną szerokość: imię, telefon)
       if (this.o2[i].fill.style.width !== w) this.o2[i].fill.style.width = w;
       setClass(this.o2[i].bar, 'low', p <= O2_LOW_PCT && p > O2_CRITICAL_PCT);
       setClass(this.o2[i].bar, 'crit', p <= O2_CRITICAL_PCT);

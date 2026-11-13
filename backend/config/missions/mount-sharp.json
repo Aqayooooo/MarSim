@@ -40,7 +40,7 @@
   ],
   "crew": [
     {
-      "id": "EV1",
+      "id": "Bartek",
       "bodyKg": 78,
       "loadKg": 125,
       "o2CapacityL": 520,
@@ -49,7 +49,7 @@
       "priorDoseMsv": 182
     },
     {
-      "id": "EV2",
+      "id": "Hubert",
       "bodyKg": 66,
       "loadKg": 120,
       "o2CapacityL": 520,

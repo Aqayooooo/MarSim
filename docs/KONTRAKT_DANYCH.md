@@ -47,7 +47,7 @@ Nazwy plików są dowolne: UI bierze je z `mission.json`.
   "waypoints": [ { "id": "WP1", "x": 560, "y": 470, "stopMin": 15, "target": null, "view": null },
                  { "id": "WP2", "x": 985, "y": 180, "stopMin": 15, "target": "cel próbki S-02",
                    "view": { "source": "render", "caption": "Render z DTM · widok z hełmu" } } ],
-  "crew": [ { "id": "EV1", "o2": 100, "o2RatePctH": 12 }, { "id": "EV2", "o2": 100, "o2RatePctH": 14 } ],
+  "crew": [ { "id": "Bartek", "o2": 100, "o2RatePctH": 12 }, { "id": "Hubert", "o2": 100, "o2RatePctH": 14 } ],
   "eva": { "walkKmh": 2.5, "maxSlopeDeg": 25, "o2ReservePct": 55, "sepO2Factor": 1.25, "shelterMin": 15, "shelterRadiusM": 400 },
   "environment": { "doseUsvh": 27, "dustTau": 0.52, "wind": { "meanMs": 7, "spreadMs": 1, "fromDeg": 315 },
                    "temperature": [["09:20", -41], ["11:30", -25]] },
@@ -110,7 +110,7 @@ API backendu (`python backend/server.py`, port 8000):
 | `POST /api/plan` | trasa (A* po koszcie O₂ z nachyleniem + 2σ, piaskiem, głazami, zgłoszeniami); tylko przed startem EVA, w trakcie i po zakończeniu — 409 |
 | `GET /api/route` | aktualna trasa, odrzucone odcinki i lista punktów (`waypoints`) bieżącego planu |
 | `GET /api/sensitivity` | „co jeśli”: trasa planu przy limitach nachylenia 20–30° (`variants`: limit, długość, czas, tlen, ścieżka albo błąd) oraz `interval` — przedział tlenu i czasu (nachylenie 0σ–3σ, model wysiłku ±20%, prędkość ±15%); bez trasy — 409 |
-| `GET /api/stream` (SSE) / `GET /api/state` | stan EVA 4×/s: zegar, załoga (pozycja + elipsa błędu, O₂, CO₂, bateria, ciśnienie, tętno, dawka, granica powrotu), łazik, środowisko, alerty, trasy awaryjne, łącze z Ziemią. `phase`: idle, walking, stop, atTarget, returning, done; `paused`: `true`, gdy rozpoczęte i niezakończone wyjście jest wstrzymane (`phase` pokazuje wtedy fazę sprzed pauzy); `gap`: odstęp EV2 za EV1 w metrach (w punkcie trasy maleje do 0 — punkt jest osiągnięty, gdy dojdzie ostatnia osoba) |
+| `GET /api/stream` (SSE) / `GET /api/state` | stan EVA 4×/s: zegar, załoga (pozycja + elipsa błędu, O₂, CO₂, bateria, ciśnienie, tętno, dawka, granica powrotu), łazik, środowisko, alerty, trasy awaryjne, łącze z Ziemią. `phase`: idle, walking, stop, atTarget, returning, done; `paused`: `true`, gdy rozpoczęte i niezakończone wyjście jest wstrzymane (`phase` pokazuje wtedy fazę sprzed pauzy); `gap`: odstęp Hubert za Bartek w metrach (w punkcie trasy maleje do 0 — punkt jest osiągnięty, gdy dojdzie ostatnia osoba) |
 | `POST /api/eva/{start,pause,reset,timescale,inject}` | sterowanie EVA; `inject`: `boulders`, `sep`, `sep-end`, `link-outage` |
 | `POST /api/telemetry` | wejście z prawdziwego skafandra (wyłącza model dla tej osoby); `o2L` ponad pojemność butli — 422 |
 | `GET/POST /api/observations` | zgłoszenia z terenu (załoga, łazik, dron) — zmieniają mapę i trasę |

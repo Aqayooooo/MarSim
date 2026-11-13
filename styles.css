@@ -104,8 +104,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 #o2Rows { margin-top: 6px; }
 .o2 { height: 42px; font: 700 16px var(--mono); }
 .o2 .o2top { display: flex; align-items: center; height: 24px; }
-.o2 b { width: 46px; }
-.o2 .bar { width: 190px; height: 8px; background: #1e1913; position: relative; border-radius: 4px; overflow: hidden; }
+.o2 b { min-width: 46px; margin-right: 8px; white-space: nowrap; }   /* imiona załogi są dłuższe niż „EV1” */
+.o2 .bar { flex: 1; max-width: 190px; margin-right: 8px; height: 8px; background: #1e1913; position: relative; border-radius: 4px; overflow: hidden; }
 .o2 .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #fff; }
 .o2 .bar.low i { background: var(--warn); }
 .o2 .bar.crit i { background: var(--bad); }
@@ -410,7 +410,7 @@ html.compact, html.compact body { overflow: hidden auto; height: auto; min-heigh
 #stage.compact #left { order: 3; }
 #stage.compact .wpview { flex: none; height: 200px; }
 #stage.compact #legend { margin-top: 10px; }
-#stage.compact .o2 .bar { flex: 1; width: auto; margin-right: 10px; }
+#stage.compact .o2 .bar { flex: 1; width: auto; max-width: none; margin-right: 10px; }
 @media (min-width: 700px) {
   #stage.compact #viewSeg { grid-template-columns: repeat(6, 1fr); }
   #stage.compact #viewSeg button:nth-child(n) { border-top: 0; border-left: 1px solid var(--line2); }
@@ -425,9 +425,10 @@ html.compact, html.compact body { overflow: hidden auto; height: auto; min-heigh
 #stage.compact #profile { zoom: calc(var(--uiz) * .85); left: 6px; }
 #stage.compact #locLabel, #stage.compact #hoverRead { display: none; }
 #stage.compact #alert { top: 12px; width: 270px; }
-#stage.compact #mapTools { top: 124px; }
+#stage.compact #mapTools { top: 124px; z-index: 4; }   /* na telefonie profil trasy sięga przycisków — muszą zostać klikalne (zamknięcie profilu) */
 #stage.compact #routeCard .u { display: none; }
 #stage.compact #scale { right: auto; bottom: auto; left: 10px; top: 10px; }
+#stage.compact #alert:not([hidden]) ~ #scale { visibility: hidden; }   /* ten sam róg co alert — alert ma pierwszeństwo */
 #stage.compact #caption { white-space: normal; height: auto; min-height: 44px; padding: 6px 12px; font-size: 16px; }
 #stage.compact #intro { bottom: 12px; width: 400px; }
 #stage.compact #wpEditor { top: 12px; max-height: 300px; }
@@ -440,7 +441,8 @@ html.compact, html.compact body { overflow: hidden auto; height: auto; min-heigh
 #stage.compact .keys { grid-template-columns: 1fr; }
 #stage.compact .keys h3 { grid-column: 1; }
 #stage.compact .doc .two { display: block; }
-#stage.compact .doc .two > table, #stage.compact .doc table.wide { display: block; overflow-x: auto; }
+#stage.compact .doc .two > table, #stage.compact .doc table.wide, #stage.compact .doc .sens-table { display: block; overflow-x: auto; }
+#stage.compact .doc table.wide td { overflow-wrap: normal; }   /* przewijanie w poziomie zamiast łamania słów po literze */
 #stage.compact .doc .matrix { margin-top: 12px; }
 #stage.compact .doc .facts { grid-template-columns: 1fr; }
 /* telefon w poziomie: nagłówek w dwóch rzędach, żeby mapa była jak największa */

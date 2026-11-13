@@ -295,6 +295,7 @@ class EvaEngine:
             self.scenario = False
             self.emergency = {}
             self._emerg_t = -1e9
+            self._emerg_cache = None  # (klucz pozycji, model kosztu, trasy) ostatnich tras awaryjnych
             self.link = DtnLink(self.date)
             self.log = []
             self._sensitivity = None  # (klucz trasy, wynik) — analiza „co jeśli” liczona raz na wersję trasy
@@ -451,6 +452,8 @@ class EvaEngine:
                 return {"ok": False, "error": "EVA jest zakończona. Zresetuj symulację, aby zacząć nowe wyjście."}
             if self.returning:
                 return {"ok": False, "error": "Powrót do habitatu już trwa."}
+            if self.t == 0 and not self.running:  # załoga jest jeszcze w habitacie (faza „idle”)
+                return {"ok": False, "error": "EVA jeszcze się nie zaczęła — załoga jest w habitacie."}
             habitat = {"id": HABITAT_ID, "x": self.cfg["habitat"]["x"], "y": self.cfg["habitat"]["y"], "stopMin": 0}
             onward = planning.plan(self.model, self.poly.at(self.crew_s), [habitat], self.obstacles, self.layers)
             if not onward["ok"]:
@@ -736,6 +739,14 @@ class EvaEngine:
     def _emergency_routes(self) -> dict:
         """Najtańsze dojście z pozycji załogi do habitatu i do łazika (jedno przeszukanie grafu dla obu celów)."""
         position = self.crew_pos(0)
+        # na postoju (ta sama pozycja, łazik, przeszkody i model kosztu) wynik byłby identyczny — bez ponownego planowania
+        key = (
+            position["x"], position["y"], self.rover["x"], self.rover["y"], self.cfg["habitat"]["x"], self.cfg["habitat"]["y"],
+            tuple((o["x"], o["y"], o["radiusM"]) for o in self.obstacles),
+        )
+        cached = self._emerg_cache
+        if cached is not None and cached[0] == key and cached[1] is self.model:
+            return {**cached[2], "computedAt": self.clock_str()}
         out = {}
         for name, target in (("habitat", self.cfg["habitat"]), ("rover", self.rover)):
             r = planning.plan(
@@ -748,8 +759,8 @@ class EvaEngine:
                     "timeMin": round(r["durationH"] * 60),
                     "o2L": round(r["o2L"], 1),
                 }
-        out["computedAt"] = self.clock_str()
-        return out
+        self._emerg_cache = (key, self.model, out)
+        return {**out, "computedAt": self.clock_str()}
 
     # ---------- odczyt stanu dla UI ----------
     def _crew_snapshot(self, k: int, member: dict) -> tuple[dict, float]:

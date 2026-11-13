@@ -36,9 +36,9 @@ def test_health(api):
         ("/api/eva/timescale", {"timeScale": -5}, "timeScale"),
         ("/api/observations", {"kind": "glazy", "x": 99999, "y": 10}, "poza obszarem"),
         ("/api/observations", {"kind": "lawa", "x": 10, "y": 10}, "kind"),
-        ("/api/schedule", {"id": "EVA-9", "sol": 150, "startLtst": "25:00", "durationH": 2, "crew": ["EV1"]}, "startLtst"),
+        ("/api/schedule", {"id": "EVA-9", "sol": 150, "startLtst": "25:00", "durationH": 2, "crew": ["Bartek"]}, "startLtst"),
         ("/api/schedule", {"id": "EVA-9", "sol": 150, "startLtst": "10:00", "durationH": 2, "crew": ["EV7"]}, "EV7"),
-        ("/api/telemetry", {"id": "EV1", "batteryPct": 140}, "batteryPct"),
+        ("/api/telemetry", {"id": "Bartek", "batteryPct": 140}, "batteryPct"),
         ("/api/plan", {"letter": "AB"}, "letter"),
     ],
 )
@@ -72,7 +72,7 @@ def test_plan_report_and_obstacle(api):
 def test_state_survives_restart(tmp_path):
     db = tmp_path / "marsim.db"
     a = client(db)
-    item = {"id": "EVA-9", "sol": 160, "startLtst": "10:00", "durationH": 2.5, "crew": ["EV1"], "purpose": "test"}
+    item = {"id": "EVA-9", "sol": 160, "startLtst": "10:00", "durationH": 2.5, "crew": ["Bartek"], "purpose": "test"}
     assert a.post("/api/schedule", json=item).status_code == 200
     assert a.post("/api/observations", json={"kind": "piasek", "x": 500, "y": 400, "radiusM": 30}).status_code == 200
     a.app.state.active().store.close()
@@ -135,7 +135,7 @@ def test_missions_list_and_switch(api):
     assert plan.status_code == 200 and plan.json()["lengthM"] > 500
     assert api.get("/api/report").json()["ok"]
     # osobna baza na misję: harmonogram Jezero nie miesza się z Mount Sharp
-    api.post("/api/schedule", json={"id": "JZ-1", "sol": 213, "startLtst": "10:00", "durationH": 2, "crew": ["EV1"]})
+    api.post("/api/schedule", json={"id": "JZ-1", "sol": 213, "startLtst": "10:00", "durationH": 2, "crew": ["Bartek"]})
     api.post("/api/missions/select", json={"id": "mount-sharp"})
     assert "JZ-1" not in [i["id"] for i in api.get("/api/schedule").json()["items"]]
 

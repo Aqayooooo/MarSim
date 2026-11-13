@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import csv
+import inspect
 import io
 import json
 import logging
@@ -33,6 +34,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware import gzip as starlette_gzip
 
 from backend import __version__ as VERSION
 from backend import missions as mis
@@ -46,6 +48,9 @@ STEP_INTERVAL_S = 0.1  # krok pętli symulacji (czas rzeczywisty)
 STREAM_INTERVAL_S = 0.25  # odstęp między stanami w strumieniu SSE
 MISSION_HEADER = "X-MarSim-Mission"
 API_META = "marsim-api"  # znacznik <meta> dopisywany do index.html serwowanego przez backend
+# Kompresja tylko z Starlette, która omija strumień SSE (text/event-stream); starsza buforowałaby zdarzenia.
+GZIP_EXCLUDED = (*getattr(starlette_gzip, "DEFAULT_EXCLUDED_CONTENT_TYPES", ()), "application/octet-stream")
+GZIP_OK = "text/event-stream" in GZIP_EXCLUDED and "exclude_content_types" in inspect.signature(starlette_gzip.GZipMiddleware).parameters
 
 
 # ---------------- modele zapytań ----------------
@@ -183,6 +188,11 @@ def create_app(
     )
     app.state.engines = engines
     app.state.active = active
+    # kompresja tekstu (JS, JSON, CSS, HTML): three.module.js 1,2 MB → ok. 0,25 MB; poziom 5 kompresuje prawie jak 9 przy
+    # 1/3 czasu procesora. Bez kompresji: strumień SSE, obrazy,
+    # fonty (domyślne wyjątki Starlette) i surowe siatki float32 (słaby zysk, duży koszt procesora).
+    if GZIP_OK:
+        app.add_middleware(starlette_gzip.GZipMiddleware, minimum_size=1024, compresslevel=5, exclude_content_types=GZIP_EXCLUDED)
 
     if start_loop:
 
@@ -232,7 +242,7 @@ def create_app(
     def require_inside(eng: EvaEngine, x: float, y: float) -> None:
         area = eng.mission["area"]
         if not (0 <= x <= area["widthM"] and 0 <= y <= area["heightM"]):
-            raise HTTPException(422, f"Punkt ({x:.0f}, {y:.0f}) poza obszarem mapy 0–{area['widthM']} × 0–{area['heightM']} m")
+            raise HTTPException(422, f"Punkt ({x:.6g}, {y:.6g}) poza obszarem mapy 0–{area['widthM']} × 0–{area['heightM']} m")
 
     def require_known_crew(eng: EvaEngine, crew: list[str]) -> None:
         known = {c["id"] for c in eng.cfg["crew"]}
@@ -286,7 +296,7 @@ def create_app(
         return {"ok": True, "active": current["active"]}
 
     @app.get("/missions/{mission_id}/{name:path}", include_in_schema=False)   # także podkatalogi (photos/…)
-    def mission_file(mission_id: str, name: str):
+    def mission_file(mission_id: str, name: str, request: Request):
         selected = active().cfg["id"] if mission_id == "current" else mission_id
         if selected not in ready:
             raise HTTPException(404, "Nie ma takiej misji")
@@ -294,7 +304,16 @@ def create_app(
         path = (mission_dir / name).resolve()
         if mission_dir not in path.parents or not path.is_file():
             raise HTTPException(404, "Nie ma takiego pliku misji")
-        return FileResponse(path, headers={"Cache-Control": "no-store"})
+        if mission_id == "current":  # treść zależy od aktywnej misji — bez pamięci podręcznej
+            return FileResponse(path, headers={"Cache-Control": "no-store"})
+        # plik wskazanej misji: przeglądarka trzyma kopię i sprawdza ją u serwera (ETag z czasu zmiany i rozmiaru),
+        # więc ponowne wczytanie strony nie pobiera kilku MB warstw, a przebudowane dane i tak przyjdą od razu
+        response = FileResponse(path, headers={"Cache-Control": "no-cache"}, stat_result=path.stat())
+        etag = response.headers["etag"]
+        sent = [tag.strip().removeprefix("W/") for tag in request.headers.get("if-none-match", "").split(",")]
+        if etag in sent:
+            return Response(status_code=304, headers={"ETag": etag, "Cache-Control": "no-cache"})
+        return response
 
     # ---------- trasa i przebieg EVA ----------
     @app.post("/api/plan", tags=["Trasa"])
@@ -395,6 +414,8 @@ def create_app(
             limit = member["o2CapacityL"]
             raise HTTPException(422, f"Błędne dane zapytania — o2L: {body.o2L:g} L przekracza pojemność butli {body.id} ({limit:g} L)")
         if not eng.apply_telemetry(body.id, values):
+            if member:  # osoba z załogi misji, której harmonogram nie wysłał na to wyjście
+                raise HTTPException(409, f"{body.id} nie bierze udziału w bieżącym wyjściu")
             raise HTTPException(404, f"Nieznany członek załogi: {body.id}")
         return {"ok": True}
 

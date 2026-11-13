@@ -4,7 +4,7 @@
 import { parseClock } from './format.js';
 
 export const HABITAT_ID = 'HAB';
-const CREW_SPACING_M = 14;      // EV2 idzie tyle metrów za EV1
+const CREW_SPACING_M = 14;      // Hubert idzie tyle metrów za Bartek
 const ROVER_STANDOFF_M = 110;   // łazik zatrzymuje się tyle metrów za załogą
 const WALKBACK_WARNING_H = 0.25; // jak w backendzie: ostrzeżenie przy zapasie na powrót poniżej 15 min
 
@@ -25,7 +25,7 @@ export class Sim {
     this.finished = false;                      // załoga wróciła do habitatu
     this.returning = false;
     this.timeScale = 470;                       // sekundy misji na sekundę rzeczywistą
-    this.crewS = 0;                             // odległość EV1 wzdłuż trasy (m)
+    this.crewS = 0;                             // odległość Bartek wzdłuż trasy (m)
     this.gap = CREW_SPACING_M;
     this.crew = m.crew.map((c) => ({ ...c, o2: c.o2 }));
     this.waypoints = [...m.waypoints];          // punkty bieżącej trasy (powrót dopisuje habitat)

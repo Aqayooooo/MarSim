@@ -445,12 +445,12 @@
   ],
   "crew": [
     {
-      "id": "EV1",
+      "id": "Bartek",
       "o2": 100,
       "o2RatePctH": 12
     },
     {
-      "id": "EV2",
+      "id": "Hubert",
       "o2": 100,
       "o2RatePctH": 12
     }

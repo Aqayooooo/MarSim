@@ -17,7 +17,7 @@ export class DeviceView {
     this.app = app;
     this.el = $('device');
     this.el.innerHTML = `<div class="dev" role="region" aria-label="${t('view.device')}">
-      <div class="top"><span id="dvWho">EV1</span><span id="dvClock">--:--</span><span id="dvLink">⇄</span></div>
+      <div class="top"><span id="dvWho">Bartek</span><span id="dvClock">--:--</span><span id="dvLink">⇄</span></div>
       <div class="cell"><span class="k">O₂</span><span class="v" id="dvO2">--</span><span class="s" id="dvO2s"></span></div>
       <div class="cell"><span class="k">${t('dev.return')}</span><span class="v" id="dvWb">--</span><span class="s">${t('dev.returnSub')}</span></div>
       <div class="cell nav"><span class="k" id="dvTgt">${t('dev.target')}</span>
@@ -86,7 +86,8 @@ export class ReportView {
     this.el.innerHTML = `<p class="muted">${t('rep.loading')}</p>`;
     try {
       const [rep, sw, log, audit, sens] = await Promise.all([this.app.ds.get('report'), this.app.ds.get('spaceweather'),
-        this.app.ds.get('log?limit=12').catch(() => ({ events: [] })), this.app.ds.get('log/verify').catch(() => null), loadSensitivity(this.app)]);
+        this.app.ds.get('log?limit=12').catch(() => ({ events: [] })), this.app.ds.get('log/verify').catch(() => null),
+        this.app.state.route ? loadSensitivity(this.app) : null]);   // bez trasy backend odpowiada 409 — nie pytamy
       this.render(rep, sw, log, { audit, sens });
     } catch (e) { this.el.innerHTML = `<p class="warn">${esc(t('rep.error', { e: e.message }))}</p>`; }
   }
@@ -167,7 +168,7 @@ export class ScheduleView {
     const crew = this.app.m.crew.map((c) => c.id);
     this.el.innerHTML = `${sample ? SAMPLE_NOTE(sample) : ''}
       <h2>${t('sc.title')}</h2>
-      <table><tr><th>EVA</th><th>Sol</th><th>${t('sc.thStart')}</th><th>${t('sc.thCrew')}</th><th>${t('sc.thPurpose')}</th><th>O₂</th><th>${t('sc.thEnergy')}</th><th>${t('sc.thNotes')}</th>${sample ? '' : '<th></th>'}</tr>
+      <table class="wide"><tr><th>EVA</th><th>Sol</th><th>${t('sc.thStart')}</th><th>${t('sc.thCrew')}</th><th>${t('sc.thPurpose')}</th><th>O₂</th><th>${t('sc.thEnergy')}</th><th>${t('sc.thNotes')}</th>${sample ? '' : '<th></th>'}</tr>
         ${d.items.map((i) => `<tr><td><b>${esc(i.id)}</b></td><td>${esc(i.sol)}</td><td>${esc(i.startLtst)}–${esc(i.endLtst)}</td><td>${esc(i.crew.join(', '))}</td>
           <td class="muted">${esc(tx(i.purpose))}</td><td>${int(i.o2L)} L</td><td>${int(i.batteryWh)} Wh</td>
           <td>${i.issues.length ? `<span class="warn">${esc(i.issues.map(tx).join('; '))}</span>` : '<span class="ok">OK</span>'}</td>
@@ -184,7 +185,7 @@ export class ScheduleView {
       ${d.issues.length ? `<ul>${d.issues.map((x) => `<li class="warn">${esc(tx(x))}</li>`).join('')}</ul>` : `<p class="ok">${t('sc.allOk')}</p>`}
       <p class="note">${esc(t('sc.rulesLine', { r: d.rules.map(tx).join(' · ') }))}</p>
       ${sample ? '' : `<h2>${t('sc.add')}</h2>
-      ${error ? `<p class="warn" role="alert">${esc(t('sc.error', { e: error }))}</p>` : ''}
+      ${error ? `<p class="warn" role="alert">${esc(t('sc.error', { e: tx(error) }))}</p>` : ''}
       <div class="row">
         <input id="scId" placeholder="EVA-5" size="7" aria-label="EVA ID"> sol <input id="scSol" class="narrow" type="number" value="${(d.items.at(-1)?.sol ?? this.app.m.mission.sol) + 1}" aria-label="sol">
         ${t('sc.start')} <input id="scStart" value="09:30" size="5" aria-label="${t('sc.start')} (LTST)"> ${t('sc.dur')} <input id="scDur" class="narrow" type="number" step="0.5" value="3" aria-label="${t('sc.dur')}">
@@ -195,18 +196,24 @@ export class ScheduleView {
     this.el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
       try { this.render(await this.app.ds.del(`schedule/${encodeURIComponent(b.dataset.del)}`)); } catch (e) { this.render(d, e.message); }
     }));
+    const fill = (i) => {
+      $('scId').value = i.id; $('scSol').value = i.sol; $('scStart').value = i.startLtst; $('scDur').value = i.durationH; $('scPurpose').value = i.purpose;
+      this.el.querySelectorAll('.scCrew').forEach((x) => { x.checked = i.crew.includes(x.value); });
+    };
     this.el.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => {
       const i = d.items.find((x) => x.id === b.dataset.edit);
       if (!i) return;
-      $('scId').value = i.id; $('scSol').value = i.sol; $('scStart').value = i.startLtst; $('scDur').value = i.durationH; $('scPurpose').value = i.purpose;
-      this.el.querySelectorAll('.scCrew').forEach((x) => { x.checked = i.crew.includes(x.value); });
+      fill(i);
       $('scId').focus();
     }));
     $('scAdd').addEventListener('click', async () => {
       const item = { id: $('scId').value || `EVA-${Math.max(0, ...d.items.map(i => Number(i.id.match(/^EVA-(\d+)$/)?.[1]) || 0)) + 1}`, sol: +$('scSol').value, startLtst: $('scStart').value, durationH: +$('scDur').value,
         crew: [...this.el.querySelectorAll('.scCrew:checked')].map((x) => x.value), purpose: $('scPurpose').value || t('sc.defaultPurpose') };
       const exists = d.items.some((i) => i.id === item.id);   // istniejący identyfikator — zmiana wpisu (PUT)
-      try { this.render(await (exists ? this.app.ds.put(`schedule/${encodeURIComponent(item.id)}`, item) : this.app.ds.post('schedule', item))); } catch (e) { this.render(d, e.message); }
+      try { this.render(await (exists ? this.app.ds.put(`schedule/${encodeURIComponent(item.id)}`, item) : this.app.ds.post('schedule', item))); } catch (e) {
+        this.render(d, e.message);
+        fill(item);   // formularz po błędzie zostaje wypełniony tym, co wpisano — do poprawienia, nie od nowa
+      }
     });
   }
 }

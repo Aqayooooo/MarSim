@@ -266,7 +266,7 @@ def test_changes_made_during_pause_survive_restart(tmp_path, mission_id):
     pos = before.crew_pos(0)
     before.add_observation({"kind": "bezpieczne", "x": pos["x"], "y": pos["y"], "radiusM": 1, "source": "załoga"})
     before.inject("sep")
-    before.apply_telemetry("EV1", {"o2L": 250.0})
+    before.apply_telemetry("Bartek", {"o2L": 250.0})
     expected_path = before.route["path"]
     before.store.close()  # bez ponownej pauzy i bez kroku symulacji po zmianach
 
