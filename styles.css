@@ -104,7 +104,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible
 #o2Rows { margin-top: 6px; }
 .o2 { height: 42px; font: 700 16px var(--mono); }
 .o2 .o2top { display: flex; align-items: center; height: 24px; }
-.o2 b { min-width: 46px; margin-right: 8px; white-space: nowrap; }   /* imiona załogi są dłuższe niż „EV1” */
+.o2 b { min-width: 46px; margin-right: 8px; white-space: nowrap; }   /* miejsce na dłuższe identyfikatory załogi */
 .o2 .bar { flex: 1; max-width: 190px; margin-right: 8px; height: 8px; background: #1e1913; position: relative; border-radius: 4px; overflow: hidden; }
 .o2 .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: #fff; }
 .o2 .bar.low i { background: var(--warn); }

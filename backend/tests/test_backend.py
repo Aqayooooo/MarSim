@@ -33,7 +33,7 @@ def test_light_time_range():
 
 
 def test_metabolic_and_o2_plausible():
-    p = physiology.Person("Bartek", 78, 125, 520, 520)
+    p = physiology.Person("EV1", 78, 125, 520, 520)
     flat = physiology.metabolic_w(p, 0.69, 0)
     uphill = physiology.metabolic_w(p, 0.69, 15)
     assert 200 < flat < 400 and uphill > flat
@@ -121,9 +121,9 @@ class _MemStore:
 def test_schedule_end_time_and_energy_rule():
     from backend.live.schedule import Scheduler
 
-    crew = [{"id": "Bartek"}, {"id": "Hubert"}]
+    crew = [{"id": "EV1"}, {"id": "EV2"}]
     s = Scheduler(_MemStore(), crew, {"o2TanksL": 1e6, "batteriesWh": 12000}, -4.7, 0.0)
-    s.items = [{"id": "EVA-1", "sol": 1, "startLtst": "09:10", "durationH": 1.0, "crew": ["Bartek"], "purpose": "test"}]
+    s.items = [{"id": "EVA-1", "sol": 1, "startLtst": "09:10", "durationH": 1.0, "crew": ["EV1"], "purpose": "test"}]
     ev = s.evaluate()
     assert ev["items"][0]["endLtst"] == "10:10"
     assert not any(i.startswith("Energia") for i in ev["issues"])

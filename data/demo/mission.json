@@ -196,12 +196,12 @@
   ],
   "crew": [
     {
-      "id": "Bartek",
+      "id": "EV1",
       "o2": 100,
       "o2RatePctH": 12
     },
     {
-      "id": "Hubert",
+      "id": "EV2",
       "o2": 100,
       "o2RatePctH": 14
     }

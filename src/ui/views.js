@@ -17,7 +17,7 @@ export class DeviceView {
     this.app = app;
     this.el = $('device');
     this.el.innerHTML = `<div class="dev" role="region" aria-label="${t('view.device')}">
-      <div class="top"><span id="dvWho">Bartek</span><span id="dvClock">--:--</span><span id="dvLink">⇄</span></div>
+      <div class="top"><span id="dvWho">EV1</span><span id="dvClock">--:--</span><span id="dvLink">⇄</span></div>
       <div class="cell"><span class="k">O₂</span><span class="v" id="dvO2">--</span><span class="s" id="dvO2s"></span></div>
       <div class="cell"><span class="k">${t('dev.return')}</span><span class="v" id="dvWb">--</span><span class="s">${t('dev.returnSub')}</span></div>
       <div class="cell nav"><span class="k" id="dvTgt">${t('dev.target')}</span>

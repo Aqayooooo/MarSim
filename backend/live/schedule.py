@@ -5,7 +5,6 @@ Reguły w RULES to założenia planistyczne do uzgodnienia z lekarzem lotu, nie 
 
 from __future__ import annotations
 
-from backend.live.checkpoint import LEGACY_CREW_IDS
 from backend.models import sun
 
 MAX_EVA_H = 8.0
@@ -30,10 +29,10 @@ RULES = [
 def default_schedule(first_sol: int, start_ltst: str = "09:30") -> list[dict]:
     """Przykładowy plan na pierwsze sole misji (z solem odpoczynku po trzech wyjściach z rzędu)."""
     plan = [
-        (0, start_ltst, 2.5, ["Bartek", "Hubert"], "trawers do WP2, rozpoznanie terenu"),
-        (1, "10:00", 3.0, ["Bartek", "Hubert"], "rozmieszczenie nadajników UWB"),
-        (2, "09:30", 4.0, ["Bartek"], "serwis łazika"),
-        (4, "09:00", 3.5, ["Bartek", "Hubert"], "pobranie próbek skał"),
+        (0, start_ltst, 2.5, ["EV1", "EV2"], "trawers do WP2, rozpoznanie terenu"),
+        (1, "10:00", 3.0, ["EV1", "EV2"], "rozmieszczenie nadajników UWB"),
+        (2, "09:30", 4.0, ["EV1"], "serwis łazika"),
+        (4, "09:00", 3.5, ["EV1", "EV2"], "pobranie próbek skał"),
     ]
     return [
         {"id": f"EVA-{n}", "sol": first_sol + offset, "startLtst": start, "durationH": hours, "crew": crew, "purpose": purpose}
@@ -72,8 +71,6 @@ class Scheduler:
         saved = store.schedule_load()
         if saved is None:
             saved = [i for i in default_schedule(first_sol, start_ltst) if set(i["crew"]) <= set(self.crew_ids)]
-        else:  # harmonogram zapisany przed zmianą identyfikatorów załogi (EV1/EV2 → imiona)
-            saved = [{**i, "crew": [LEGACY_CREW_IDS.get(c, c) for c in i.get("crew", [])]} for i in saved]
         self.items = sorted(saved, key=_sort_key)
 
     def save(self) -> None:

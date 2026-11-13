@@ -40,7 +40,7 @@ def test_waypoint_is_reached_only_when_last_member_arrives(gale):
     wp = gale.wp_s[0]
     while gale.crew_s < wp - 0.01:
         gale.step(0.05)
-    assert gale.reached == []  # Bartek jest w punkcie, Hubert jeszcze nie
+    assert gale.reached == []  # EV1 jest w punkcie, EV2 jeszcze nie
     while not gale.reached:
         gale.step(0.05)
     assert gale.gap == 0.0
@@ -55,11 +55,11 @@ def test_report_shows_current_oxygen_shortage(gale):
     h5 = next(h for h in report.build(gale)["hazards"] if h["id"] == "H5")
     assert h5["level"] == "niskie"
     cap = gale.crew[1]["person"].o2_capacity_l
-    gale.apply_telemetry("Hubert", {"o2L": cap * 0.10})
+    gale.apply_telemetry("EV2", {"o2L": cap * 0.10})
     built = report.build(gale)
     h5 = next(h for h in built["hazards"] if h["id"] == "H5")
     assert h5["likelihood"] == 5 and h5["level"] == "wysokie"
-    assert h5["value"].startswith("Hubert: 10% O₂")
+    assert h5["value"].startswith("EV2: 10% O₂")
     assert built["effectiveness"]["o2MarginL"] < 0
 
 
@@ -67,29 +67,29 @@ def test_schedule_sets_start_time_and_crew_after_reset(client):
     eng = client.app.state.active()
     first = eng.scheduler.items[0]
     assert first["sol"] == eng.cfg["sol"]
-    item = {**first, "startLtst": "11:05", "crew": ["Hubert"]}
+    item = {**first, "startLtst": "11:05", "crew": ["EV2"]}
     assert client.put(f"/api/schedule/{first['id']}", json=item).status_code == 200
     assert eng.clock_str() == eng.cfg["startLtst"]  # bieżące wyjście się nie zmienia
     assert client.post("/api/eva/reset").status_code == 200
     state = client.get("/api/state").json()
     assert state["clock"] == "11:05"
-    assert [c["id"] for c in state["crew"]] == ["Hubert"]
+    assert [c["id"] for c in state["crew"]] == ["EV2"]
 
 
 def test_checkpoint_keeps_crew_and_start_of_the_running_eva(tmp_path):
     path = tmp_path / "a.db"
     e = make_engine("mount-sharp", Store(path))
-    item = {**e.scheduler.items[0], "startLtst": "10:40", "crew": ["Bartek"]}
+    item = {**e.scheduler.items[0], "startLtst": "10:40", "crew": ["EV1"]}
     e.scheduler.upsert(item)
     e.reset()
     assert e.start(600) is None
     for _ in range(10):
         e.step(1.0)
     e.pause()
-    e.scheduler.upsert({**item, "startLtst": "13:00", "crew": ["Bartek", "Hubert"]})  # zmiana po starcie
+    e.scheduler.upsert({**item, "startLtst": "13:00", "crew": ["EV1", "EV2"]})  # zmiana po starcie
     again = make_engine("mount-sharp", Store(path))
     assert again.resumed
-    assert [m["cfg"]["id"] for m in again.crew] == ["Bartek"]
+    assert [m["cfg"]["id"] for m in again.crew] == ["EV1"]
     assert again.start_min == 10 * 60 + 40
 
 
@@ -125,9 +125,9 @@ def test_scenario_skips_event_whose_waypoint_left_the_route(gale):
 
 def test_telemetry_above_tank_capacity_is_rejected(client):
     cap = client.app.state.active().cfg["crew"][0]["o2CapacityL"]
-    r = client.post("/api/telemetry", json={"id": "Bartek", "o2L": cap + 1})
+    r = client.post("/api/telemetry", json={"id": "EV1", "o2L": cap + 1})
     assert r.status_code == 422 and "pojemność" in r.json()["error"]
-    assert client.post("/api/telemetry", json={"id": "Bartek", "o2L": cap}).status_code == 200
+    assert client.post("/api/telemetry", json={"id": "EV1", "o2L": cap}).status_code == 200
 
 
 def test_plan_is_refused_right_after_start(client):

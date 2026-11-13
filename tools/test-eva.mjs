@@ -331,9 +331,9 @@ test('tryb lokalny zgłasza alarm tlenu raz i liczy zapas do habitatu', async ()
   assert.ok(Math.abs(app.sim.reserveH() - expected) < 1e-9);
   app.startEva(470);
   for (let k = 0; k < 50; k++) app.update(0.1);
-  const o2 = alerts.filter((a) => a.startsWith('Hubert: '));
-  assert.ok(o2.includes('Hubert: za mało tlenu na powrót pieszo — wezwij łazik'), o2.join(' | '));
-  assert.ok(o2.includes(`Hubert: tlen poniżej rezerwy ${app.m.eva.o2ReservePct}%`), o2.join(' | '));
+  const o2 = alerts.filter((a) => a.startsWith('EV2: '));
+  assert.ok(o2.includes('EV2: za mało tlenu na powrót pieszo — wezwij łazik'), o2.join(' | '));
+  assert.ok(o2.includes(`EV2: tlen poniżej rezerwy ${app.m.eva.o2ReservePct}%`), o2.join(' | '));
   assert.equal(new Set(o2).size, o2.length);
 });
 

@@ -1,5 +1,5 @@
 // Widok 3D (three.js): teren z DEM, trasa, punkty, łazik, głazy.
-// Tryby: "orbit" (przewyższenie ×10, kamera orbitalna) i "helmet" (skala 1:1, widok z hełmu Bartka,
+// Tryby: "orbit" (przewyższenie ×10, kamera orbitalna) i "helmet" (skala 1:1, widok z hełmu EV1,
 // chodzenie WASD z kolizjami: teren pod nogami, limit nachylenia, głazy, granice obszaru).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';

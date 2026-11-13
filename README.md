@@ -35,7 +35,7 @@ Niezależne próby w przeglądarce objęły oba obszary NASA, PL/EN, wersję z b
 
 ## Demo hełmu 3D
 
-[Otwórz widok astronauty](https://aqayooooo.github.io/MarSim/?view=helmet&lang=pl) albo wybierz **Hełm Bartka** w aplikacji. Wnętrze hełmu jest modelem 3D przy kamerze: metalowa rama, uszczelka, mocowania, śruby i dolna osłona. Widok terenu zajmuje szerokość ekranu, a dane wyglądają jak projekcja na szybie wizjera.
+[Otwórz widok astronauty](https://aqayooooo.github.io/MarSim/?view=helmet&lang=pl) albo wybierz **Hełm EV1** w aplikacji. Wnętrze hełmu jest modelem 3D przy kamerze: metalowa rama, uszczelka, mocowania, śruby i dolna osłona. Widok terenu zajmuje szerokość ekranu, a dane wyglądają jak projekcja na szybie wizjera.
 
 Panel w prawym dolnym rogu podsumowuje tlen, energię, ciśnienie i zapas na powrót osoby w najgorszym stanie i podaje jej identyfikator. Alarm „rozpocznij powrót” włącza się poniżej rezerwy tlenu misji. Wskazuje najpilniejsze zagrożenie oraz działanie. **Pokaż niedobór** uruchamia oznaczony przykład alarmu z małą ilością tlenu i energii; nie zmienia stanu misji. Bez backendu brakujące pomiary baterii i ciśnienia mają znak „—”.
 
@@ -101,11 +101,10 @@ python tools/make_data_sources.py                # odświeża data-sources.json
 - **Obszar misji**: lista w nagłówku (Gale / Jezero). Każdy obszar ma osobną bazę (dziennik, zgłoszenia, harmonogram).
 - **PL / EN**: przełącznik w nagłówku (albo `?lang=en` w adresie).
 - **Warstwy**: kliknięcie albo spacja na wierszu w lewym panelu.
-- **Mapa 2D / 3D / Hełm Bartka / Urządzenie / Raport / Plan wyjść**: zakładki w nagłówku.
+- **Mapa 2D / 3D / Hełm EV1 / Urządzenie / Raport / Plan wyjść**: zakładki w nagłówku.
 - **Hełm** (jak w grze): kliknięcie widoku przechwytuje mysz (rozglądanie bez przeciągania, Esc zwalnia), W A S D lub strzałki to chodzenie z płynnym ruszaniem i hamowaniem. Tempo marszu ×1…×32 zmienia kółko myszy albo + i −, Shift to bieg (×3), a spacja to skok w grawitacji Marsa. Kolizje z terenem powyżej 25° i z głazami; przy przeszkodzie astronauta ślizga się wzdłuż niej.
 - **Jazda łazikiem** (w hełmie, do 8 m od łazika): **F** — wsiadanie i wysiadanie (przez śluzę skafandra z tyłu). W — gaz, S — hamulec (po zatrzymaniu: wstecz), spacja — hamulec ręczny, A/D — skręt; bez gazu łazik obraca się w miejscu. Widok z kamery na obrotowym, wysuwanym wysięgniku na dachu: mysz obraca wysięgnik, kółko zmienia jego długość (6–18 m). **C** — kamera w kabinie. Kolizje z głazami, habitatem i stokiem powyżej 30°. Model łazika wzorowany na koncepcji NASA SEV: kabina 4,5 × 3 m, rozstaw osi 4 m, 12 kół ⌀ 0,99 m w skrętnych parach, dwie śluzy skafandrów z tyłu.
 - **⇄ Porównaj trasy** (na mapie; bez serwera — dla pierwszej trasy z zapisanych danych backendu): dlaczego wybrano tę trasę. Planer porównuje ją z linią prostą, najkrótszą bezpieczną i wariantem bez stref „uwaga” i podaje liczbowe powody (metry w strefach zakazanych, nachylenie, tlen, czas).
-- **Załoga**: na EVA wychodzą Bartek i Hubert, w bazie zostają Mateusz i Eryk (każdy ma swoją kajutę).
 - **Start EVA**: wyznacza trasę i rusza z załogą. Ten sam przycisk wstrzymuje i wznawia marsz. **Powrót do habitatu** wyznacza trasę powrotną; po dotarciu pojawia się **Nowe wyjście**.
 - **Profil trasy**: wykres wysokości, strefy „uwaga” i bieżąca pozycja załogi. Wskazanie wykresu pokazuje odpowiadające miejsce na mapie.
 - **?**: pomoc i skróty. M/O/H/U/R/G zmieniają widok, 1–9 i 0 przełączają warstwy, spacja steruje EVA, B wyznacza powrót, P otwiera profil, C porównuje trasy.

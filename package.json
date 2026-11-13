@@ -5,8 +5,7 @@
     "test:eva": "node --test tools/test-eva.mjs",
     "test:habitat": "node --test tools/test-habitat.mjs",
     "test:browser": "node --test --test-concurrency=1 tools/test-browser.mjs",
-    "test:independent": "node --test --test-concurrency=1 tools/test-independent.mjs tools/test-independent-browser.mjs",
-    "test:crew": "node --test tools/test-crew-names.mjs"
+    "test:independent": "node --test --test-concurrency=1 tools/test-independent.mjs tools/test-independent-browser.mjs"
   },
   "devDependencies": {
     "playwright": "^1.65.0"

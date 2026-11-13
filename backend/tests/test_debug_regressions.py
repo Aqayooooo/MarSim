@@ -41,17 +41,17 @@ def test_return_rejected_before_eva_started(client):
 
 def test_out_of_area_message_has_short_numbers(client):
     """x = 1e308 dawało w komunikacie liczbę z ~300 cyframi."""
-    r = client.post("/api/telemetry", json={"id": "Bartek", "x": 1e308, "y": 10})
+    r = client.post("/api/telemetry", json={"id": "EV1", "x": 1e308, "y": 10})
     assert r.status_code == 422 and len(r.json()["error"]) < 200, r.json()["error"]
 
 
 def test_telemetry_for_crew_not_on_current_eva_is_409(client):
     eng = client.app.state.active()
     sol = client.get("/api/state").json()["sol"]
-    item = {"id": "DBG-1", "sol": sol, "startLtst": "07:00", "durationH": 1, "crew": ["Hubert"]}
+    item = {"id": "DBG-1", "sol": sol, "startLtst": "07:00", "durationH": 1, "crew": ["EV2"]}
     assert client.post("/api/schedule", json=item).status_code == 200
     client.post("/api/eva/reset")
-    assert [c["cfg"]["id"] for c in eng.crew] == ["Hubert"]
-    r = client.post("/api/telemetry", json={"id": "Bartek", "o2L": 100})
+    assert [c["cfg"]["id"] for c in eng.crew] == ["EV2"]
+    r = client.post("/api/telemetry", json={"id": "EV1", "o2L": 100})
     assert r.status_code == 409 and "Nieznany" not in r.json()["error"]
     assert client.post("/api/telemetry", json={"id": "Nikt", "o2L": 100}).status_code == 404

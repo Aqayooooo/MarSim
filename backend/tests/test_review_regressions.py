@@ -61,7 +61,7 @@ def test_short_route_report(engine):
 
 def test_stationary_odometry_does_not_grow():
     p = Positioner([], np.zeros((10, 10)), 3)
-    values = [p.estimate("Bartek", dict(x=2, y=2), 100)["ellipse"]["a"] for _ in range(3)]
+    values = [p.estimate("EV1", dict(x=2, y=2), 100)["ellipse"]["a"] for _ in range(3)]
     assert values == [4, 4, 4]
 
 
@@ -83,8 +83,8 @@ def test_outage_does_not_deliver_reply_immediately(engine):
 def test_telemetry_and_schedule_conflicts():
     app = create_app(store=Store(":memory:"), start_loop=False, live_feeds=False)
     api = TestClient(app)
-    assert api.post("/api/telemetry", json={"id": "Bartek"}).status_code == 422
-    assert api.post("/api/telemetry", json=dict(id="Bartek", hr=211, x=15, y=22)).status_code == 200
+    assert api.post("/api/telemetry", json={"id": "EV1"}).status_code == 422
+    assert api.post("/api/telemetry", json=dict(id="EV1", hr=211, x=15, y=22)).status_code == 200
     crew = api.get("/api/state").json()["crew"][0]
     assert (crew["hr"], crew["x"], crew["y"]) == (211, 15, 22)
     item = api.get("/api/schedule").json()["items"][0]

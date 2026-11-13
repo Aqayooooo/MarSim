@@ -74,13 +74,13 @@ def pandolf_reference(body, load, v, grade_pct, eta, g=0.3794, cal=0.55, suit=60
     [(0.0, 0, "rock", 1.1), (0.7, 0, "rock", 1.1), (0.6, 10, "rough", 1.5), (0.5, 20, "sand", 2.1), (0.6, -15, "rock", 1.1)],
 )
 def test_pandolf_matches_hand_calculation(v, grade, terrain, eta):
-    p = physiology.Person("Bartek", 78, 125, 520, 520)
+    p = physiology.Person("EV1", 78, 125, 520, 520)
     assert float(physiology.metabolic_w(p, v, grade, terrain)) == pytest.approx(pandolf_reference(78, 125, v, grade, eta), rel=1e-9)
 
 
 def test_metabolic_rates_in_apollo_range():
     """Apollo: średnio ok. 230–300 W podczas EVA; spoczynek w skafandrze wyraźnie ponad 100 W."""
-    p = physiology.Person("Bartek", 78, 125, 520, 520)
+    p = physiology.Person("EV1", 78, 125, 520, 520)
     walking = float(physiology.metabolic_w(p, 2.5 / 3.6, 3))
     resting = float(physiology.metabolic_w(p, 0, 0))
     assert 100 < resting < walking
@@ -90,7 +90,7 @@ def test_metabolic_rates_in_apollo_range():
 def test_oxygen_conversion():
     assert physiology.o2_l_per_min(335.0) == pytest.approx(1.0)  # 20,1 kJ/L → 335 W = 1 L/min
     assert physiology.co2_l_per_min(335.0) == pytest.approx(0.85)
-    p = physiology.Person("Bartek", 78, 125, 520, 520)
+    p = physiology.Person("EV1", 78, 125, 520, 520)
     hours = physiology.endurance_h(p, 335.0, 0.2)
     assert hours == pytest.approx((520 * 0.8) / (1.0 + 0.02) / 60)
 

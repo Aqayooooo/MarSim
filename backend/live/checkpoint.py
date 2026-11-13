@@ -21,7 +21,6 @@ _SCALARS = (
 _LISTS = ("reached", "alerts", "obstacles", "observations", "discarded", "log")
 _PERSON_FIELDS = ("o2_l", "battery_left_wh", "co2_absorbed_l", "dose_msv")
 _MEMBER_FIELDS = ("metabolic", "co2mmHg", "moved", "evaDoseUsv")
-LEGACY_CREW_IDS = {"EV1": "Bartek", "EV2": "Hubert"}  # identyfikatory załogi sprzed wersji z imionami
 
 
 def capture(engine: EvaEngine) -> dict:
@@ -66,7 +65,7 @@ def usable(state: dict | None, mission_id: str) -> bool:
 def restore(engine: EvaEngine, state: dict) -> None:
     """Odtwarza stan zapisany przez `capture` na świeżo wyczyszczonym silniku. Wyjście zostaje wstrzymane."""
     known = {c["id"]: c for c in engine.cfg["crew"]}
-    saved_ids = [LEGACY_CREW_IDS.get(saved["id"], saved["id"]) for saved in state["crew"]]
+    saved_ids = [saved["id"] for saved in state["crew"]]
     if not saved_ids or any(i not in known for i in saved_ids):
         raise ValueError("skład załogi w punkcie kontrolnym nie zgadza się z konfiguracją misji")
     engine.crew = [engine.new_member(known[i]) for i in saved_ids]  # załoga wyjścia, nawet gdy harmonogram się zmienił
@@ -74,7 +73,7 @@ def restore(engine: EvaEngine, state: dict) -> None:
         setattr(engine, name, list(state[name]))
     engine.fired = set(state["fired"])
     engine.fired_at = dict(state["fired_at"])
-    engine._warned = {tuple(LEGACY_CREW_IDS.get(k, k) for k in key) for key in state["warned"]}
+    engine._warned = {tuple(key) for key in state["warned"]}
     engine.rover = dict(state["rover"])
     for member, saved in zip(engine.crew, state["crew"]):
         member["person"] = dataclasses.replace(member["person"], **{name: saved[name] for name in _PERSON_FIELDS})

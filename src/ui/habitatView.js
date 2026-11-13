@@ -15,7 +15,7 @@ const SCREEN_NEAR_M = 14, SCREENS_PER_FRAME = 2;   // ekrany dalej niż 14 m są
 const DOOR_SLIDE = 0.92;
 const C = { bg: '#0b1116', line: '#20323b', text: '#d8f3f2', dim: '#78a5a6', ok: '#5ee6a0', warn: '#ffd166', bad: '#ff7b6b', accent: '#68dee0', grow: '#ff8ce8' };
 const CABINS = ROOMS.filter((r) => r.id.startsWith('cabin'));
-const CREW_NAMES = ['Mateusz', 'Eryk'];   // załoga zostająca w bazie (Bartek i Hubert — wychodzą na EVA, z misji)
+const CREW_NAMES = ['IV1', 'IV2'];   // załoga zostająca w bazie (EV1, EV2 — z misji)
 
 export class HabitatView {
   /** mesh: grupa modelu bazy (pozycja i obrót ustawia widok 3D). */

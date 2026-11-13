@@ -82,7 +82,7 @@ def test_bundle_ids_are_per_link():
 
 
 # ---------------- harmonogram ----------------
-CREW = [{"id": "Bartek"}, {"id": "Hubert"}]
+CREW = [{"id": "EV1"}, {"id": "EV2"}]
 STORES = {"o2TanksL": 6000, "batteriesWh": 12000, "waterL": 300}
 
 
@@ -93,7 +93,7 @@ def scheduler(items=None, lat=-4.67, decl=-10.0):
     return Scheduler(store, CREW, STORES, lat, decl)
 
 
-def item(i, sol, start="10:00", dur=2.0, crew=("Bartek",)):
+def item(i, sol, start="10:00", dur=2.0, crew=("EV1",)):
     return {"id": f"E{i}", "sol": sol, "startLtst": start, "durationH": dur, "crew": list(crew), "purpose": "t"}
 
 
@@ -144,7 +144,7 @@ def flagged(evaluation):
 def test_rest_rule_with_two_exits_on_one_sol():
     """Sole 1,2,2,3,4 to nadal 4 sole z rzędu — zdublowany sol nie może kasować licznika."""
     s = scheduler([item(1, 1), item(2, 2), item(3, 2, start="14:00"), item(4, 3), item(5, 4)])
-    assert ("rest", "Bartek") in flagged(s.evaluate())
+    assert ("rest", "EV1") in flagged(s.evaluate())
 
 
 def test_rules_match_reference_on_random_schedules():
@@ -157,7 +157,7 @@ def test_rules_match_reference_on_random_schedules():
                 rng.randint(1, 9),
                 start=f"{rng.randint(5, 17):02d}:{rng.choice([0, 15, 30, 45]):02d}",
                 dur=rng.choice([1.0, 2.5, 4.0, 6.5, 8.0, 9.5]),
-                crew=rng.choice([("Bartek",), ("Hubert",), ("Bartek", "Hubert")]),
+                crew=rng.choice([("EV1",), ("EV2",), ("EV1", "EV2")]),
             )
             for i in range(rng.randint(1, 9))
         ]
@@ -178,17 +178,17 @@ def test_daylight_window_is_symmetric_and_plausible():
 
 
 def test_consumables_budget():
-    s = scheduler([item(1, 1, dur=2.0, crew=("Bartek", "Hubert")), item(2, 2, dur=3.0)])
+    s = scheduler([item(1, 1, dur=2.0, crew=("EV1", "EV2")), item(2, 2, dur=3.0)])
     c = s.evaluate()["consumables"]
     assert c["o2NeededL"] == round(50.0 * 1.1 * (2.0 * 2 + 3.0))
     assert c["o2AvailableL"] == 4800
     assert c["waterL"] == pytest.approx(0.6 * 7.0)
-    big = scheduler([item(i, i, dur=8.0, crew=("Bartek", "Hubert")) for i in range(1, 9)]).evaluate()
+    big = scheduler([item(i, i, dur=8.0, crew=("EV1", "EV2")) for i in range(1, 9)]).evaluate()
     assert any(t.startswith("Tlen") for t in big["issues"])
 
 
 def test_duplicate_crew_member_is_not_counted_twice():
-    s = scheduler([item(1, 1, dur=2.0, crew=("Bartek", "Bartek"))])
+    s = scheduler([item(1, 1, dur=2.0, crew=("EV1", "EV1"))])
     assert s.evaluate()["consumables"]["o2NeededL"] == round(50.0 * 1.1 * 2.0)
 
 
