@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prezentacja MarSim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..600;1,6..96,400..600&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/* Wersja offline (repozytorium): te same kroje z katalogu fonts/, gdy Google Fonts jest niedostępne */
+@font-face{font-family:"BodoniLocal";font-style:normal;font-weight:400 900;font-display:swap;src:url(fonts/bodoni-moda-latin-opsz-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"BodoniLocal";font-style:normal;font-weight:400 900;font-display:swap;src:url(fonts/bodoni-moda-latin-ext-opsz-normal.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"BodoniLocal";font-style:italic;font-weight:400 900;font-display:swap;src:url(fonts/bodoni-moda-latin-opsz-italic.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"BodoniLocal";font-style:italic;font-weight:400 900;font-display:swap;src:url(fonts/bodoni-moda-latin-ext-opsz-italic.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"InterLocal";font-weight:300;font-display:swap;src:url(fonts/inter-latin-300-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+2212}
+@font-face{font-family:"InterLocal";font-weight:300;font-display:swap;src:url(fonts/inter-latin-ext-300-normal.woff2) format("woff2");unicode-range:U+0100-02FF}
+@font-face{font-family:"InterLocal";font-weight:400;font-display:swap;src:url(fonts/inter-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+2212}
+@font-face{font-family:"InterLocal";font-weight:400;font-display:swap;src:url(fonts/inter-latin-ext-400-normal.woff2) format("woff2");unicode-range:U+0100-02FF}
+@font-face{font-family:"InterLocal";font-weight:500;font-display:swap;src:url(fonts/inter-latin-500-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+2212}
+@font-face{font-family:"InterLocal";font-weight:500;font-display:swap;src:url(fonts/inter-latin-ext-500-normal.woff2) format("woff2");unicode-range:U+0100-02FF}
+@font-face{font-family:"MonoLocal";font-weight:400;font-display:swap;src:url(fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2");unicode-range:U+0000-00FF,U+2000-206F,U+2212}
+@font-face{font-family:"MonoLocal";font-weight:400;font-display:swap;src:url(fonts/jetbrains-mono-latin-ext-400-normal.woff2) format("woff2");unicode-range:U+0100-02FF}
+
+/* Układ: czarna sala ekspozycyjna 1920×1080; jeden obiekt (Mars) przechodzi przez siedem kompozycji,
+   tekst asymetrycznie po stronie przeciwnej, cienkie pionowe linie siatki, nawigacja jak w katalogu wystawy */
+:root{
+  --ink:#050505;
+  --graphite:#1A1A1A;
+  --bone:#F2F0EC;
+  --bone-2:rgba(242,240,236,.74);
+  --bone-3:rgba(242,240,236,.56);
+  --hair:rgba(242,240,236,.14);
+  --veil:rgba(5,5,5,.78);
+  --accent:#303F86;
+  --accent-hi:#8F9BE0;
+  --f-display:"Bodoni Moda","BodoniLocal","Bodoni 72","Didot",Georgia,serif;
+  --f-text:"Inter","InterLocal",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono","MonoLocal",ui-monospace,Menlo,Consolas,monospace;
+  --ease-cine:cubic-bezier(.65,0,.2,1);
+  --ease-out:cubic-bezier(.2,.7,.15,1);
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--bone);font-family:var(--f-text);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+:focus-visible{outline:1px solid var(--accent-hi);outline-offset:4px}
+
+#room{position:fixed;inset:0;overflow:hidden;background:var(--ink);touch-action:pan-y}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform:translate(-50%,-50%) scale(var(--s,.5));transform-origin:50% 50%;overflow:hidden;background:var(--ink)}
+
+/* siatka */
+.grid{position:absolute;inset:0;pointer-events:none}
+.grid i{position:absolute;top:0;bottom:0;width:1px;background:var(--bone);opacity:.06}
+
+/* aureola i orbita: warstwa DOM pod przezroczystym płótnem WebGL */
+.halo{position:absolute;left:0;top:0;border-radius:50%;pointer-events:none;will-change:transform,opacity}
+#disc{background:var(--bone)}
+#ring{border:1px solid var(--bone)}
+#gl{position:absolute;left:0;top:0;width:1920px;height:1080px;display:block}
+
+/* znaczniki miejsc na globie */
+.mk{position:absolute;left:0;top:0;pointer-events:none;opacity:0;will-change:transform,opacity}
+.mk i{position:absolute;left:-6px;top:-6px;width:12px;height:12px;border:1px solid var(--bone);border-radius:50%}
+.mk i::after{content:"";position:absolute;inset:4px;background:var(--bone);border-radius:50%}
+.mk s{position:absolute;top:0;height:1px;width:56px;background:var(--bone);opacity:.7}
+.mk div{position:absolute;top:-30px;width:300px;font-family:var(--f-mono);font-size:14px;line-height:1.55;color:var(--bone-2);letter-spacing:.04em;text-shadow:0 0 14px var(--ink)}
+.mk b{display:block;font:400 30px/1.1 var(--f-display);font-style:italic;color:var(--bone);letter-spacing:0;margin-bottom:4px}
+.mk.l s{right:12px}.mk.l div{right:80px;text-align:right}
+.mk.r s{left:12px}.mk.r div{left:80px}
+
+/* chrom: nawigacja u góry i pasek mówcy u dołu */
+.chrome{position:absolute;left:128px;right:128px;display:flex;align-items:center;justify-content:space-between;z-index:5;text-shadow:0 0 16px rgba(5,5,5,.9)}
+.top{top:40px;height:40px}
+.wordmark{font:italic 400 30px/1 var(--f-display);letter-spacing:.01em}
+.wordmark span{font:400 12px/1 var(--f-mono);font-style:normal;letter-spacing:.24em;text-transform:uppercase;color:var(--bone-3);margin-left:18px;vertical-align:5px}
+nav{display:flex;gap:30px}
+nav button{font:400 12px/1 var(--f-mono);letter-spacing:.2em;text-transform:uppercase;color:var(--bone-3);padding:8px 0;position:relative;transition:color .4s}
+nav button::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--bone);transform:scaleX(0);transform-origin:0 50%;transition:transform .8s var(--ease-cine)}
+nav button:hover{color:var(--bone-2)}
+nav button[aria-current="step"]{color:var(--bone)}
+nav button[aria-current="step"]::after{transform:scaleX(1)}
+.count{font:400 26px/1 var(--f-display);font-variant-numeric:lining-nums tabular-nums;letter-spacing:.02em}
+.count small{font-size:16px;color:var(--bone-3);margin-left:6px}
+.bottom{bottom:44px;height:28px;font:400 13px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--bone-3)}
+#speaker{color:var(--bone-2)}
+#speaker b{font-weight:400;color:var(--bone)}
+.tools{display:flex;gap:28px}
+.tools button{letter-spacing:.14em;text-transform:uppercase;transition:color .3s}
+.tools button:hover{color:var(--bone)}
+.tools kbd{font:inherit;border:1px solid var(--hair);padding:2px 6px;margin-left:8px;color:var(--bone-3)}
+#coords{font-variant-numeric:tabular-nums;min-width:330px;text-align:right}
+
+/* slajdy */
+.slide{position:absolute;inset:0;visibility:hidden;pointer-events:none;z-index:3}
+.slide.on,.slide.out{visibility:visible}
+.slide.on{pointer-events:auto}
+.blk{position:absolute}
+.rv{transition:opacity .9s var(--ease-out),transform 1.2s var(--ease-out);transition-delay:calc(var(--d,0) * 85ms + 520ms)}
+.slide:not(.on) .rv{opacity:0;transform:translateY(30px)}
+.slide.out .rv{opacity:0;transform:translateY(-16px);transition-duration:.45s,.5s;transition-delay:0s}
+
+.kicker{font:400 14px/1 var(--f-mono);letter-spacing:.24em;text-transform:uppercase;color:var(--bone-3)}
+.kicker::before{content:"";display:inline-block;width:28px;height:1px;background:var(--accent-hi);vertical-align:4px;margin-right:16px}
+h1,h2{font-family:var(--f-display);font-weight:400;letter-spacing:-.018em;text-wrap:balance;margin:0}
+h1{font-size:116px;line-height:.98}
+h2{font-size:92px;line-height:1}
+h1 em,h2 em{font-style:italic}
+.lede{font:300 24px/1.5 var(--f-text);color:var(--bone-2);margin:0}
+.body{font:300 20px/1.55 var(--f-text);color:var(--bone-2);margin:0}
+.tag{font:400 14px/1.6 var(--f-mono);letter-spacing:.08em;color:var(--bone-3);margin:0}
+
+/* liczby */
+.figs{display:grid;gap:34px 40px}
+.fig .n{font:400 60px/1 var(--f-display);font-variant-numeric:lining-nums;letter-spacing:-.01em;white-space:nowrap}
+.fig .n small{font-size:26px;letter-spacing:0;margin-left:8px;color:var(--bone-2)}
+.fig .l{font:400 18px/1.35 var(--f-text);color:var(--bone);margin-top:12px}
+.fig .s{font:400 13px/1.5 var(--f-mono);letter-spacing:.04em;color:var(--bone-3);margin-top:6px}
+.figs.rule .fig{border-top:1px solid var(--hair);padding-top:18px}
+
+/* skład atmosfery */
+.atm .bar{display:flex;height:12px;margin:16px 0 14px;gap:2px}
+.atm .bar span{display:block;height:100%}
+.atm .legend{display:flex;gap:28px;font:400 14px/1 var(--f-mono);letter-spacing:.06em;color:var(--bone-2)}
+.atm .legend em{font-style:normal;color:var(--accent-hi)}
+
+/* tabela instrumentów */
+.inst{border-collapse:collapse;width:100%}
+.inst td{border-top:1px solid var(--hair);padding:13px 18px 13px 0;vertical-align:baseline}
+.inst tr:last-child td{border-bottom:1px solid var(--hair)}
+.inst .i{font:500 19px/1.2 var(--f-text);color:var(--bone);white-space:nowrap}
+.inst .i small{display:block;font:400 12px/1.4 var(--f-mono);letter-spacing:.08em;color:var(--bone-3);margin-top:4px;text-transform:uppercase}
+.inst .r{font:400 15px/1.3 var(--f-mono);color:var(--bone-2);white-space:nowrap}
+.inst .w{font:300 18px/1.35 var(--f-text);color:var(--bone-2)}
+
+/* zrzuty aplikacji */
+.shot{position:absolute;overflow:hidden;background:var(--graphite);clip-path:inset(0 0 0 0);transition:clip-path 1.4s var(--ease-cine);transition-delay:calc(var(--d,0) * 120ms + 380ms)}
+.shot img{display:block;width:100%;height:100%;object-fit:cover;transform:scale(1);transition:transform 2.4s var(--ease-out),opacity .9s ease;transition-delay:inherit}
+.slide:not(.on) .shot{clip-path:inset(0 0 100% 0)}
+.slide:not(.on) .shot img{transform:scale(1.08)}
+.slide.out .shot{clip-path:inset(0 0 0 0);opacity:0;transition:opacity .45s ease;transition-delay:0s}
+.shot .chip{position:absolute;left:16px;bottom:14px;font:400 12px/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--bone);background:var(--veil);padding:8px 10px}
+.shot::after{content:"";position:absolute;inset:0;border:1px solid var(--hair);pointer-events:none}
+.cap{font:400 13px/1.5 var(--f-mono);letter-spacing:.08em;color:var(--bone-3)}
+
+/* wizjer: dwa stany */
+.hud img.alarm{position:absolute;inset:0;opacity:0}
+.hud.alarm img.alarm{opacity:1}
+.callouts{position:absolute;inset:0;pointer-events:none}
+.callouts svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.callouts line{stroke:var(--bone);stroke-width:1;opacity:.75}
+.callouts circle{fill:none;stroke:var(--bone);stroke-width:1.2}
+.callouts circle.c{fill:var(--bone);stroke:none}
+.co{position:absolute;font:400 15px/1.35 var(--f-text);color:var(--bone);background:var(--veil);padding:8px 12px;max-width:300px;border-left:1px solid var(--bone);transition:opacity .5s}
+.co small{display:block;font:400 11px/1.4 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--bone-3);margin-bottom:3px}
+.co .alt{display:none}
+.hud.alarm ~ .callouts .co .alt{display:inline}
+.hud.alarm ~ .callouts .co .norm{display:none}
+.state{display:flex;gap:22px;font:400 13px/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--bone-3)}
+.state span{padding-bottom:8px;border-bottom:1px solid transparent;transition:color .4s,border-color .4s}
+.state span.cur{color:var(--bone);border-color:var(--bone)}
+
+.specs{display:grid;gap:30px}
+.spec h3{margin:0 0 12px;font:400 13px/1 var(--f-mono);letter-spacing:.22em;text-transform:uppercase;color:var(--bone-3)}
+.spec ul{list-style:none;margin:0;padding:0;border-top:1px solid var(--hair)}
+.spec li{font:300 19px/1.35 var(--f-text);color:var(--bone-2);padding:9px 0;border-bottom:1px solid var(--hair)}
+.spec li b{font-weight:400;color:var(--bone)}
+
+.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:56px 1fr;align-items:baseline;font:300 20px/1.4 var(--f-text);color:var(--bone-2);padding:10px 0;border-top:1px solid var(--hair)}
+.steps li:last-child{border-bottom:1px solid var(--hair)}
+.steps li::before{content:counter(s,decimal-leading-zero);font:400 13px/1 var(--f-mono);letter-spacing:.12em;color:var(--accent-hi)}
+.closing{font:italic 400 34px/1.25 var(--f-display);margin:0;text-wrap:balance}
+
+/* panele prowadzącego (poza sceną, czytelne na każdym ekranie) */
+.panel{position:fixed;z-index:20;background:rgba(10,10,10,.96);color:var(--bone);border-top:1px solid var(--hair)}
+#notes{left:0;right:0;bottom:0;max-height:44vh;overflow:auto;padding:22px max(24px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(24px,env(safe-area-inset-left,0px))}
+#notes header{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:baseline;font:400 12px/1.4 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--bone-3);margin-bottom:12px}
+#notes header b{font-weight:400;color:var(--bone)}
+#notes p{font:300 clamp(16px,1.6vw,21px)/1.6 var(--f-text);color:var(--bone-2);margin:0 0 10px;max-width:78ch}
+#notes p.hand{color:var(--accent-hi);font-weight:400}
+#roles{inset:0;display:grid;place-items:center;background:rgba(5,5,5,.94);border:0;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));overflow:auto}
+#roles .in{width:min(1040px,100%)}
+#roles h2{font-size:clamp(34px,5vw,64px);margin-bottom:8px}
+#roles .sub{font:300 clamp(14px,1.4vw,18px)/1.5 var(--f-text);color:var(--bone-2);margin:0 0 28px}
+.rt{width:100%;border-collapse:collapse}
+.rt th{font:400 11px/1 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--bone-3);text-align:left;padding:0 16px 12px 0}
+.rt td{border-top:1px solid var(--hair);padding:16px 16px 16px 0;vertical-align:top;font:300 clamp(14px,1.4vw,18px)/1.45 var(--f-text);color:var(--bone-2)}
+.rt td.who{font:italic 400 clamp(20px,2.2vw,28px)/1.1 var(--f-display);color:var(--bone);white-space:nowrap}
+.rt td.sl,.rt td.tm{font:400 clamp(12px,1.1vw,14px)/1.5 var(--f-mono);color:var(--bone);white-space:nowrap}
+.rt-wrap{overflow-x:auto}
+#roles .close{margin-top:24px;font:400 12px/1 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--bone-3);border:1px solid var(--hair);padding:10px 14px}
+#roles .close:hover{color:var(--bone)}
+
+@media (prefers-reduced-motion: reduce){
+  .rv,.shot,.shot img,nav button::after{transition-duration:.01s!important;transition-delay:0s!important}
+}
+</style>
+</head>
+<body>
+<div id="room">
+  <div id="stage" aria-roledescription="prezentacja">
+    <div class="grid" aria-hidden="true"><i style="left:128px"></i><i style="left:683px"></i><i style="left:1237px"></i><i style="left:1792px"></i></div>
+    <div class="halo" id="disc" aria-hidden="true"></div>
+    <div class="halo" id="ring" aria-hidden="true"></div>
+    <canvas id="gl" width="1920" height="1080" aria-hidden="true"></canvas>
+    <div class="mk l" id="mk-jezero" aria-hidden="true"><i></i><s></s><div><b>Jezero</b>18,44° N · 77,45° E<br>340 głazów ≥ 1 m</div></div>
+    <div class="mk r" id="mk-gale" aria-hidden="true"><i></i><s></s><div><b>Gale</b>4,67° S · 137,38° E<br>649 głazów ≥ 1 m</div></div>
+
+    <header class="chrome top">
+      <div class="wordmark">MarSim<span>Martian Map</span></div>
+      <nav id="nav" aria-label="Slajdy"></nav>
+      <div class="count" aria-live="polite"><span id="cnum">01</span><small>/ 07</small></div>
+    </header>
+
+    <!-- 1 · Okładka -->
+    <section class="slide" data-i="0" aria-label="Okładka">
+      <p class="blk kicker rv" style="left:128px;top:282px;--d:0">MarSim · planowanie wyjść EVA na Marsie</p>
+      <h1 class="blk rv" style="left:128px;top:330px;width:820px;--d:1">Każde wyjście<br>ma drogę<br><em>powrotu</em></h1>
+      <p class="blk lede rv" style="left:128px;top:742px;width:560px;--d:3">Mapa i&nbsp;planer wyjść na powierzchnię Marsa. Łączy dane pięciu instrumentów orbitalnych NASA z&nbsp;pogodą kosmiczną i&nbsp;prowadzi załogę od śluzy do celu i&nbsp;z&nbsp;powrotem.</p>
+      <p class="blk tag rv" style="left:128px;top:928px;--d:4">Teren pokazu: krater Jezero, lądowisko łazika Perseverance</p>
+    </section>
+
+    <!-- 2 · Środowisko -->
+    <section class="slide" data-i="1" aria-label="Środowisko">
+      <p class="blk kicker rv" style="left:940px;top:150px;--d:0">Środowisko pracy astronauty</p>
+      <h2 class="blk rv" style="left:940px;top:190px;width:852px;--d:1">Powietrze, którym<br>nie da się <em>oddychać</em></h2>
+      <div class="blk atm rv" style="left:940px;top:430px;width:852px;--d:2">
+        <p class="tag">Skład atmosfery przy powierzchni · spektrometr SAM, łazik Curiosity</p>
+        <div class="bar" role="img" aria-label="Dwutlenek węgla 95,1 procent, azot 2,6, argon 1,9, tlen 0,16 procent">
+          <span style="flex:95.1;background:var(--bone);opacity:.86"></span>
+          <span style="flex:2.6;background:var(--bone);opacity:.5"></span>
+          <span style="flex:1.9;background:var(--bone);opacity:.3"></span>
+          <span style="flex:.16;min-width:2px;background:var(--accent-hi)"></span>
+          <span style="flex:.24;min-width:2px;background:var(--bone);opacity:.18"></span>
+        </div>
+        <div class="legend"><span>CO<sub>2</sub> 95,1%</span><span>N<sub>2</sub> 2,6%</span><span>Ar 1,9%</span><em>O<sub>2</sub> 0,16%</em><span>CO i&nbsp;inne 0,2%</span></div>
+      </div>
+      <div class="blk figs rule rv" style="left:940px;top:582px;width:852px;grid-template-columns:repeat(3,1fr);--d:3">
+        <div class="fig"><div class="n">0,6<small>kPa</small></div><div class="l">ciśnienie przy powierzchni</div><div class="s">ok. 0,6% ziemskiego</div></div>
+        <div class="fig"><div class="n">−60<small>°C</small></div><div class="l">średnia temperatura</div><div class="s">nocą w&nbsp;Gale zwykle &lt; −70 °C</div></div>
+        <div class="fig"><div class="n">0,38<small>g</small></div><div class="l">grawitacja</div><div class="s">3,71 m/s² · inny chód i&nbsp;wysiłek</div></div>
+        <div class="fig"><div class="n">0,64<small>mSv</small></div><div class="l">dawka promieniowania na sol</div><div class="s">pomiar RAD, łazik Curiosity</div></div>
+        <div class="fig"><div class="n">3–22<small>min</small></div><div class="l">opóźnienie sygnału z&nbsp;Ziemi</div><div class="s">w&nbsp;jedną stronę</div></div>
+        <div class="fig"><div class="n">24:39<small>h</small></div><div class="l">długość sola</div><div class="s">zegar misji w&nbsp;czasie LTST</div></div>
+      </div>
+      <p class="blk tag rv" style="left:940px;top:946px;width:852px;--d:5">Panel MarSim, sol 212, 10:11 LTST: grunt −43 °C · wiatr 7,2 m/s · pył τ 0,50 · 27 µSv/h</p>
+    </section>
+
+    <!-- 3 · Dane -->
+    <section class="slide" data-i="2" aria-label="Dane">
+      <p class="blk kicker rv" style="left:128px;top:150px;--d:0">Wyzwanie NASA: Martian Map</p>
+      <h2 class="blk rv" style="left:128px;top:190px;width:880px;--d:1">Pięć instrumentów,<br>jedna <em>mapa</em></h2>
+      <p class="blk body rv" style="left:128px;top:410px;width:720px;--d:2">Wyzwanie prosi o&nbsp;warstwową mapę z&nbsp;danych wielu misji NASA, która pomoże zaplanować wyjście: trasę i&nbsp;cele, bieżące warunki oraz naukę po drodze.</p>
+      <table class="blk inst rv" style="left:128px;top:520px;width:780px;--d:3">
+        <tr><td class="i">HiRISE<small>Mars Reconnaissance Orbiter</small></td><td class="r">0,25 m · DTM 1 m</td><td class="w">głazy od 1 m, nachylenie ±σ</td></tr>
+        <tr><td class="i">CTX<small>Mars Reconnaissance Orbiter</small></td><td class="r">6 m</td><td class="w">kontekst terenu</td></tr>
+        <tr><td class="i">CRISM<small>Mars Reconnaissance Orbiter</small></td><td class="r">18 m</td><td class="w">minerały, w&nbsp;tym oliwin</td></tr>
+        <tr><td class="i">THEMIS<small>Mars Odyssey</small></td><td class="r">100 m</td><td class="w">bezwładność cieplna: luźny piasek</td></tr>
+        <tr><td class="i">MOLA<small>Mars Global Surveyor</small></td><td class="r">463 m</td><td class="w">kontrola wysokości DTM</td></tr>
+        <tr><td class="i">DONKI · NOAA SWPC<small>pogoda kosmiczna</small></td><td class="r">na żywo</td><td class="w">burze słoneczne, protony</td></tr>
+      </table>
+      <p class="blk tag rv" style="left:128px;top:948px;width:780px;--d:5">Bez uczenia maszynowego. Głazy z&nbsp;geometrii cieni, piasek z&nbsp;pięciu wskaźników fizycznych, każda warstwa z&nbsp;sumą SHA-256.</p>
+    </section>
+
+    <!-- 4 · Trasa -->
+    <section class="slide" data-i="3" aria-label="Trasa">
+      <p class="blk kicker rv" style="left:128px;top:150px;--d:0">Planer trasy · krater Jezero, sol 212</p>
+      <h2 class="blk rv" style="left:128px;top:190px;width:700px;--d:1">Każdy metr<br>kosztuje <em>tlen</em></h2>
+      <div class="blk figs rule rv" style="left:128px;top:424px;width:690px;grid-template-columns:repeat(2,1fr);gap:26px 40px;--d:2">
+        <div class="fig"><div class="n">1,22<small>km</small></div><div class="l">trasa A, dwa punkty EVA</div><div class="s">wydajność 97% wobec linii prostej</div></div>
+        <div class="fig"><div class="n">75<small>min</small></div><div class="l">czas z&nbsp;postojami</div><div class="s">przedział 62–87 min</div></div>
+        <div class="fig"><div class="n">7,6°<small>±1,5°</small></div><div class="l">największe nachylenie</div><div class="s">DTM HiRISE, σz 0,2 m</div></div>
+        <div class="fig"><div class="n">92<small>L O₂</small></div><div class="l">zużycie tlenu</div><div class="s">przedział 62–120 L</div></div>
+      </div>
+      <p class="blk body rv" style="left:128px;top:790px;width:690px;font-size:18px;--d:4">Trasę wyznacza A* z&nbsp;modelem wysiłku Pandolfa dla 0,38 g. Zakaz: nachylenie z&nbsp;marginesem 2σ powyżej 25° i&nbsp;piasek powyżej 0,6. Głazy omijane o&nbsp;6 m, schron w&nbsp;zasięgu 15 minut.</p>
+      <div class="shot" style="left:900px;top:236px;width:892px;height:594px;--d:1"><img src="assets/map.jpg" alt="Mapa MarSim krateru Jezero z warstwą zagrożeń, trasą A, łazikiem, habitatem i punktami EVA" width="1800" height="1199"></div>
+      <p class="blk cap rv" style="left:900px;top:848px;width:892px;--d:3">Zrzut z&nbsp;MarSim · warstwa zagrożeń, trasa A, łazik, habitat i&nbsp;załoga EV1–EV2</p>
+    </section>
+
+    <!-- 5 · Wizjer -->
+    <section class="slide" data-i="4" data-steps="2" aria-label="Wizjer">
+      <p class="blk kicker rv" style="left:128px;top:118px;--d:0">Wizjer hełmu</p>
+      <h2 class="blk rv" style="left:128px;top:150px;width:1000px;font-size:72px;--d:1">Wizjer pokazuje tylko<br><em>to, co ważne teraz</em></h2>
+      <p class="blk body rv" style="left:1180px;top:150px;width:380px;font-size:18px;--d:2">Dane skafandra liczy serwer misji. Panel pokazuje zawsze osobę w&nbsp;najgorszym stanie, bo załoga wraca razem.</p>
+      <div class="blk state rv" style="left:1180px;top:270px;--d:3" aria-live="polite"><span class="cur" id="st0">1 · W normie</span><span id="st1">2 · Alarm tlenu</span></div>
+      <div class="shot hud" id="hud" style="left:128px;top:318px;width:1600px;height:662px;--d:1">
+        <img src="assets/hud.jpg" alt="Widok z hełmu w MarSim: kurs, odległość do WP2, łazik na horyzoncie, panel stanu skafandra z parametrami w normie" width="2000" height="827">
+        <img class="alarm" src="assets/hud-alarm.jpg" alt="Ten sam widok w stanie alarmu: Tlen, rozpocznij powrót, brakuje 8 minut" width="2000" height="827">
+      </div>
+      <div class="callouts rv" id="callouts" style="inset:auto;left:128px;top:318px;width:1600px;height:662px;--d:5"></div>
+    </section>
+
+    <!-- 6 · Łazik i baza -->
+    <section class="slide" data-i="5" aria-label="Łazik i baza">
+      <p class="blk kicker rv" style="left:128px;top:150px;--d:0">Łazik ciśnieniowy i&nbsp;habitat</p>
+      <h2 class="blk rv" style="left:128px;top:190px;width:600px;font-size:76px;--d:1">Łazik i&nbsp;habitat<br>w&nbsp;jednym <em>planie</em></h2>
+      <p class="blk body rv" style="left:128px;top:372px;width:560px;--d:2">Wyjście zaczyna się przy skafandrach w&nbsp;habitacie. Łazik może dojechać do załogi jako schron i&nbsp;przekaźnik łączności.</p>
+      <div class="blk specs rv" style="left:128px;top:500px;width:560px;grid-template-columns:1fr 1fr;--d:3">
+        <div class="spec"><h3>Łazik · wzór NASA SEV</h3><ul><li><b>4,5 × 3 m</b> kabina</li><li><b>12 kół</b> Ø 0,99 m</li><li><b>2 śluzy</b> skafandrów</li><li><b>6–18 m</b> wysięgnik kamery</li></ul></div>
+        <div class="spec"><h3>Habitat</h3><ul><li><b>56,5 kPa</b>, 34% O₂</li><li><b>4 kajuty</b> i&nbsp;laboratorium</li><li><b>MOXIE</b> i&nbsp;szklarnia</li><li><b>bilans mocy</b> z&nbsp;zegarem</li></ul></div>
+      </div>
+      <div class="shot" style="left:760px;top:236px;width:1032px;height:427px;--d:1"><img src="assets/rover-boom.jpg" alt="Łazik ciśnieniowy na trasie, widok z kamery na wysięgniku, w tle habitat" width="1600" height="662"><span class="chip">Łazik · kamera na wysięgniku</span></div>
+      <div class="shot" style="left:760px;top:679px;width:508px;height:210px;--d:2"><img src="assets/habitat-module.jpg" alt="Wnętrze modułu dziennego habitatu z konsolą misji" width="1400" height="579"><span class="chip">Moduł dzienny</span></div>
+      <div class="shot" style="left:1284px;top:679px;width:508px;height:210px;--d:3"><img src="assets/greenhouse.jpg" alt="Szklarnia habitatu z lampami wzrostowymi" width="1400" height="579"><span class="chip">Szklarnia</span></div>
+    </section>
+
+    <!-- 7 · Wdrożenie -->
+    <section class="slide" data-i="6" aria-label="Wdrożenie">
+      <p class="blk kicker rv" style="left:1100px;top:150px;--d:0">Stan prac · wersja 1.4</p>
+      <h2 class="blk rv" style="left:1100px;top:190px;width:692px;font-size:84px;--d:1">Gotowe do próby<br>w&nbsp;misji <em>analogowej</em></h2>
+      <div class="blk figs rule rv" style="left:1100px;top:396px;width:692px;grid-template-columns:repeat(4,1fr);gap:0 28px;--d:2">
+        <div class="fig"><div class="n" style="font-size:52px">290</div><div class="l">testów backendu</div></div>
+        <div class="fig"><div class="n" style="font-size:52px">30</div><div class="l">testów sterowania EVA</div></div>
+        <div class="fig"><div class="n" style="font-size:52px">407</div><div class="l">kluczy PL/EN</div></div>
+        <div class="fig"><div class="n" style="font-size:52px">2</div><div class="l">obszary misji: Gale i&nbsp;Jezero</div></div>
+      </div>
+      <p class="blk body rv" style="left:1100px;top:578px;width:692px;font-size:18px;--d:3">Działa bez internetu. Stan wyjścia zapisuje co 5 sekund i&nbsp;wznawia go po awarii serwera. Każdy produkt danych ma sumę SHA-256.</p>
+      <ol class="blk steps rv" style="left:1100px;top:674px;width:692px;--d:4">
+        <li>Kalibracja modelu tlenu danymi z&nbsp;prawdziwego skafandra</li>
+        <li>Sprawdzenie wykrywania głazów na zdjęciach z&nbsp;łazika</li>
+        <li>Próba z&nbsp;załogą w&nbsp;misji analogowej</li>
+      </ol>
+      <p class="blk closing rv" style="left:1100px;top:870px;width:692px;--d:6">Zanim astronauta wyjdzie ze&nbsp;śluzy, trasa jest już policzona.</p>
+    </section>
+
+    <footer class="chrome bottom">
+      <div id="speaker"></div>
+      <div class="tools">
+        <button type="button" id="bRoles">Podział ról<kbd>R</kbd></button>
+        <button type="button" id="bNotes">Notatki<kbd>N</kbd></button>
+        <button type="button" id="bFull">Pełny ekran<kbd>F</kbd></button>
+      </div>
+      <div id="coords" aria-hidden="true">—</div>
+    </footer>
+  </div>
+</div>
+
+<aside class="panel" id="notes" hidden aria-label="Notatki prowadzącego"></aside>
+<div class="panel" id="roles" hidden role="dialog" aria-modal="true" aria-labelledby="rolesTitle">
+  <div class="in">
+    <h2 id="rolesTitle">Podział <em>ról</em></h2>
+    <p class="sub">Czworo mówców, siedem slajdów, ok. 7 minut i&nbsp;pokaz na żywo. Każdy kończy zdaniem, które przekazuje głos następnej osobie. Pełny tekst jest w&nbsp;notatkach (klawisz N).</p>
+    <div class="rt-wrap"><table class="rt" id="rolesTable"></table></div>
+    <button type="button" class="close" id="rolesClose">Zamknij · Esc</button>
+  </div>
+</div>
+
+<script type="module">
+/* ---------- mówcy: tu wpisz imiona zespołu ---------- */
+const SPEAKERS = ['Osoba 1', 'Osoba 2', 'Osoba 3', 'Osoba 4'];
+const ROLES = [
+  { who: 0, slides: '1–2', topic: 'Otwarcie: problem, dla kogo jest MarSim i środowisko Marsa w liczbach.', time: 'ok. 1:45' },
+  { who: 1, slides: '3–4', topic: 'Dane NASA w warstwach mapy i planer trasy: tlen, nachylenie, zakazy.', time: 'ok. 2:15' },
+  { who: 2, slides: '5–6', topic: 'Wizjer hełmu w dwóch stanach, łazik ciśnieniowy i habitat.', time: 'ok. 2:00' },
+  { who: 3, slides: '7 + pokaz', topic: 'Stan prac, ograniczenia, następne kroki, zakończenie. Prowadzi pokaz na żywo i pytania.', time: 'ok. 1:00 + pokaz' },
+];
+const NAV = ['Okładka', 'Środowisko', 'Dane', 'Trasa', 'Wizjer', 'Łazik i baza', 'Wdrożenie'];
+const SPEAKER_OF = [0, 0, 1, 1, 2, 2, 3];
+const TOPIC = ['Otwarcie', 'Środowisko', 'Dane NASA', 'Planer trasy', 'Wizjer hełmu', 'Łazik i habitat', 'Wdrożenie'];
+const TIME = ['0:40', '1:05', '1:00', '1:15', '1:00', '1:00', '1:00'];
+const NOTES = [
+  ['Dzień dobry, jesteśmy zespołem MarSim.',
+   'Pierwsza załoga, która wyjdzie przez śluzę na powierzchnię Marsa, będzie miała tylko to, co niesie: tlen, energię i czas. Pomoc z Ziemi nie przyjdzie na czas, bo sygnał leci od 3 do 22 minut w jedną stronę.',
+   'MarSim to mapa i planer wyjść, który liczy to za nią: którędy iść, ile to kosztuje i kiedy najpóźniej trzeba zawrócić. Pokażemy go na prawdziwym terenie krateru Jezero, przy lądowisku łazika Perseverance.',
+   '→ Zacznijmy od tego, w jakim środowisku pracuje astronauta.'],
+  ['Atmosfera Marsa to w 95 procentach dwutlenek węgla. Tlenu jest 0,16 procent. Ciśnienie przy powierzchni wynosi około 0,6 kilopaskala, mniej niż jeden procent ziemskiego. Bez skafandra człowiek traci przytomność w kilkanaście sekund.',
+   'Średnia temperatura to około minus 60 stopni. Grawitacja 0,38 g zmienia chód i wysiłek, a więc i zużycie tlenu. Dawka promieniowania na powierzchni to około 0,64 milisiwerta na sol, a burza słoneczna może ją gwałtownie podnieść.',
+   'Do tego opóźnienie łączności. Decyzja o powrocie musi zapaść na miejscu, w hełmie. Na dole slajdu widać te same wielkości w panelu MarSim, przeliczone dla bieżącego sola i godziny.',
+   '→ Skąd bierzemy dane o terenie, opowie ' + SPEAKERS[1] + '.'],
+  ['Wyzwanie NASA Martian Map prosi o warstwową mapę miejsca albo trasy na Marsie, zbudowaną z danych wielu misji. Mapa ma pomóc zaplanować wyjście: trasę i cele, bieżące warunki i naukę po drodze.',
+   'Łączymy pięć instrumentów orbitalnych. HiRISE daje zdjęcia 25 centymetrów na piksel i model wysokości z dokładnością 20 centymetrów. Z cieni na tych zdjęciach wykrywamy głazy od metra wzwyż: w Jezero jest ich 340, w kraterze Gale 649. THEMIS pokazuje luźny piasek, CRISM minerały, MOLA kontroluje wysokości, a DONKI i NOAA dają pogodę kosmiczną na żywo.',
+   'Nie używamy uczenia maszynowego. Każda warstwa ma opisaną metodę, źródło i sumę kontrolną, więc wiadomo, skąd wzięła się każda decyzja na mapie.'],
+  ['Na tej mapie planer wyznacza trasę algorytmem A*. Kosztem jest wysiłek, liczony modelem Pandolfa przeliczonym na grawitację Marsa. Z wysiłku wynika zużycie tlenu.',
+   'Zakazane są zbocza, których nachylenie z marginesem dwóch sigma przekracza 25 stopni, i piasek o prawdopodobieństwie powyżej 0,6. Głazy omijamy o 6 metrów.',
+   'Trasa A w Jezero ma 1,22 kilometra i zajmuje 75 minut z dwoma postojami. Największe nachylenie to 7,6 stopnia, plus minus 1,5. Zużycie tlenu szacujemy na 92 litry, w przedziale od 62 do 120. Na mapie widać też schron w zasięgu 15 minut. Funkcja Porównaj trasy pokazuje, dlaczego wybrano tę drogę zamiast linii prostej.',
+   '→ Jak to wygląda z perspektywy astronauty, pokaże ' + SPEAKERS[2] + '.'],
+  ['Tak wygląda MarSim w hełmie. Wizjer pokazuje tylko to, czego astronauta potrzebuje w tej chwili. Na górze kurs, po lewej odległość do następnego punktu trasy, a trasa jest narysowana na gruncie. Na horyzoncie widać łazik.',
+   'Panel po prawej podsumowuje tlen, energię, ciśnienie skafandra i zapas na powrót. Pokazuje zawsze osobę w najgorszym stanie, bo załoga wraca razem. Teraz wszystko jest w normie.',
+   '[Kliknij: stan 2] Gdy tlenu jest mniej niż rezerwa misji, panel zmienia się w polecenie: rozpocznij powrót, i podaje, ilu minut brakuje. Wszystko to liczy serwer misji, więc wizjer pokazuje te same liczby co konsola w habitacie.'],
+  ['Astronauta nie jest sam. W tym samym planie jest łazik ciśnieniowy i habitat. Łazik wzorowaliśmy na koncepcji NASA Space Exploration Vehicle: kabina 4,5 na 3 metry, dwanaście kół i dwie śluzy skafandrów z tyłu. Służy jako schron i przekaźnik łączności.',
+   'Habitat ma atmosferę eksploracyjną NASA: 56,5 kilopaskala i 34 procent tlenu, co skraca przygotowanie do wyjścia. Są w nim moduł dzienny, kajuty, laboratorium, szklarnia i MOXIE, czyli wytwarzanie tlenu z dwutlenku węgla. Panel habitatu liczy baterię, zbiornik tlenu i bilans mocy razem z zegarem misji.',
+   '→ Na ile to jest gotowe do użycia, powie ' + SPEAKERS[3] + '.'],
+  ['MarSim działa dziś, w wersji 1.4: 290 testów backendu, 30 testów sterowania wyjściem, testy w prawdziwej przeglądarce i 407 kluczy tłumaczeń. Działa bez internetu, zapisuje stan wyjścia co 5 sekund i po awarii serwera wznawia je w pauzie. Każdy produkt danych ma sumę SHA-256, więc wynik można odtworzyć.',
+   'Mówimy też wprost o ograniczeniach. Model tlenu trzeba skalibrować danymi z prawdziwego skafandra, a wykrywanie głazów sprawdzić na zdjęciach z łazika. Następny krok to próba z załogą w misji analogowej.',
+   'Zanim astronauta wyjdzie ze śluzy, trasa jest już policzona. Dziękujemy. Chętnie pokażemy MarSim na żywo i odpowiemy na pytania.'],
+];
+
+/* ---------- kompozycje: położenie Marsa (px sceny), światło, aureola ---------- */
+const POSES = [
+  { x: 1272, y: 560, r: 410, tilt: .12, roll: -.30, sun: [-.85, .35, .55], disc: { x: 1440, y: 404, r: 318, a: 1 }, ring: { x: 1272, y: 560, r: 508, a: .22 }, mk: 0, atmo: 1 },
+  { x: 330, y: 930, r: 560, tilt: .25, roll: .18, sun: [.8, .5, .35], disc: { x: 196, y: 420, r: 214, a: 1 }, ring: { x: 330, y: 930, r: 660, a: .16 }, mk: 0, atmo: 1 },
+  { x: 1400, y: 548, r: 330, tilt: .14, roll: 0, lon: 113, sun: [-.45, .4, .8], disc: { x: 1400, y: 548, r: 330, a: 0 }, ring: { x: 1400, y: 548, r: 414, a: .34 }, mk: 1, atmo: 1 },
+  { x: 1346, y: 533, r: 600, tilt: .322, roll: 0, lon: 77.45, sun: [-.3, .55, -.78], disc: { x: 1346, y: 533, r: 400, a: 0 }, ring: { x: 1346, y: 533, r: 700, a: 0 }, mk: 0, atmo: 1.6, lum: .8 },
+  { x: 1716, y: 200, r: 60, tilt: .1, roll: -.2, sun: [-.7, .4, .6], disc: { x: 1716, y: 200, r: 40, a: 0 }, ring: { x: 1716, y: 200, r: 86, a: .4 }, mk: 0, atmo: 1 },
+  { x: 420, y: 1290, r: 430, tilt: .3, roll: .1, sun: [.15, .95, .25], disc: { x: 420, y: 1290, r: 300, a: 0 }, ring: { x: 420, y: 1290, r: 500, a: .18 }, mk: 0, atmo: 1.2 },
+  { x: 600, y: 584, r: 392, tilt: .1, roll: .26, sun: [.86, .3, .45], disc: { x: 402, y: 424, r: 300, a: 1 }, ring: { x: 600, y: 584, r: 500, a: .2 }, mk: 0, atmo: 1 },
+];
+
+/* objaśnienia na zrzucie wizjera (ułamki szerokości i wysokości obrazu) */
+const CALLOUTS = [
+  { at: [.5, .143], box: [.555, .05], label: 'Kurs', text: 'Kurs i pas horyzontu' },
+  { at: [.172, .41], box: [.035, .52], label: 'Nawigacja', text: 'Odległość do punktu trasy' },
+  { at: [.562, .447], box: [.6, .25], label: 'Łazik', text: 'Schron i przekaźnik w zasięgu wzroku' },
+  { at: [.55, .72], box: [.28, .82], label: 'Trasa', text: 'Bezpieczna trasa na gruncie' },
+  { at: [.68, .5], box: [.42, .5], label: 'Stan skafandra', text: '<span class="norm">Osoba w najgorszym stanie: tlen, energia, ciśnienie</span><span class="alt">Poniżej rezerwy: polecenie powrotu i brakujący czas</span>' },
+];
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const W = 1920, H = 1080, DEG = Math.PI / 180;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const slides = $$('.slide');
+const stage = $('#stage');
+let idx = 0, step = 0, scale = 1;
+
+/* ---------- skalowanie sceny ---------- */
+function fit() {
+  scale = Math.min(innerWidth / W, innerHeight / H);
+  stage.style.setProperty('--s', scale);
+  gl?.resize();
+}
+addEventListener('resize', fit);
+
+/* ---------- nawigacja, chrom ---------- */
+const nav = $('#nav');
+NAV.forEach((name, i) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = name;
+  b.addEventListener('click', (e) => { e.stopPropagation(); go(i); });
+  nav.appendChild(b);
+});
+function chrome() {
+  $$('button', nav).forEach((b, i) => { if (i === idx) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
+  $('#cnum').textContent = String(idx + 1).padStart(2, '0');
+  const s = SPEAKER_OF[idx];
+  $('#speaker').innerHTML = `Mówi <b>${SPEAKERS[s]}</b> · ${TOPIC[idx]}`;
+  renderNotes();
+}
+
+/* ---------- objaśnienia wizjera ---------- */
+(function buildCallouts() {
+  const host = $('#callouts'), w = 1600, h = 662;
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  host.appendChild(svg);
+  for (const c of CALLOUTS) {
+    const ax = c.at[0] * w, ay = c.at[1] * h, bx = c.box[0] * w, by = c.box[1] * h;
+    const div = document.createElement('div');
+    div.className = 'co';
+    div.style.left = bx + 'px'; div.style.top = by + 'px';
+    div.innerHTML = `<small>${c.label}</small>${c.text}`;
+    host.appendChild(div);
+    const ring = document.createElementNS(ns, 'circle');
+    ring.setAttribute('cx', ax); ring.setAttribute('cy', ay); ring.setAttribute('r', 7);
+    const dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('cx', ax); dot.setAttribute('cy', ay); dot.setAttribute('r', 2.2); dot.setAttribute('class', 'c');
+    svg.append(ring, dot);
+    requestAnimationFrame(() => {   // linia do najbliższej krawędzi etykiety
+      const bw = div.offsetWidth, bh = div.offsetHeight;
+      const tx = ax < bx ? bx : ax > bx + bw ? bx + bw : ax;
+      const ty = ay < by ? by : ay > by + bh ? by + bh : by + bh / 2;
+      const len = Math.hypot(tx - ax, ty - ay) || 1;
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', ax + (tx - ax) / len * 7); line.setAttribute('y1', ay + (ty - ay) / len * 7);
+      line.setAttribute('x2', tx); line.setAttribute('y2', ty);
+      svg.appendChild(line);
+    });
+  }
+})();
+
+function setHudStep(s) {
+  $('#hud').classList.toggle('alarm', s === 1);
+  $('#st0').classList.toggle('cur', s === 0);
+  $('#st1').classList.toggle('cur', s === 1);
+}
+
+/* ---------- przejścia ---------- */
+let outTimer = 0;
+function go(i, { atStep = 0, instant = false } = {}) {
+  i = Math.max(0, Math.min(slides.length - 1, i));
+  const prev = idx;
+  if (i !== prev || instant) {
+    slides[prev].classList.remove('on');
+    if (!instant && i !== prev) {
+      slides[prev].classList.add('out');
+      clearTimeout(outTimer);
+      const p = slides[prev];
+      outTimer = setTimeout(() => p.classList.remove('out'), 700);
+    }
+    slides.forEach((s, k) => k !== prev && s.classList.remove('out'));
+    slides[i].classList.add('on');
+    idx = i;
+    gl?.toPose(i, prev, instant);
+  }
+  step = atStep;
+  if (idx === 4) setHudStep(step);
+  chrome();
+  try { history.replaceState(null, '', '#slajd-' + (idx + 1)); } catch { /* adres bez zmian */ }
+}
+const stepsOf = (i) => Number(slides[i].dataset.steps || 1);
+function next() { if (step < stepsOf(idx) - 1) go(idx, { atStep: step + 1 }); else if (idx < slides.length - 1) go(idx + 1); }
+function prev() { if (step > 0) go(idx, { atStep: step - 1 }); else if (idx > 0) go(idx - 1, { atStep: stepsOf(idx - 1) - 1 }); }
+
+/* ---------- panele prowadzącego ---------- */
+const notes = $('#notes'), roles = $('#roles');
+function renderNotes() {
+  if (notes.hidden) return;
+  const s = SPEAKER_OF[idx];
+  notes.innerHTML = `<header><b>Slajd ${idx + 1} / 7 · ${NAV[idx]}</b><span>Mówi ${SPEAKERS[s]}</span><span>ok. ${TIME[idx]}</span><span>N zamyka</span></header>` +
+    NOTES[idx].map((p) => `<p${p.startsWith('→') ? ' class="hand"' : ''}>${p}</p>`).join('');
+}
+function toggleNotes(v = notes.hidden) { notes.hidden = !v; renderNotes(); }
+(function buildRoles() {
+  $('#rolesTable').innerHTML = '<tr><th>Mówca</th><th>Slajdy</th><th>Zakres</th><th>Czas</th></tr>' +
+    ROLES.map((r) => `<tr><td class="who">${SPEAKERS[r.who]}</td><td class="sl">${r.slides}</td><td>${r.topic}</td><td class="tm">${r.time}</td></tr>`).join('');
+})();
+let lastFocus = null;
+function toggleRoles(v = roles.hidden) {
+  if (v) { lastFocus = document.activeElement; roles.hidden = false; $('#rolesClose').focus(); }
+  else { roles.hidden = true; lastFocus?.focus?.(); }
+}
+$('#bNotes').addEventListener('click', (e) => { e.stopPropagation(); toggleNotes(); });
+$('#bRoles').addEventListener('click', (e) => { e.stopPropagation(); toggleRoles(true); });
+$('#rolesClose').addEventListener('click', () => toggleRoles(false));
+roles.addEventListener('click', (e) => { if (e.target === roles) toggleRoles(false); });
+async function toggleFull() {
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else await document.documentElement.requestFullscreen();
+  } catch { /* pełny ekran niedostępny w tym widoku */ }
+}
+$('#bFull').addEventListener('click', (e) => { e.stopPropagation(); toggleFull(); });
+
+addEventListener('keydown', (e) => {
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (!roles.hidden) { if (e.key === 'Escape' || e.key === 'r' || e.key === 'R') { toggleRoles(false); e.preventDefault(); } return; }
+  const k = e.key;
+  if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(k)) { if (k === 'Enter' && e.target.closest?.('button')) return; next(); e.preventDefault(); }
+  else if (['ArrowLeft', 'PageUp', 'Backspace'].includes(k)) { prev(); e.preventDefault(); }
+  else if (k === 'Home') go(0);
+  else if (k === 'End') go(slides.length - 1);
+  else if (k === 'n' || k === 'N') toggleNotes();
+  else if (k === 'r' || k === 'R') toggleRoles(true);
+  else if (k === 'f' || k === 'F') toggleFull();
+  else if (k === 'Escape' && !notes.hidden) toggleNotes(false);
+  else if (/^[1-7]$/.test(k)) go(Number(k) - 1);
+});
+const room = $('#room');
+room.addEventListener('click', (e) => {
+  if (e.target.closest('button, a, nav')) return;
+  const r = stage.getBoundingClientRect();
+  if (e.clientX < r.left + r.width * .25) prev(); else next();
+});
+let touch = null;
+room.addEventListener('touchstart', (e) => { touch = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+room.addEventListener('touchend', (e) => {
+  if (!touch) return;
+  const dx = e.changedTouches[0].clientX - touch.x, dy = e.changedTouches[0].clientY - touch.y;
+  touch = null;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { (dx < 0 ? next : prev)(); }
+});
+
+/* ---------- scena 3D ---------- */
+let gl = null;
+async function loadThree() {
+  try { return await import('../vendor/three/three.module.js'); }       // repozytorium MarSim: three.js 0.160 z vendor/, działa offline
+  catch { return await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js'); }
+}
+async function initGL() {
+  const THREE = await loadThree();
+  const canvas = $('#gl');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const FOV = 16, DIST = 14;
+  const camera = new THREE.PerspectiveCamera(FOV, W / H, .1, 100);
+  camera.position.set(0, 0, DIST);
+  const K = 2 * DIST * Math.tan(FOV / 2 * DEG) / H;    // jednostki świata na piksel sceny w płaszczyźnie z = 0
+  const scene = new THREE.Scene();
+
+  const loader = new THREE.TextureLoader();
+  const map = loader.load('assets/mars.jpg');
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const relief = loader.load('assets/mars-relief.jpg');
+  const mat = new THREE.MeshStandardMaterial({ map, bumpMap: relief, bumpScale: 1.6, roughness: .97, metalness: 0 });
+  const group = new THREE.Group();
+  group.rotation.order = 'ZYX';
+  scene.add(group);
+  const planet = new THREE.Mesh(new THREE.SphereGeometry(1, 192, 128), mat);
+  group.add(planet);
+
+  const atmoMat = new THREE.ShaderMaterial({
+    uniforms: { uSun: { value: new THREE.Vector3(-1, .3, .5) }, uK: { value: 1 } },
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+      vW = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform vec3 uSun; uniform float uK; varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      void main(){ float f = pow(1.0 - max(dot(normalize(vN), normalize(vV)), 0.0), 3.2);
+      float lit = smoothstep(-0.2, 0.55, dot(normalize(vW), normalize(uSun)));
+      vec3 c = vec3(0.98, 0.64, 0.44) * lit + vec3(0.30, 0.36, 0.72) * (1.0 - lit) * 0.42;
+      gl_FragColor = vec4(c * f * uK * 0.85, 1.0); }`,
+    blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
+  });
+  const atmo = new THREE.Mesh(new THREE.SphereGeometry(1.022, 128, 96), atmoMat);
+  group.add(atmo);
+
+  const key = new THREE.DirectionalLight(0xfff1e2, 3.4);
+  const rim = new THREE.DirectionalLight(0x6070c8, 1.1);
+  scene.add(key, rim, new THREE.AmbientLight(0x2a3060, .12));
+
+  /* miejsca misji: kierunek dla szerokości φ i długości λ w układzie sfery three.js */
+  const dirLL = (lat, lon) => new THREE.Vector3(Math.cos(lat * DEG) * Math.cos(lon * DEG), Math.sin(lat * DEG), -Math.cos(lat * DEG) * Math.sin(lon * DEG));
+  const sites = [
+    { el: $('#mk-jezero'), p: new THREE.Object3D() , d: dirLL(18.4447, 77.4508) },
+    { el: $('#mk-gale'), p: new THREE.Object3D(), d: dirLL(-4.6735, 137.3762) },
+  ];
+  for (const s of sites) { s.p.position.copy(s.d).multiplyScalar(1.001); planet.add(s.p); }
+
+  const clone = (p) => JSON.parse(JSON.stringify(p));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const lerpAngle = (a, b, t) => { let d = (b - a) % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return a + d * t; };
+  const ease = (t) => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const mixPose = (a, b, t) => ({
+    x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), r: Math.exp(lerp(Math.log(a.r), Math.log(b.r), t)),
+    tilt: lerp(a.tilt, b.tilt, t), roll: lerp(a.roll, b.roll, t),
+    sun: a.sun.map((v, k) => lerp(v, b.sun[k], t)),
+    disc: { x: lerp(a.disc.x, b.disc.x, t), y: lerp(a.disc.y, b.disc.y, t), r: lerp(a.disc.r, b.disc.r, t), a: lerp(a.disc.a, b.disc.a, t) },
+    ring: { x: lerp(a.ring.x, b.ring.x, t), y: lerp(a.ring.y, b.ring.y, t), r: lerp(a.ring.r, b.ring.r, t), a: lerp(a.ring.a, b.ring.a, t) },
+    mk: lerp(a.mk, b.mk, t), atmo: lerp(a.atmo, b.atmo, t), lum: lerp(a.lum ?? 1, b.lum ?? 1, t),
+  });
+
+  const OMEGA = reduce ? .008 : .032;    // rad/s: pełny obrót ok. 3 min
+  const lockAngle = (lon, time) => -(90 + lon) * DEG + .05 * Math.sin(time * .2);
+  let cur = clone(POSES[0]), tw = null, time = 0, last = performance.now(), spin = -(90 + 40) * DEG, rot = spin;
+  let lonFrom = null, lonTo = POSES[0].lon ?? null, coordT = 0;
+  const disc = $('#disc'), ring = $('#ring'), coords = $('#coords');
+  const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), q = new THREE.Quaternion();
+
+  function toPose(i, from, instant) {
+    lonFrom = POSES[from]?.lon ?? null; lonTo = POSES[i].lon ?? null;
+    spin = rot;
+    if (instant || reduce) { cur = clone(POSES[i]); tw = null; lonFrom = lonTo; return; }
+    tw = { from: clone(cur), to: POSES[i], t0: performance.now(), dur: 1900 };
+  }
+  function resize() {
+    const pr = Math.min(2, Math.max(.5, scale * (devicePixelRatio || 1)));
+    renderer.setPixelRatio(pr);
+    renderer.setSize(W, H, false);
+  }
+  function fmt(v, pos, neg) { return `${Math.abs(v).toFixed(2).replace('.', ',')}° ${v >= 0 ? pos : neg}`; }
+
+  function frame(now) {
+    const dt = Math.min(.05, (now - last) / 1000); last = now; time += dt;
+    let e = 1;
+    if (tw) { const t = Math.min(1, (now - tw.t0) / tw.dur); e = ease(t); cur = mixPose(tw.from, tw.to, e); if (t >= 1) { tw = null; lonFrom = lonTo; } }
+    spin += OMEGA * dt;
+    let lock = 0, target = 0;
+    if (lonFrom != null && lonTo != null) { lock = 1; target = lerpAngle(lockAngle(lonFrom, time), lockAngle(lonTo, time), e); }
+    else if (lonTo != null) { lock = e; target = lockAngle(lonTo, time); }
+    else if (lonFrom != null) { lock = 1 - e; target = lockAngle(lonFrom, time); }
+    rot = lock > 0 ? lerpAngle(spin, target, lock) : spin;
+
+    const rk = cur.r * K, R = rk / Math.sqrt(1 + (rk / DIST) ** 2);   // promień, którego rzut ma cur.r px
+    group.position.set((cur.x - W / 2) * K, (H / 2 - cur.y) * K, 0);
+    group.scale.setScalar(R);
+    group.rotation.set(cur.tilt, 0, cur.roll);
+    planet.rotation.y = rot;
+    const sun = tmp.set(...cur.sun).normalize();
+    key.position.copy(sun).multiplyScalar(10);
+    rim.position.set(-sun.x, -sun.y * .4, -.85).normalize().multiplyScalar(10);
+    atmoMat.uniforms.uSun.value.copy(sun);
+    atmoMat.uniforms.uK.value = cur.atmo;
+    mat.color.setScalar(cur.lum ?? 1);
+    mat.bumpScale = 1.6 * Math.min(1, 460 / cur.r);    // przy dużym powiększeniu słabsza rzeźba: bez pikselizacji tekstury
+
+    disc.style.transform = `translate(${cur.disc.x - cur.disc.r}px,${cur.disc.y - cur.disc.r}px)`;
+    disc.style.width = disc.style.height = 2 * cur.disc.r + 'px';
+    disc.style.opacity = cur.disc.a.toFixed(3);
+    ring.style.transform = `translate(${cur.ring.x - cur.ring.r}px,${cur.ring.y - cur.ring.r}px)`;
+    ring.style.width = ring.style.height = 2 * cur.ring.r + 'px';
+    ring.style.opacity = cur.ring.a.toFixed(3);
+
+    group.updateMatrixWorld(true);
+    for (const s of sites) {
+      s.p.getWorldPosition(tmp2);
+      const facing = tmp.copy(tmp2).sub(group.position).normalize().dot(tmp.clone().copy(camera.position).sub(tmp2).normalize());
+      const o = Math.max(0, Math.min(1, (facing - .12) / .25)) * cur.mk;
+      tmp2.project(camera);
+      s.el.style.transform = `translate(${(tmp2.x + 1) / 2 * W}px,${(1 - tmp2.y) / 2 * H}px)`;
+      s.el.style.opacity = o.toFixed(3);
+    }
+    coordT -= dt;
+    if (coordT <= 0) {   // punkt Marsa zwrócony do widza
+      coordT = .12;
+      planet.getWorldQuaternion(q);
+      const d = tmp.copy(camera.position).sub(group.position).normalize().applyQuaternion(q.invert());
+      const lat = Math.asin(Math.max(-1, Math.min(1, d.y))) / DEG;
+      let lon = Math.atan2(-d.z, d.x) / DEG;
+      coords.textContent = `${fmt(lat, 'N', 'S')} · ${fmt(lon, 'E', 'W')}`;
+    }
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  resize();
+  requestAnimationFrame(frame);
+  return { toPose, resize };
+}
+
+/* ---------- start ---------- */
+const fromHash = /^#slajd-([1-7])$/.exec(location.hash);
+fit();
+idx = fromHash ? Number(fromHash[1]) - 1 : 0;
+slides[idx].classList.add('on');
+if (idx === 4) setHudStep(0);
+chrome();
+initGL().then((g) => { gl = g; gl.toPose(idx, idx, true); fit(); })
+  .catch((err) => { console.warn('Scena 3D niedostępna:', err); $('#coords').textContent = 'model 3D niedostępny'; });
+addEventListener('hashchange', () => { const m = /^#slajd-([1-7])$/.exec(location.hash); if (m && Number(m[1]) - 1 !== idx) go(Number(m[1]) - 1); });
+</script>
+</body>
+</html>
