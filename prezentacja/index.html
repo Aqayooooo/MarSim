@@ -60,7 +60,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 /* aureola i orbita: warstwa DOM pod przezroczystym płótnem WebGL */
 .halo{position:absolute;left:0;top:0;border-radius:50%;pointer-events:none;will-change:transform,opacity}
-#disc{background:var(--bone)}
+/* poświata za planetą: samo światło, bez twardej tarczy (pełny krąg wyglądał jak słońce) */
+#disc{background:radial-gradient(circle,rgba(242,240,236,.42) 0%,rgba(242,240,236,.2) 30%,rgba(242,240,236,.07) 55%,rgba(242,240,236,0) 72%);filter:blur(18px)}
 #ring{border:1px solid var(--bone)}
 #gl{position:absolute;left:0;top:0;width:1920px;height:1080px;display:block}
 
