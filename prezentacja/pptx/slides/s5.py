@@ -83,7 +83,7 @@ def _callout(s, c, text, step):
         s.ellipse(ax, ay, 2.2, fill=BONE, name=f"{name} – punkt")
 
     with step("fade", delay=_at(6)):
-        s.rect(bx, by, bw, bh, fill=INK, alpha=.78, name=f"{name} – tło")
+        s.rect(bx, by, bw, bh, fill=INK, alpha=.5, name=f"{name} – tło")
         s.line(bx, by, bx, by + bh, BONE, 1, name=f"{name} – krawędź")
         s.text(bx + PAD_X, by + PAD_Y, inner_w, lb_h, c["label"], size=LB_SIZE, color=BONE3, upper=True,
                spacing=LB_SPACING, name=f"{name} – etykieta")
