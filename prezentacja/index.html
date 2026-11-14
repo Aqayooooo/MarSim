@@ -287,11 +287,11 @@ h1 em,h2 em{font-style:italic}
     <section class="slide" data-i="4" data-steps="2" aria-label="Wizjer">
       <p class="blk kicker rv" style="left:128px;top:118px;--d:0">Wizjer hełmu</p>
       <h2 class="blk rv" style="left:128px;top:150px;width:1000px;font-size:72px;--d:1">Wizjer pokazuje tylko<br><em>to, co ważne teraz</em></h2>
-      <p class="blk body rv" style="left:1180px;top:150px;width:380px;font-size:18px;--d:2">Dane skafandra liczy serwer misji. Panel pokazuje zawsze osobę w&nbsp;najgorszym stanie, bo załoga wraca razem.</p>
+      <p class="blk body rv" style="left:1180px;top:150px;width:380px;font-size:18px;--d:2">Dane skafandra liczy serwer misji. Wizjer pokazuje zawsze osobę w&nbsp;najgorszym stanie, bo załoga wraca razem.</p>
       <div class="blk state rv" style="left:1180px;top:270px;--d:3" aria-live="polite"><span class="cur" id="st0">1 · W normie</span><span id="st1">2 · Alarm tlenu</span></div>
       <div class="shot hud" id="hud" style="left:128px;top:318px;width:1600px;height:662px;--d:1">
-        <img src="assets/hud.jpg" alt="Widok z hełmu w MarSim: kurs, odległość do WP2, łazik na horyzoncie, panel stanu skafandra z parametrami w normie" width="2000" height="827">
-        <img class="alarm" src="assets/hud-alarm.jpg" alt="Ten sam widok w stanie alarmu: Tlen, rozpocznij powrót, brakuje 8 minut" width="2000" height="827">
+        <img src="assets/hud.jpg" alt="Widok z hełmu w MarSim: kurs, odległość do WP2 z przyciskami teleportu, łazik na trasie, tlen i energia w normie" width="2000" height="826">
+        <img class="alarm" src="assets/hud-alarm.jpg" alt="Ten sam widok w stanie alarmu: wizjer w barwie alarmowej, tlen 18%, energia 22%" width="2000" height="826">
       </div>
       <div class="callouts rv" id="callouts" style="inset:auto;left:128px;top:318px;width:1600px;height:662px;--d:5"></div>
     </section>
@@ -380,9 +380,9 @@ const NOTES = [
    'Zakazane są zbocza, których nachylenie z marginesem dwóch sigma przekracza 25 stopni, i piasek o prawdopodobieństwie powyżej 0,6. Głazy omijamy o 6 metrów.',
    'Trasa A w Jezero ma 1,22 kilometra i zajmuje 75 minut z dwoma postojami. Największe nachylenie to 7,6 stopnia, plus minus 1,5. Zużycie tlenu szacujemy na 92 litry, w przedziale od 62 do 120. Na mapie widać też schron w zasięgu 15 minut. Funkcja Porównaj trasy pokazuje, dlaczego wybrano tę drogę zamiast linii prostej.',
    '→ Jak to wygląda z perspektywy astronauty, pokaże ' + SPEAKERS[2] + '.'],
-  ['Tak wygląda MarSim w hełmie. Wizjer pokazuje tylko to, czego astronauta potrzebuje w tej chwili. Na górze kurs, po lewej odległość do następnego punktu trasy, a trasa jest narysowana na gruncie. Na horyzoncie widać łazik.',
-   'Panel po prawej podsumowuje tlen, energię, ciśnienie skafandra i zapas na powrót. Pokazuje zawsze osobę w najgorszym stanie, bo załoga wraca razem. Teraz wszystko jest w normie.',
-   '[Kliknij: stan 2] Gdy tlenu jest mniej niż rezerwa misji, panel zmienia się w polecenie: rozpocznij powrót, i podaje, ilu minut brakuje. Wszystko to liczy serwer misji, więc wizjer pokazuje te same liczby co konsola w habitacie.'],
+  ['Tak wygląda MarSim w hełmie. Wizjer pokazuje tylko to, czego astronauta potrzebuje w tej chwili. Na górze kurs, po lewej odległość do następnego punktu trasy i przyciski teleportu, a trasa jest narysowana na gruncie. Na trasie stoi łazik.',
+   'Po prawej tlen i energia. Wizjer pokazuje zawsze osobę w najgorszym stanie, bo załoga wraca razem. Teraz wszystko jest w normie.',
+   '[Kliknij: stan 2] Gdy tlenu jest mniej niż rezerwa misji, cały wizjer zmienia barwę na alarmową, a paski pokazują, ile zostało tlenu i energii. Wszystko to liczy serwer misji, więc wizjer pokazuje te same liczby co konsola w habitacie.'],
   ['Astronauta nie jest sam. W tym samym planie jest łazik ciśnieniowy i habitat. Łazik wzorowaliśmy na koncepcji NASA Space Exploration Vehicle: kabina 4,5 na 3 metry, dwanaście kół i dwie śluzy skafandrów z tyłu. Służy jako schron i przekaźnik łączności.',
    'Habitat ma atmosferę eksploracyjną NASA: 56,5 kilopaskala i 34 procent tlenu, co skraca przygotowanie do wyjścia. Są w nim moduł dzienny, kajuty, laboratorium, szklarnia i MOXIE, czyli wytwarzanie tlenu z dwutlenku węgla. Panel habitatu liczy baterię, zbiornik tlenu i bilans mocy razem z zegarem misji.',
    '→ Na ile to jest gotowe do użycia, powie ' + SPEAKERS[3] + '.'],
@@ -405,10 +405,10 @@ const POSES = [
 /* objaśnienia na zrzucie wizjera (ułamki szerokości i wysokości obrazu) */
 const CALLOUTS = [
   { at: [.5, .143], box: [.555, .05], label: 'Kurs', text: 'Kurs i pas horyzontu' },
-  { at: [.172, .41], box: [.035, .52], label: 'Nawigacja', text: 'Odległość do punktu trasy' },
-  { at: [.562, .447], box: [.6, .25], label: 'Łazik', text: 'Schron i przekaźnik w zasięgu wzroku' },
+  { at: [.16, .385], box: [.035, .52], label: 'Nawigacja', text: 'Odległość do punktu trasy i&nbsp;teleport' },
+  { at: [.57, .47], box: [.6, .25], label: 'Łazik', text: 'Schron i przekaźnik w zasięgu wzroku' },
   { at: [.55, .72], box: [.28, .82], label: 'Trasa', text: 'Bezpieczna trasa na gruncie' },
-  { at: [.68, .5], box: [.42, .5], label: 'Stan skafandra', text: '<span class="norm">Osoba w najgorszym stanie: tlen, energia, ciśnienie</span><span class="alt">Poniżej rezerwy: polecenie powrotu i brakujący czas</span>' },
+  { at: [.767, .686], box: [.72, .5], label: 'Stan skafandra', text: '<span class="norm">Osoba w najgorszym stanie: tlen i&nbsp;energia</span><span class="alt">Poniżej rezerwy: cały wizjer w&nbsp;barwie alarmowej</span>' },
 ];
 
 const $ = (s, r = document) => r.querySelector(s);
