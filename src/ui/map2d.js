@@ -10,6 +10,8 @@ export const ALT_COLORS = { chosen: ROUTE, straight: '#FF5A4A', shortest: '#FFA9
 // krycie warstwy, gdy nie jest bieżąca (wyróżniona): zgodnie z obrazem końcowym z nagrania
 const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, rover: 1, geology: 0.6, boxwork: 0.7, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
+export const WP_HIT_PX = 14;             // promień chwytania punktu (wspólny z edytorem punktów, wpEditor.js)
+const NOT_FORWARDED = 'input, button, select, textarea, a, label, summary, [contenteditable]';
 
 /** Piksel k obrazu RGBA — bez tworzenia tablicy dla każdego piksela (warstwy mają po 150–600 tys. pikseli). */
 function px(d, k, r, g, b, a) { const o = k * 4; d[o] = r; d[o + 1] = g; d[o + 2] = b; d[o + 3] = a; }
@@ -49,6 +51,49 @@ export class Map2D {
       if (stop) app.emit('rover-click', stop);
     });
     app.on('rover-stop', (s) => { this.selStop = s; });
+    this.#markersAbovePanels();
+  }
+
+  /** Punkt trasy (indeks) pod punktem ekranu — w promieniu chwytania — albo -1. */
+  #wpAt(clientX, clientY) {
+    const r = this.c.getBoundingClientRect(), f = r.width / MAIN_W;
+    return this.app.m.waypoints.findIndex((w) => Math.hypot(r.left + this.sx(w.x) * f - clientX, r.top + this.sy(w.y) * f - clientY) < WP_HIT_PX * f);
+  }
+
+  // Edycja punktów: wciśnięcie na niezaktywnej części panelu (edytor, karta trasy, alert…) nad punktem trasy
+  // trafia do mapy, więc punkt da się chwycić i przeciągnąć mimo zasłony. Przyciski i pola panelu działają normalnie.
+  #markersAbovePanels() {
+    const main = this.c.parentElement;
+    main?.addEventListener('pointerdown', (e) => {
+      if (!this.app.state.wpEdit || this.app.state.view !== 'map' || e.target === this.c || e.button !== 0) return;
+      if (e.target.closest(NOT_FORWARDED) || e.target.closest('.pane') || this.#wpAt(e.clientX, e.clientY) < 0) return;
+      e.preventDefault();                // bez zaznaczania tekstu panelu
+      e.stopPropagation();
+      this.c.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerId: e.pointerId, pointerType: e.pointerType,
+        isPrimary: e.isPrimary, clientX: e.clientX, clientY: e.clientY, screenX: e.screenX, screenY: e.screenY, button: e.button, buttons: e.buttons }));
+    }, true);
+    addEventListener('pointerdown', () => { this.pressed = true; }, true);
+    addEventListener('pointerup', () => { this.pressed = false; }, true);
+    addEventListener('pointercancel', () => { this.pressed = false; }, true);
+  }
+
+  // Edytor punktów nie powinien zasłaniać punktów: gdy któryś leży pod nim, a w lustrzanym położeniu przy dolnej
+  // krawędzi mapy (klasa .low w styles.css) byłby odsłonięty, edytor przechodzi na dół (i z powrotem).
+  #placeEditor() {
+    const ed = document.getElementById('wpEditor');
+    if (!ed || ed.hidden || this.pressed) return;          // nie przeskakuje w trakcie przeciągania
+    const m = this.c.parentElement.getBoundingClientRect(), r = ed.getBoundingClientRect(), c = this.c.getBoundingClientRect();
+    if (!r.width) return;
+    const f = c.width / MAIN_W, pad = WP_HIT_PX * f;
+    const pts = this.app.m.waypoints.map((w) => [c.left + this.sx(w.x) * f, c.top + this.sy(w.y) * f]);
+    const covers = (top, bottom) => pts.some(([x, y]) => x > r.left - pad && x < r.right + pad && y > top - pad && y < bottom + pad);
+    const otherTop = m.top + m.bottom - r.bottom, otherBottom = m.top + m.bottom - r.top;
+    const low = ed.classList.contains('low');
+    // na dole nie może przykryć otwartego profilu trasy
+    const pf = document.getElementById('profile'), pr = pf && !pf.hidden ? pf.getBoundingClientRect() : null;
+    const blocked = !low && pr && pr.width && otherBottom > pr.top && otherTop < pr.bottom && r.left < pr.right && r.right > pr.left;
+    if (covers(r.top, r.bottom) && !covers(otherTop, otherBottom) && !blocked) ed.classList.toggle('low', !low);
+    else if (low && pr?.width) ed.classList.remove('low');
   }
 
   /** Punkt terenu (m) pod kursorem albo null poza obszarem. */
@@ -269,6 +314,7 @@ export class Map2D {
     this.#trail();
     this.#pick();
     this.#markers(now);
+    if (st.wpEdit) this.#placeEditor();
   }
 
   // własna trasa (◎ Wyznacz trasę): start, cel i ścieżka z algorytmu Dijkstry
@@ -320,6 +366,8 @@ export class Map2D {
 
   #thermal(a) {
     if (a <= 0) return;
+    // komórki w prawdziwym zasięgu siatki z mission.json (width × cellM od lewego górnego rogu, jak siatka THEMIS 100 m
+    // w backend/pipeline/grid.py): 14 × 100 m = 1400 m, więc przy prawej krawędzi mapy 1440 m zostaje pas bez danych
     const R = this.app.world.rasters.thermal, ctx = this.ctx, c = R.cellM * this.ps;
     ctx.globalAlpha = a * 0.5;
     for (let j = 0; j < R.height; j++) for (let i = 0; i < R.width; i++) {
@@ -332,7 +380,7 @@ export class Map2D {
 
   #minerals(a) {
     if (a <= 0) return;
-    const R = this.app.world.rasters.minerals, ctx = this.ctx, c = R.cellM * this.ps, cls = R.meta.classes;
+    const R = this.app.world.rasters.minerals, ctx = this.ctx, c = R.cellM * this.ps, cls = R.meta.classes;   // zasięg jak w #thermal: 53 × 18 m = 954 m
     for (let j = 0; j < R.height; j++) for (let i = 0; i < R.width; i++) {
       const v = R.data[j * R.width + i];
       if (!v) continue;

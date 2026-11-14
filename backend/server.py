@@ -69,11 +69,25 @@ class Waypoint(Point):
     stopMin: float = Field(default=0, ge=0, le=600)
 
 
+MAX_WAYPOINTS = 8  # tyle punktów pozwala dodać interfejs (src/ui/wpEditor.js) i opisuje README
+
+
 class PlanRequest(Strict):
     start: Point | None = None
-    waypoints: list[Waypoint] | None = Field(default=None, min_length=1, max_length=20)
+    waypoints: list[Waypoint] | None = Field(default=None, min_length=1, max_length=MAX_WAYPOINTS)
     letter: str = Field(default="A", pattern=r"^[A-Z]$")
-    obstacles: list[dict] | None = None  # przeszkody zna backend sam (zgłoszenia); pole akceptowane dla zgodności z UI
+    # Pole celowo przyjmowane i POMIJANE: backend wyznacza trasę wokół własnych przeszkód (zgłoszenia z terenu
+    # zapisane w silniku), a nie wokół listy od klienta. Zostaje tylko dla zgodności z zapytaniami interfejsu.
+    obstacles: list[dict] | None = None
+
+    @field_validator("waypoints")
+    @classmethod
+    def _unique_ids(cls, waypoints: list[Waypoint] | None) -> list[Waypoint] | None:
+        ids = [w.id for w in waypoints or []]
+        repeated = sorted({i for i in ids if ids.count(i) > 1})
+        if repeated:
+            raise ValueError(f"powtórzony identyfikator punktu: {', '.join(repeated)}")
+        return waypoints
 
 
 class EvaStart(Strict):
@@ -114,7 +128,7 @@ class LinkMessage(Strict):
 
 class ScheduleItem(Strict):
     id: str = Field(min_length=1, max_length=20, pattern=r"^[\w\-]+$")
-    sol: int = Field(ge=0, le=100000)
+    sol: int = Field(ge=1, le=100000)
     startLtst: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     durationH: float = Field(gt=0, le=12)
     crew: list[str] = Field(min_length=1, max_length=8)
@@ -136,11 +150,33 @@ def _err(status: int, msg: str) -> JSONResponse:
     return JSONResponse({"ok": False, "error": msg}, status_code=status)
 
 
-def _validation_text(exc: RequestValidationError) -> str:
+# Czytelne opisy błędów pól harmonogramu (formularz „Plan wyjść”) zamiast surowego tekstu pydantic z wyrażeniami regularnymi.
+SCHEDULE_FIELD_TEXT = {
+    "id": "identyfikator: 1–20 znaków, tylko litery, cyfry, „-” i „_”",
+    "sol": "numer solu od 1 do 100000",
+    "startLtst": "godzina startu w formacie GG:MM (00:00–23:59)",
+    "durationH": "czas trwania większy od 0 i najwyżej 12 h",
+    "crew": "wybierz od 1 do 8 osób",
+    "purpose": "cel najwyżej 200 znaków",
+}
+
+
+def _validation_text(exc: RequestValidationError, fields: dict[str, str] | None = None) -> str:
+    """fields: opisy pól po polsku dla danego formularza; bez nich — komunikat walidatora."""
     parts = []
     for e in exc.errors():
-        loc = ".".join(str(x) for x in e.get("loc", []) if x != "body")
-        parts.append(f"{loc or 'treść'}: {e.get('msg', 'błędna wartość')}")
+        path = [str(x) for x in e.get("loc", []) if x != "body"]
+        loc = ".".join(path)
+        kind, msg = e.get("type", ""), str(e.get("msg", "błędna wartość"))
+        if kind == "value_error":  # własne walidatory mają już polski opis
+            msg = msg.removeprefix("Value error, ")
+        elif fields is not None and kind == "extra_forbidden":
+            msg = "nieznane pole"
+        elif fields is not None and kind == "missing":
+            msg = "pole wymagane"
+        elif fields is not None and path and path[0] in fields:
+            msg = fields[path[0]]
+        parts.append(f"{loc or 'treść'}: {msg}")
     return "Błędne dane zapytania — " + "; ".join(parts)
 
 
@@ -226,8 +262,9 @@ def create_app(
         return response
 
     @app.exception_handler(RequestValidationError)
-    async def bad_request(_request: Request, exc: RequestValidationError):
-        return _err(422, _validation_text(exc))
+    async def bad_request(request: Request, exc: RequestValidationError):
+        fields = SCHEDULE_FIELD_TEXT if request.url.path.startswith("/api/schedule") else None
+        return _err(422, _validation_text(exc, fields))
 
     @app.exception_handler(StarletteHTTPException)
     async def http_error(_request: Request, exc: StarletteHTTPException):
@@ -518,7 +555,9 @@ def create_app(
     def get_report():
         eng = active()
         with eng.lock:
-            return report.build(eng)
+            result = report.build(eng)
+        # bez trasy 409, tak jak /api/sensitivity i inne zapytania wymagające trasy (treść bez zmian)
+        return result if result["ok"] else JSONResponse(result, status_code=409)
 
     @app.get("/api/provenance", tags=["Raport"])
     def provenance():

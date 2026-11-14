@@ -38,6 +38,8 @@ export class Sim {
     this.firedAt = {};
     this.route = null;
     this.warned = new Set();                    // alarmy tlenu już zgłoszone w tej sesji
+    this.o2Reserve = false;                     // najsłabsza osoba zeszła do rezerwy O₂ (raz na sesję: automatyczny powrót)
+    this.aborted = false;                       // tlen się skończył: wyjście przerwane, bez wznowienia
   }
 
   setRoute(route) { this.route = route; }
@@ -82,12 +84,26 @@ export class Sim {
 
   /** Krok symulacji; dtReal w sekundach. */
   step(dtReal) {
-    if (!this.running) return;
+    if (!this.running || this.aborted) return;
     const dMin = dtReal * this.timeScale / 60;
     this.min += dMin;
     const f = this.sep ? this.m.eva.sepO2Factor : 1;
     for (const c of this.crew) c.o2 = Math.max(0, c.o2 - c.o2RatePctH / 60 * dMin * f);
-    if (this.route) this.#checkOxygen();
+    if (this.route) {
+      this.#checkOxygen();
+      // stan końcowy: rezerwa poza powrotem → automatyczny powrót (app.js); 0% → wyjście przerwane
+      const low = Math.min(...this.crew.map((c) => c.o2));
+      if (low <= 0) {
+        this.running = false;
+        this.aborted = true;
+        this.hooks.onO2Out?.(this.crew.filter((c) => c.o2 <= 0).map((c) => c.id));
+        return;
+      }
+      if (low <= this.m.eva.o2ReservePct && !this.returning && !this.o2Reserve) {
+        this.o2Reserve = true;
+        this.hooks.onO2Reserve?.();
+      }
+    }
 
     const r = this.route;
     if (r) {

@@ -57,13 +57,12 @@ Nazwy plików są dowolne: UI bierze je z `mission.json`.
 
 `view.source` może być `"render"` (UI renderuje widok z modelu terenu) albo, w przyszłości, adresem zdjęcia (np. Mastcam).
 
-## Plan trasy: `POST {api}/plan`
+## Plan trasy: `POST /api/plan`
 
 UI w trybie `?api=…` wysyła:
 
 ```json
-{ "missionId": "eva-1",
-  "start": { "x": 350, "y": 720 },
+{ "start": { "x": 350, "y": 720 },
   "waypoints": [ { "id": "WP1", "x": 560, "y": 470, "stopMin": 15 }, { "id": "WP2", "x": 985, "y": 180, "stopMin": 15 } ],
   "obstacles": [ { "x": 700, "y": 300, "radiusM": 55 } ] }
 ```
@@ -81,14 +80,17 @@ Backend odpowiada:
 - `path` zaczyna się dokładnie w `start` i przechodzi dokładnie przez każdy punkt WP; `waypointIndex[i]` to indeks WP nr i w `path`.
 - `expanded` (opcjonalnie): próbka odwiedzonych komórek w kolejności przeszukiwania, do animacji kropek.
 - Przy braku trasy: `{ "ok": false, "error": "Brak bezpiecznego przejścia do WP2" }`.
+- `waypoints`: najwyżej 8 punktów, każdy z innym `id` (więcej albo powtórzone `id` — 422).
+- `obstacles` jest przyjmowane dla zgodności z UI, ale backend je pomija: planuje wokół przeszkód zgłoszonych przez `POST /api/observations`.
+- Każdy plan ma `o2Budget: { needL, returnL, usableL, reservePct, ok, reason? }`: potrzeba O₂ na trasę z postojami i powrót z ostatniego punktu do habitatu kontra zapas ponad rezerwę (najmniejsza pojemność skafandra × (1 − `o2ReservePct`/100)). Gdy `ok` jest `false`: `rating: "niebezpieczna"`, a `ratingReason` = `o2Budget.reason`. Odpowiedź to nadal 200 (plan jest oznaczony, nie odrzucony), ale `POST /api/eva/start` takiego planu nie uruchamia (409). Ten sam kontrakt daje planer w trybie bez serwera.
 
 W trybie plikowym tę samą odpowiedź daje `src/data/mockPlanner.js` (A* na siatce zagrożeń i nachylenia).
 
 ## Tryby uruchomienia UI
 
-- `http://localhost:5173/`: dane z `data/demo/`.
+- `http://localhost:5173/`: domyślny obszar z `data/missions/index.json` (`default`, dziś `mount-sharp`); bez tego pliku `data/demo/`.
 - `?data=data/inna-misja`: inny katalog z plikami w tym formacie (np. wynik backendu zapisany na dysk).
-- `?api=http://localhost:8000`: pliki z `{api}/missions/current/…`, trasa z `POST {api}/plan`.
+- `?api=http://localhost:8000`: pliki z `/missions/current/…`, trasa z `POST /api/plan`.
 - `?demo`: automatyczny start prezentacji.
 
 ## Wersja 2 (prawdziwe dane, backend)
@@ -108,16 +110,23 @@ API backendu (`python backend/server.py`, port 8000):
 | Metoda i ścieżka | Co robi |
 | --- | --- |
 | `GET /api/health` | wykrycie backendu przez UI |
-| `GET /missions/current/{plik}` | pliki misji |
+| `GET /api/missions` | lista zbudowanych misji (`id`, `title`, `label`, `center`, `active`) i `active` |
+| `POST /api/missions/select` | `{ "id": "jezero" }` przełącza aktywną misję (poprzednia zostaje wstrzymana); nieznana — 404 |
+| `GET /missions/current/{plik}`, `GET /missions/{mission_id}/{plik}` | pliki misji (także podkatalogi, np. `photos/…`); `current` — aktywna misja, bez pamięci podręcznej; wskazana misja — z ETag (304); brak — 404 |
 | `POST /api/plan` | trasa (A* po koszcie O₂ z nachyleniem + 2σ, piaskiem, głazami, zgłoszeniami); tylko przed startem EVA, w trakcie i po zakończeniu — 409 |
 | `GET /api/route` | aktualna trasa, odrzucone odcinki i lista punktów (`waypoints`) bieżącego planu |
 | `GET /api/sensitivity` | „co jeśli”: trasa planu przy limitach nachylenia 20–30° (`variants`: limit, długość, czas, tlen, ścieżka albo błąd) oraz `interval` — przedział tlenu i czasu (nachylenie 0σ–3σ, model wysiłku ±20%, prędkość ±15%); bez trasy — 409 |
 | `GET /api/stream` (SSE) / `GET /api/state` | stan EVA 4×/s: zegar, załoga (pozycja + elipsa błędu, O₂, CO₂, bateria, ciśnienie, tętno, dawka, granica powrotu), łazik, środowisko, alerty, trasy awaryjne, łącze z Ziemią. `phase`: idle, walking, stop, atTarget, returning, done; `paused`: `true`, gdy rozpoczęte i niezakończone wyjście jest wstrzymane (`phase` pokazuje wtedy fazę sprzed pauzy); `gap`: odstęp EV2 za EV1 w metrach (w punkcie trasy maleje do 0 — punkt jest osiągnięty, gdy dojdzie ostatnia osoba) |
-| `POST /api/eva/{start,pause,reset,timescale,inject}` | sterowanie EVA; `inject`: `boulders`, `sep`, `sep-end`, `link-outage` |
+| `POST /api/eva/{start,pause,reset,timescale,inject}` | sterowanie EVA; `inject`: `boulders`, `sep`, `sep-end`, `link-outage`; `start` odrzuca plan ponad zapas tlenu — 409 |
+| `POST /api/eva/return` | powrót do habitatu od bieżącej pozycji załogi, po dojściu do śluzy EVA się kończy; gdy się nie da — 409 |
 | `POST /api/telemetry` | wejście z prawdziwego skafandra (wyłącza model dla tej osoby); `o2L` ponad pojemność butli — 422 |
-| `GET/POST /api/observations` | zgłoszenia z terenu (załoga, łazik, dron) — zmieniają mapę i trasę |
+| `GET/POST /api/observations` | zgłoszenia z terenu (załoga, łazik, dron) — zmieniają mapę i trasę; `bezpieczne` przelicza trasę (gdy nowa jest lepsza) i usuwa zgłoszone przeszkody, na które zachodzi; odpowiedź: `{ observation, replanned, route, removedObstacles }`. Zgłoszona przeszkoda nigdy nie odcina załogi ani habitatu: obszar, w którym stoją, jest przejezdny z kosztem ×10 |
+| `GET /api/observations/history?limit=200` | zapisane zgłoszenia ze wszystkich sesji (SQLite) |
+| `GET /api/log?limit=100&session=N` | dziennik zdarzeń (`session`, `events`) |
+| `GET /api/log/verify` | sprawdzenie łańcucha SHA-256 dziennika: `ok`, `checked`, `legacy`, `brokenAt`, `head` |
+| `GET /api/log/export?session=N` | dziennik (albo jedna sesja) jako CSV |
 | `GET /api/spaceweather` | NASA DONKI + NOAA SWPC (z buforem na brak sieci) |
 | `GET /api/link`, `POST /api/link/send` | kolejka DTN do Ziemi z opóźnieniem z położeń planet |
 | `GET/POST/PUT/DELETE /api/schedule` | harmonogram wyjść, zapasy, odpoczynek, światło dzienne; pierwsze wyjście na sol misji ustala godzinę startu i załogę EVA po resecie |
-| `GET /api/report` | analiza zagrożeń, ryzyka i skuteczności + skrót danych źródłowych; pole `uncertainty` — przedział tlenu i czasu trasy |
+| `GET /api/report` | analiza zagrożeń, ryzyka i skuteczności + skrót danych źródłowych; pole `uncertainty` — przedział tlenu i czasu trasy; bez trasy — 409 |
 | `GET /api/provenance` | pełne pochodzenie danych |

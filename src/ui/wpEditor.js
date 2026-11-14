@@ -3,10 +3,17 @@
 import { $, esc } from '../core/dom.js';
 import { t, tx } from '../i18n.js';
 import { hm, int, km } from '../core/format.js';
-import { MAIN_W, MAIN_H } from './map2d.js';
+import { MAIN_W, MAIN_H, WP_HIT_PX } from './map2d.js';
 
 export const MAX_WAYPOINTS = 8;
-const HIT_PX = 14, REPLAN_MS = 220, NEW_STOP_MIN = 10;
+const HIT_PX = WP_HIT_PX, REPLAN_MS = 220, NEW_STOP_MIN = 10;
+
+// Trasa przekraczająca bilans tlenu (albo bez drogi powrotnej): powód pod podsumowaniem, zanim ktoś naciśnie Start.
+function unsafeWhy(r) {
+  if (r.rating !== 'niebezpieczna' && r.o2Budget?.ok !== false) return '';
+  const why = r.ratingReason || r.o2Budget?.reason;
+  return why ? `<br><span class="warn">⚠ ${esc(tx(why))}</span>` : '';
+}
 
 export class WaypointEditor {
   constructor(app, map, { picker }) {
@@ -150,7 +157,7 @@ export class WaypointEditor {
     }).join('');
     const sum = this.status === 'busy' ? `<span class="muted">${t('wpe.busy')}</span>`
       : this.status === 'fail' ? `<span class="warn">${esc(tx(app.lastPlanError || t('noRoute')))}</span>`
-        : r ? `${t('wpe.sum')} ${[km(r.lengthM), hm(r.durationH), r.o2L == null ? null : `${int(r.o2L)} L O₂`, esc(tx(r.rating))].filter(Boolean).join(' · ')}` : '';
+        : r ? `${t('wpe.sum')} ${[km(r.lengthM), hm(r.durationH), r.o2L == null ? null : `${int(r.o2L)} L O₂`, esc(tx(r.rating))].filter(Boolean).join(' · ')}${unsafeWhy(r)}` : '';
     this.card.innerHTML = `<b>${t('wpe.title')}</b><p class="muted">${t('wpe.hint', { n: MAX_WAYPOINTS })}</p>
       <div class="wpe-list">${rows}</div><p class="wpe-sum" role="status">${sum}</p>
       <div class="pc-row"><button class="btn" data-a="reset" ${app.waypointsCustom ? '' : 'disabled'}>${t('wpe.reset')}</button>

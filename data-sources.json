@@ -294,7 +294,7 @@
       },
       "url": "https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=msl:mission",
       "access": "downloaded at build time, clipped to the area",
-      "bytes": 4025473,
+      "bytes": 10988854,
       "credit": "NASA/JPL-Caltech"
     },
     {

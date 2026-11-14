@@ -6,8 +6,10 @@
 .pytest_cache
 data/raw
 data/*.db
+data/cache
 backend/cache
 backend/config/paths.local.json
 node_modules
+mobile
 
 backend/tests

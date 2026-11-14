@@ -14,7 +14,7 @@ Wersja online (bez serwera): https://aqayooooo.github.io/MarSim/
 - Warstwy z danych NASA: HiRISE (model wysokości 1 m, zdjęcia 0,25 m), CTX, THEMIS, MOLA, CRISM, pogoda kosmiczna z DONKI i NOAA SWPC. Lista wszystkich plików z sumami SHA-256 jest w [data-sources.json](data-sources.json).
 - Trasa liczona algorytmem A* po mapie kosztu tlenu. Limit nachylenia to 25° (z marginesem na niepewność modelu terenu), rezerwa tlenu 20%.
 - Symulacja wyjścia na żywo: pozycja załogi, tlen, zapas na powrót, zgłoszenia przeszkód z terenu (trasa się przelicza), burza słoneczna.
-- Prawdziwe trasy łazików: Curiosity w Gale (sole 956–1262) i na boxwork (sole 4507–4837, 2025–2026) oraz Perseverance w Jezero (sole 13–382), z postojami i zdjęciami z Navcam.
+- Prawdziwe trasy łazików: Curiosity w Gale (sole 950–1282) i na boxwork (sole 4507–4837, 2025–2026) oraz Perseverance w Jezero (sole 13–383), z postojami i zdjęciami z Navcam.
 - Cel naukowy na trasie: w obszarze boxwork warstwa grzbietów i pól boxwork liczona z modelu wysokości HiRISE (ślady dawnej wody gruntowej), punkty EVA przy grzbietach.
 - Widok 3D i widok z hełmu, po którym można chodzić, wejść do habitatu i pojechać łazikiem.
 - PL i EN, działa na telefonie, po instalacji także bez internetu.
@@ -92,6 +92,7 @@ python -m backend.pipeline.rover_track <obszar>    # trasa łazika NASA
 python -m backend.pipeline.rover_photos <obszar>   # zdjęcia Navcam z postojów
 python -m backend.pipeline.geology                 # tylko jezero
 python -m backend.pipeline.boxwork                 # tylko boxwork
+python tools/refresh_cost_fields.py <obszar>       # pola powrotu do habitatu (po zmianie planera)
 python tools/export_backend_sample.py              # dane dla wersji bez serwera
 python tools/make_data_sources.py                  # data-sources.json
 ```
@@ -102,6 +103,8 @@ python tools/make_data_sources.py                  # data-sources.json
 python -m pytest backend/tests
 node --test tools/test-eva.mjs
 node --test tools/test-backdrop.mjs
+node --test tools/test-independent.mjs
+node --test tools/test-static-fixes.mjs
 node tools/test-planner.mjs
 node tools/test-i18n.mjs
 npm ci && npm run test:browser

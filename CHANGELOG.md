@@ -4,6 +4,30 @@ Najnowsze na górze. Daty z commitów na gałęzi `pages-demo`, z której publik
 
 ## Niewydane
 
+- **Poprawki z przeglądu (2026-11-14).**
+  - **Przeszkody:** zgłoszona przeszkoda nie odcina już załogi ani habitatu, w obu trybach. Obszar, w którym stoi załoga, habitat albo łazik, jest przejezdny z kosztem ×10. Gdy przeszkoda zamyka jedyne wyjście z kotliny, powrót prowadzi przez nią. Wcześniej powrót był niemożliwy, a tlen spadał do 0%. Zgłoszenie „bezpieczne” przelicza trasę i usuwa błędnie zgłoszoną przeszkodę. Głazy ze scenariusza i z drona trafiają przed załogę z zapasem od punktów trasy albo są pomijane.
+  - **Tlen:**
+    - Planer sprawdza zapas O₂ z powrotem i rezerwą (`o2Budget`). Za długi plan ma ocenę „niebezpieczna” z powodem, a Start EVA go odrzuca.
+    - Przy rezerwie załoga sama wraca do habitatu.
+    - Przy 0% EVA zostaje przerwana.
+  - **Tryb bez serwera:** Start EVA i edytor punktów nie gubią objazdu przeszkody. Trasa łazikiem nie odrzuca celu przy kamieniu, co było regresją. Prezentacja idzie po planie misji.
+  - **Interfejs:**
+    - Przycisk trasy nie zawiesza się w trybie zgłoszeń, a „BRAK TRASY” nie jest nadpisywany.
+    - Zegar zmienia sol po północy.
+    - Edytor i karta trasy nie zasłaniają punktów.
+    - Legenda mieści się w panelu.
+    - Profil trasy i plan wyjść mieszczą się na telefonie.
+    - Plan wyjść sprawdza sol i ma czytelne błędy.
+    - Brakujące tłumaczenia EN zostały uzupełnione.
+  - **API:**
+    - `/api/plan` przyjmuje najwyżej 8 punktów o unikalnych id.
+    - `/api/report` bez trasy zwraca 409.
+    - Błędy DONKI (429) nie kasują zapisanych zdarzeń.
+  - **Dane i dokumentacja:**
+    - odświeżone pole `o2ToHabitat` boxwork i próbki raportu, poprawione `bytes` w `data-sources.json`;
+    - zaktualizowany `docs/KONTRAKT_DANYCH.md`;
+    - w CI testy planera boxwork, backdrop, independent i `test-static-fixes`;
+    - `.dockerignore` bez `data/cache` i `mobile/`.
 - **Trzeci obszar: formacje boxwork na Mount Sharp** (krater Gale, 4,80° S 137,38° E), tam, gdzie Curiosity badał je w latach 2025–2026 (sole 4507–4837). Model wysokości HiRISE DTEEC_019698_1750_019988_1750, zdjęcie 0,25 m, CRISM FRT0000B6F1, trasa łazika z 86 postojami i zdjęciami Navcam. Nowa warstwa **Boxwork**: grzbiety i pola boxwork z modelu wysokości 1 m (filtr Sato, test krzyżowania się grzbietów, bez uczenia maszynowego) jako cel naukowy; punkty EVA przy grzbiecie i w zagłębieniu między grzbietami.
 - Testy: czyszczenie pamięci podręcznej FastAPI po każdym teście — pełny zestaw testów backendu zajmuje ok. 450 MB zamiast kilku GB.
 - **Nowa prezentacja (▶ Prezentacja):** najwyżej 30 s zamiast ok. minuty, 6 kroków z nowymi funkcjami: trasa prawdziwego łazika NASA na mapie, habitat od środka (śluza → moduł dzienny → mesa) i jazda łazikiem z kamerą na wysięgniku. Czas liczony zegarem rzeczywistym, więc przy małej liczbie klatek prezentacja się nie wydłuża; bez WebGL kroki 3D są pomijane zamiast kończyć się błędem.

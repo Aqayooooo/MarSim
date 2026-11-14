@@ -67,7 +67,9 @@ def build(e) -> dict:
     o2_need = r["o2L"] * 1.1
     cap = min(c["person"].o2_capacity_l for c in e.crew)
     reserve = eva["o2ReservePct"] / 100 * cap
-    return_leg = planning.plan(e.model, r["path"][-1], [{"id": "habitat", **e.cfg["habitat"]}], e.obstacles, e.layers)
+    return_leg = planning.plan(
+        e.model, r["path"][-1], [{"id": "habitat", **e.cfg["habitat"]}], e.obstacles, e.layers, release=[e.cfg["habitat"]]
+    )
     end_h = e.start_min / 60 + r["durationH"] + (return_leg["durationH"] if return_leg["ok"] else 24)
     sunset = prov["sun"]["sunsetLtst"]
     temps = [e.temperature_at(r["path"][0], e.start_min / 60), e.temperature_at(r["path"][-1], end_h)]
@@ -96,6 +98,7 @@ def build(e) -> dict:
         )
 
     ms, ss = float(slope[k]), float(sig[k])
+    sand_max = planning.sand_forbidden_threshold(eva)  # próg zakazu tej misji (boxwork: 0,8 z kalibracji)
     add(
         "H1",
         "Strome zbocze (poślizg, upadek)",
@@ -111,7 +114,7 @@ def build(e) -> dict:
         3 if sand.max() > 0.45 else 2,
         3,
         "5 wskaźników: ciemność, zmarszczki, THEMIS, gładkość obrazu i DTM",
-        "trasa omija piasek > 0,6; uwaga przy 0,35–0,6",
+        f"trasa omija piasek > {sand_max:g}; uwaga przy {planning.SAND_TERRAIN_THRESHOLD:g}–{sand_max:g}".replace(".", ","),
         f"maks. prawdopodobieństwo {sand.max():.2f} (pewność min. {sconf.min():.2f})",
     )
     add(

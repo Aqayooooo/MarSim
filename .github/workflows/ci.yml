@@ -30,10 +30,17 @@ jobs:
           node tools/test-planner.mjs
           node tools/test-planner.mjs data/missions/mount-sharp
           node tools/test-planner.mjs data/missions/jezero
+          node tools/test-planner.mjs data/missions/boxwork
       - name: EVA regression tests
         run: node --test tools/test-eva.mjs
       - name: Habitat tests (airlock, collisions, power)
         run: node --test tools/test-habitat.mjs
+      - name: Panel text colour over 3D view (backdrop)
+        run: node --test tools/test-backdrop.mjs
+      - name: Independent core module tests (path, format, terrain, sim, drive)
+        run: node --test tools/test-independent.mjs
+      - name: Static-mode planner and sim regressions (obstacles, O2 budget, drone events, rover goals)
+        run: node --test tools/test-static-fixes.mjs
       - name: Translation test (PL/EN)
         run: node tools/test-i18n.mjs
 

@@ -6,6 +6,7 @@ import { headingDeg } from '../core/path.js';
 import { MAIN_W, MAIN_H, ALT_COLORS } from './map2d.js';
 import { t, tx } from '../i18n.js';
 import { Drive } from '../core/drive.js';
+import { currentSol } from './panels.js';
 
 const NEED_BACKEND = () => `<h2>${t('need.title')}</h2><p class="muted">${t('need.text')}</p>`;
 // bez serwera: zapisane odpowiedzi backendu (tools/export_backend_sample.py), tylko do odczytu
@@ -85,11 +86,14 @@ export class ReportView {
     }
     this.el.innerHTML = `<p class="muted">${t('rep.loading')}</p>`;
     try {
-      const [rep, sw, log, audit, sens] = await Promise.all([this.app.ds.get('report'), this.app.ds.get('spaceweather'),
+      const rep0 = this.app.state.route   // bez trasy backend odpowiada 409 — nie pytamy (konsola przeglądarki logowałaby błąd)
+        ? this.app.ds.get('report').catch((e) => ({ ok: false, error: e.message }))
+        : { ok: false, error: 'Brak trasy — najpierw wyznacz trasę.' };
+      const [rep, sw, log, audit, sens] = await Promise.all([rep0, this.app.ds.get('spaceweather'),
         this.app.ds.get('log?limit=12').catch(() => ({ events: [] })), this.app.ds.get('log/verify').catch(() => null),
         this.app.state.route ? loadSensitivity(this.app) : null]);   // bez trasy backend odpowiada 409 — nie pytamy
       this.render(rep, sw, log, { audit, sens });
-    } catch (e) { this.el.innerHTML = `<p class="warn">${esc(t('rep.error', { e: e.message }))}</p>`; }
+    } catch (e) { this.el.innerHTML = `<p class="warn">${esc(t('rep.error', { e: tx(e.message) }))}</p>`; }
   }
 
   render(r, sw, log, { sample = null, snap: sampleSnap = null, audit = null, sens = null } = {}) {
@@ -161,11 +165,13 @@ export class ScheduleView {
       this.render(d, null, meta);
       return;
     }
-    try { this.render(await this.app.ds.get('schedule')); } catch (e) { this.el.innerHTML = `<p class="warn" role="alert">${esc(t('err.api', { e: e.message }))}</p>`; }
+    try { this.render(await this.app.ds.get('schedule')); } catch (e) { this.el.innerHTML = `<p class="warn" role="alert">${esc(t('err.api', { e: tx(e.message) }))}</p>`; }
   }
 
   render(d, error, sample = null) {
     const crew = this.app.m.crew.map((c) => c.id);
+    const now = currentSol(this.app), last = d.items.at(-1)?.sol;
+    const nextSol = last == null ? now : Math.max(now, last + 1);   // domyślnie bieżący sol albo następny po ostatnim wpisie
     this.el.innerHTML = `${sample ? SAMPLE_NOTE(sample) : ''}
       <h2>${t('sc.title')}</h2>
       <table class="wide"><tr><th>EVA</th><th>Sol</th><th>${t('sc.thStart')}</th><th>${t('sc.thCrew')}</th><th>${t('sc.thPurpose')}</th><th>O₂</th><th>${t('sc.thEnergy')}</th><th>${t('sc.thNotes')}</th>${sample ? '' : '<th></th>'}</tr>
@@ -187,14 +193,14 @@ export class ScheduleView {
       ${sample ? '' : `<h2>${t('sc.add')}</h2>
       ${error ? `<p class="warn" role="alert">${esc(t('sc.error', { e: tx(error) }))}</p>` : ''}
       <div class="row">
-        <input id="scId" placeholder="EVA-5" size="7" aria-label="EVA ID"> sol <input id="scSol" class="narrow" type="number" value="${(d.items.at(-1)?.sol ?? this.app.m.mission.sol) + 1}" aria-label="sol">
+        <input id="scId" placeholder="EVA-5" size="7" maxlength="20" aria-label="EVA ID"> sol <input id="scSol" class="narrow" type="number" min="1" step="1" required value="${nextSol}" aria-label="sol">
         ${t('sc.start')} <input id="scStart" value="09:30" size="5" aria-label="${t('sc.start')} (LTST)"> ${t('sc.dur')} <input id="scDur" class="narrow" type="number" step="0.5" value="3" aria-label="${t('sc.dur')}">
         ${crew.map((c) => `<label><input type="checkbox" class="scCrew" value="${esc(c)}" checked> ${esc(c)}</label>`).join(' ')}
-        <input id="scPurpose" placeholder="${t('sc.purpose')}" size="22" aria-label="${t('sc.purpose')}"> <button class="btn accent" id="scAdd">${t('sc.save')}</button>
+        <input id="scPurpose" placeholder="${t('sc.purpose')}" size="22" maxlength="200" aria-label="${t('sc.purpose')}"> <button class="btn accent" id="scAdd">${t('sc.save')}</button>
       </div>`}`;
     if (sample) return;
     this.el.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', async () => {
-      try { this.render(await this.app.ds.del(`schedule/${encodeURIComponent(b.dataset.del)}`)); } catch (e) { this.render(d, e.message); }
+      try { this.render(await this.app.ds.del(`schedule/${encodeURIComponent(b.dataset.del)}`)); } catch (e) { this.render(d, scheduleError(e.message)); }
     }));
     const fill = (i) => {
       $('scId').value = i.id; $('scSol').value = i.sol; $('scStart').value = i.startLtst; $('scDur').value = i.durationH; $('scPurpose').value = i.purpose;
@@ -207,15 +213,48 @@ export class ScheduleView {
       $('scId').focus();
     }));
     $('scAdd').addEventListener('click', async () => {
-      const item = { id: $('scId').value || `EVA-${Math.max(0, ...d.items.map(i => Number(i.id.match(/^EVA-(\d+)$/)?.[1]) || 0)) + 1}`, sol: +$('scSol').value, startLtst: $('scStart').value, durationH: +$('scDur').value,
+      const solText = String($('scSol').value).trim(), durText = String($('scDur').value).trim().replace(',', '.');
+      const item = { id: $('scId').value.trim() || `EVA-${Math.max(0, ...d.items.map(i => Number(i.id.match(/^EVA-(\d+)$/)?.[1]) || 0)) + 1}`,
+        sol: solText === '' ? NaN : Number(solText), startLtst: $('scStart').value.trim(), durationH: durText === '' ? NaN : Number(durText),
         crew: [...this.el.querySelectorAll('.scCrew:checked')].map((x) => x.value), purpose: $('scPurpose').value || t('sc.defaultPurpose') };
+      // sprawdzenie przed wysłaniem: puste pole sol nie może zamienić się w sol 0 (+'' === 0)
+      const bad = scheduleInvalid(item);
+      if (bad.length) { this.render(d, bad.map((k) => t(k)).join(' ')); fill({ ...item, sol: solText, durationH: $('scDur').value }); return; }
       const exists = d.items.some((i) => i.id === item.id);   // istniejący identyfikator — zmiana wpisu (PUT)
       try { this.render(await (exists ? this.app.ds.put(`schedule/${encodeURIComponent(item.id)}`, item) : this.app.ds.post('schedule', item))); } catch (e) {
-        this.render(d, e.message);
+        this.render(d, scheduleError(e.message));
         fill(item);   // formularz po błędzie zostaje wypełniony tym, co wpisano — do poprawienia, nie od nowa
       }
     });
   }
+}
+
+// pola formularza „Plan wyjść” → komunikat (te same granice co ScheduleItem w backend/server.py)
+const SC_FIELDS = { id: 'sc.badId', sol: 'sc.badSol', startLtst: 'sc.badStart', durationH: 'sc.badDur', crew: 'sc.badCrew', purpose: 'sc.badPurpose' };
+
+/** Klucze komunikatów dla błędnych pól wpisu harmonogramu (pusta lista = wpis poprawny). */
+function scheduleInvalid(i) {
+  const bad = [];
+  if (!/^[\w-]{1,20}$/.test(i.id)) bad.push(SC_FIELDS.id);
+  if (!Number.isInteger(i.sol) || i.sol < 1 || i.sol > 100000) bad.push(SC_FIELDS.sol);
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(i.startLtst)) bad.push(SC_FIELDS.startLtst);
+  if (!(i.durationH > 0 && i.durationH <= 12)) bad.push(SC_FIELDS.durationH);
+  if (!i.crew.length) bad.push(SC_FIELDS.crew);
+  if (i.purpose.length > 200) bad.push(SC_FIELDS.purpose);
+  return bad;
+}
+
+/** Błąd zapisu harmonogramu: 422 „Błędne dane zapytania — pole: opis; …” → przetłumaczony opis każdego pola. */
+function scheduleError(msg) {
+  const m = /^Błędne dane zapytania — (.+)$/s.exec(msg || '');
+  if (!m) return tx(msg);
+  const parts = m[1].split('; ').map((p) => {
+    const [, field, text] = /^(\w+)(?:\.\d+)?: (.+)$/s.exec(p) || [];
+    // własne opisy serwera dla załogi (nieznana osoba, duplikat) są dokładniejsze niż ogólny komunikat
+    if (field === 'crew' && /członek|osoba/.test(text)) return tx(text);
+    return SC_FIELDS[field] ? t(SC_FIELDS[field]) : tx(p);
+  });
+  return [...new Set(parts)].join(' ');
 }
 
 // ---------------- zgłoszenia z terenu ----------------
@@ -248,8 +287,12 @@ export class FieldReports {
       form.hidden = true;
       const obs = { kind: $('obsKind').value, x: Math.round(at.x), y: Math.round(at.y), radiusM: +$('obsR').value, source: $('obsSrc').value };
       let res;
-      try { res = await app.reportObservation(obs); } catch (e) { app.setAlert({ category: t('obs.alert'), text: t('err.api', { e: e.message }) }); return; }
-      app.setAlert({ category: t('obs.alert'), text: `${$('obsSrc').selectedOptions[0].text}: ${$('obsKind').selectedOptions[0].text}, r = ${obs.radiusM} m${res?.replanned ? t('obs.newRoute') : ''}` });
+      const before = app.state.alert;
+      try { res = await app.reportObservation(obs); } catch (e) { app.setAlert({ category: t('obs.alert'), text: t('err.api', { e: tx(e.message) }) }); return; }
+      // nieudane przeliczenie trasy zostawia alarm „BRAK TRASY” — potwierdzenie zgłoszenia nie może go zasłonić
+      const now = app.state.alert, blocked = app.routeBlocked || (now && now !== before && now.category === t('noRoute'));
+      if (res?.ok === false) app.setAlert({ category: t('obs.alert'), text: t('err.api', { e: tx(res.error) }) });
+      else if (!blocked) app.setAlert({ category: t('obs.alert'), text: `${$('obsSrc').selectedOptions[0].text}: ${$('obsKind').selectedOptions[0].text}, r = ${obs.radiusM} m${res?.replanned ? t('obs.newRoute') : ''}` });
       app.state.reportMode = false; btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false'); main.classList.remove('reporting');
     });
   }
@@ -337,8 +380,9 @@ export class PathPicker {
   }
 
   toggle(on = !this.on) {
+    // tylko jeden tryb klikania naraz; przed ustawieniem this.on, bo obsługa reportBtn wyłącza włączony wybór trasy
+    if (on && this.app.state.reportMode) $('reportBtn').click();
     this.on = on;
-    if (on && this.app.state.reportMode) $('reportBtn').click();       // tylko jeden tryb klikania naraz
     this.btn.classList.toggle('on', on);
     this.btn.setAttribute('aria-pressed', String(on));
     $('main').classList.toggle('picking', on);

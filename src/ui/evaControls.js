@@ -1,7 +1,7 @@
 // Sterowanie wyjściem: przycisk Start/Pauza/Wznów/Nowe wyjście, powrót do habitatu i pasek stanu w prawym panelu.
 // Etykiety wynikają z fazy wyjścia (app.phase), więc są poprawne także po odświeżeniu strony w trakcie EVA.
 import { $, setText, setHidden } from '../core/dom.js';
-import { t } from '../i18n.js';
+import { t, tx } from '../i18n.js';
 
 const START_LAYERS = ['optical', 'terrain', 'hazards'];
 const ROUTE_ANIMATION_S = 3.4;          // przeszukiwanie + rysowanie trasy, zanim załoga ruszy
@@ -28,6 +28,7 @@ export class EvaControls {
     try {
       if (app.phase === 'done') { app.reset(); await app.pendingReset; return; }
       if (app.sim.running) { await app.pauseEva(true); return; }
+      if (app.sim.aborted) return;          // tryb statyczny: brak tlenu, wznowienie dopiero po resecie
       if (app.phase !== 'idle') { await app.pauseEva(false); return; }
       for (const id of START_LAYERS) app.toggleLayer(id, true);
       app.setView('map');
@@ -36,7 +37,7 @@ export class EvaControls {
       await new Promise((resolve) => setTimeout(resolve, ROUTE_ANIMATION_S * 1000));
       if (this.starting && !this.director.playing && app.state.route === route) await app.startEva(START_TIME_SCALE);
     } catch (e) {
-      app.setAlert({ category: t('eva.error'), text: e.message });
+      app.setAlert({ category: t('eva.error'), text: tx(e.message) });
     } finally {
       this.starting = false;
     }
@@ -47,7 +48,7 @@ export class EvaControls {
     this.starting = true;
     this.app.setView('map');
     try { return await this.app.returnToHabitat(); } catch (e) {
-      this.app.setAlert({ category: t('eva.error'), text: e.message });
+      this.app.setAlert({ category: t('eva.error'), text: tx(e.message) });
     } finally { this.starting = false; }
   }
 
@@ -56,8 +57,9 @@ export class EvaControls {
     const app = this.app, phase = app.phase, demo = this.director.playing;
     const label = phase === 'done' ? 'eva.new' : app.sim.running ? 'eva.pause' : phase === 'idle' ? 'eva.start' : 'eva.resume';
     setText(this.btn, t(label));
-    this.btn.title = t(phase === 'idle' ? 'eva.title' : label);
-    this.btn.disabled = demo || this.starting;
+    const aborted = app.sim?.aborted === true && !app.sim.running && phase !== 'done';   // tylko tryb statyczny; w pełnym trybie undefined
+    this.btn.title = t(aborted ? 'eva.abortedTitle' : phase === 'idle' ? 'eva.title' : label);
+    this.btn.disabled = demo || this.starting || aborted;
     this.btn.classList.toggle('primary', phase === 'idle' || phase === 'done' || app.paused);
     setHidden(this.returnBtn, demo || !CAN_RETURN.includes(phase));
     this.returnBtn.disabled = this.starting;

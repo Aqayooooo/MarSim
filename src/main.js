@@ -18,7 +18,7 @@ import { RideHud } from './ui/rideHud.js';
 import { RoverCard } from './ui/roverPhotos.js';
 import { HabHud } from './ui/habHud.js';
 import { $, setHidden } from './core/dom.js';
-import { t, lang, setLang, applyStatic } from './i18n.js';
+import { t, tx, lang, setLang, applyStatic } from './i18n.js';
 
 const STAGE_W = 1664, STAGE_H = 744, MAIN_W = 972, MAIN_H = 648;
 const COMPACT_BELOW_PX = 900;            // węższe okno albo ekran w pionie: układ kolumnowy (telefon, tablet)
@@ -73,10 +73,12 @@ try {
     onProgress: (f) => { $('loadPct').textContent = `${Math.round(f * 100)}%`; $('loading').style.setProperty('--p', f); },
   });
 } catch (e) {
-  $('loading').textContent = t('loading.fail', { e: e.message });
+  $('loading').textContent = t('loading.fail', { e: tx(e.message) });
   throw e;
 }
 $('loading').remove();
+// dane syntetyczne (data/demo) nie mają zapisanych odpowiedzi backendu (<katalog>/backend/) — bez zapytań kończących się 404
+if (api === null && world.mission.synthetic) ds.sample = () => Promise.resolve(null);
 
 // ---------- widoki ----------
 const app = new App(ds, world);
@@ -150,7 +152,7 @@ function ensureView3D() {
     if (VIEWS_3D.includes(app.state.view)) view3d.setMode(app.state.view);
     return view3d;
   }).catch((e) => {
-    status.textContent = t('loading.fail', { e: e.message });
+    status.textContent = t('loading.fail', { e: tx(e.message) });
     view3dLoading = null;
     throw e;
   });

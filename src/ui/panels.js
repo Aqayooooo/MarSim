@@ -7,6 +7,10 @@ import { tempAt } from '../core/environment.js';
 
 const O2_LOW_PCT = 40, O2_CRITICAL_PCT = 25;        // progi kolorów jak na urządzeniu w hełmie
 const RESERVE_LOW_H = 1, RESERVE_CRITICAL_H = 0.3;
+const SOL_MIN = 1440;                                 // doba marsjańska w minutach LTST (zegar dzieli sol na 24 „godziny”)
+
+/** Bieżący sol: sol startu misji + pełne doby czasu symulacji (sim.min liczy minuty LTST od północy sola startu). */
+export function currentSol(app) { return app.m.mission.sol + Math.floor(app.sim.min / SOL_MIN); }
 
 export class Panels {
   constructor(app) {
@@ -53,6 +57,9 @@ export class Panels {
     const st = this.app.state;
     for (const l of this.app.m.layers) {
       const r = this.rows[l.id], on = st.layers[l.id].on;
+      // włączona warstwa ma być widoczna: długa legenda skraca przewijaną listę i wiersz mógłby zniknąć pod krawędzią
+      if (on && r.classList.contains('on') === false && r.dataset.seen) r.scrollIntoView({ block: 'nearest' });
+      r.dataset.seen = '1';
       setClass(r, 'on', on);
       setClass(r, 'hi', st.focus === l.id);
       r.setAttribute('aria-checked', String(on));
@@ -80,10 +87,14 @@ export class Panels {
     }
   }
 
-  /** Punkt z widokiem terenu: wskazany w misji albo ostatni punkt planu. */
+  /** Punkt z widokiem terenu wskazany w misji; bez takiego punktu (np. usunięty w edytorze) panel jest ukryty,
+   *  bo render z poziomu gruntu powstaje tylko dla punktu z `view` (main.js, zdarzenie 'waypoint'). */
   #syncWpView() {
-    const wps = this.app.m.waypoints, wp = wps.find((w) => w.view) || wps[wps.length - 1];
-    this.viewWp = wp.id;
+    const wp = this.app.m.waypoints.find((w) => w.view);
+    setHidden($('wpViewHead'), !wp);
+    setHidden($('wpView'), !wp);
+    this.viewWp = wp?.id ?? null;
+    if (!wp) return;
     setText($('wpViewHead'), t('wp.view', { wp: wp.id }));
     setText($('wpLocked'), t('wp.locked', { wp: wp.id }));
     $('wpShot').querySelector('img').alt = t('wp.alt', { wp: wp.id });
@@ -138,7 +149,7 @@ export class Panels {
     // zegar i środowisko
     const snap = sim.snap;
     const link = snap?.link;
-    setText($('clock'), `SOL ${m.mission.sol} · ${clock(sim.min)}${link ? ` ⇄${num(link.oneWayMin, 0)}′${link.up ? '' : '✕'}` : ''}`);
+    setText($('clock'), `SOL ${currentSol(app)} · ${clock(sim.min)}${link ? ` ⇄${num(link.oneWayMin, 0)}′${link.up ? '' : '✕'}` : ''}`);
     const env = m.environment, on = app.envOn;
     setText($('cDose').querySelector('.cv'), on ? int(snap ? snap.env.doseUsvh : env.doseUsvh) : '--');
     setText($('cWind').querySelector('.cv'), on ? num(st.wind, 1) : '--');
@@ -178,7 +189,10 @@ export class Panels {
       const u = r.uncertainty, dem = app.m.dem;
       const extra = u ? `<br><span class="u">${t('route.slope', { s: num(u.maxSlopeDeg, 0), sg: num(Math.max(1, u.maxSlopeSigmaDeg), 0), y: esc(dem.year) || '' })}</span>`
         + `<br><span class="u">${t(r.o2L == null ? 'route.sandOnly' : 'route.sand', { p: num(u.maxSandProb * 100, 0), o2: int(r.o2L ?? 0) })}</span>` : '';
-      const html = `<b>${t('route', { l: esc(r.letter) })}</b> <span class="g">${esc(tx(r.rating))}</span><br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${esc(r.stops)} ${plural(r.stops)}${extra}`;
+      const unsafe = r.rating === 'niebezpieczna' || r.o2Budget?.ok === false;
+      const why = unsafe && (r.ratingReason || r.o2Budget?.reason);
+      const html = `<b>${t('route', { l: esc(r.letter) })}</b> <span class="${unsafe ? 'warn' : 'g'}">${esc(tx(r.rating))}</span>`
+        + `${why ? `<br><span class="warn why">${esc(tx(why))}</span>` : ''}<br>${km(r.lengthM)} · ${hm(r.durationH)}<br>${esc(r.stops)} ${plural(r.stops)}${extra}`;
       if (card.dataset.k !== html) { card.innerHTML = html; card.dataset.k = html; }
     }
     const al = $('alert');

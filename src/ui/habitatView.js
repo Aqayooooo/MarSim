@@ -9,6 +9,7 @@ import { buildInterior } from './habitatInterior.js';
 import { habitatEnv } from '../core/environment.js';
 import { num, int, clock, hm } from '../core/format.js';
 import { t, tx } from '../i18n.js';
+import { currentSol } from './panels.js';
 
 const SCREEN_EVERY_S = 0.25, CONSOLE_PAGES = 3;
 const SCREEN_NEAR_M = 14, SCREENS_PER_FRAME = 2;   // ekrany dalej niż 14 m są nieczytelne — nie odświeżamy ich
@@ -351,7 +352,7 @@ export class HabitatView {
     const rows = [];
     if (this.page === 0) {
       const phase = app.phase, target = app.navTarget?.();
-      rows.push([`SOL ${m.mission.sol}`, `${clock(sim.min)} LTST`]);
+      rows.push([`SOL ${currentSol(app)}`, `${clock(sim.min)} LTST`]);
       rows.push([t('hab.c.phase'), t(`phase.${phase}`, { wp: target?.id ?? '—' })]);
       rows.push([t('hab.c.route'), app.state.route ? `${num(app.state.route.lengthM / 1000, 2)} km · ${app.state.route.wpIds.length} WP` : t('hab.c.noRoute')]);
       sim.crew.forEach((c) => rows.push([`${c.id} O₂`, `${num(c.o2, 0)}%`, c.o2 / 100]));

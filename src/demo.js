@@ -27,6 +27,23 @@ export class Director {
     this.app.emit('director', false);
   }
 
+  /**
+   * Prezentacja idzie planem z konfiguracji misji: zdarzenia scenariusza (dron, burza) są do niego dobrane,
+   * a własny plan mógłby utknąć albo przekroczyć zapas tlenu. Własny plan wraca przy następnym resecie po prezentacji.
+   */
+  #useMissionPlan() {
+    const app = this.app;
+    if (!app.waypointsCustom) return;
+    const own = app.m.waypoints;
+    app.setWaypoints(structuredClone(app.defaultWaypoints), { save: false, renumber: false });
+    const back = () => {
+      if (this.playing) return;
+      app.off('reset', back);
+      app.setWaypoints(own, { save: false, renumber: false });
+    };
+    app.on('reset', back);
+  }
+
   async play() {
     const my = ++this.token, app = this.app;
     this.playing = true;
@@ -53,6 +70,7 @@ export class Director {
     try {
       // 01 · warstwy NASA (z trasą łazika NASA) — 3 s
       app.reset(true, { bare: true });
+      this.#useMissionPlan();
       app.autoEvents = false;
       app.setView('map');
       await wait(0.3);

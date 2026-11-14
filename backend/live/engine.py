@@ -46,6 +46,10 @@ SUIT_BASE_POWER_W = 80.0
 SUIT_PRESSURE_KPA = 29.6
 HABITAT_ID = "HAB"
 CHECKPOINT_INTERVAL_S = 5.0  # co ile sekund (czas rzeczywisty) trwające wyjście trafia do bazy
+BOULDER_CLEARANCE_M = 10.0  # głazy z pokazu: odstęp od załogi i punktów trasy ponad promień i zapas przeszkody
+BOULDER_SCAN_STEP_M = 2.0  # co ile metrów trasy szukamy miejsca na głazy
+SAFE_REPLAN_MIN_O2_L = 0.5  # zgłoszenie „bezpieczne” zmienia trasę, gdy nowa oszczędza co najmniej tyle tlenu…
+SAFE_REPLAN_MIN_M = 5.0  # …albo jest krótsza co najmniej o tyle metrów (i nie droższa w tlenie)
 
 
 def _f32(p: Path, h: int, w: int) -> np.ndarray:
@@ -321,7 +325,7 @@ class EvaEngine:
         self.log.append(entry)
         self.store.log(kind, text, self.t, entry["clock"], meta)
         if to_earth:
-            self.link.send(self.t, kind, text, meta, reply=f"Kontrola misji: przyjęto „{text[:60]}”")
+            self.link.send(self.t, kind, text, meta, reply=f"Kontrola misji: przyjęto „{text}”")
         return entry
 
     def clock_str(self, m=None):
@@ -340,6 +344,12 @@ class EvaEngine:
                     return planned["error"]
             if self.route_blocked:
                 return "Trasa jest zablokowana. Wyznacz nową trasę."
+            if any(c["person"].o2_l <= 0 for c in self.crew):
+                return "EVA przerwana: brak tlenu. Zresetuj symulację."
+            if self.t == 0:
+                budget = self._o2_budget(self.route["o2L"], self.waypoints)
+                if not budget["ok"]:
+                    return f"Start EVA odrzucony — {budget['reason']}. Skróć trasę."
             self.running = True
             if time_scale is not None:
                 self.time_scale = time_scale
@@ -383,6 +393,10 @@ class EvaEngine:
             if not r["ok"]:
                 return r
             r["alternatives"] = planning.alternatives(self.model, start, waypoints, self.obstacles, self.layers, self.comms, r)
+            r["o2Budget"] = self._o2_budget(r["o2L"], waypoints)
+            if not r["o2Budget"]["ok"]:
+                r["rating"] = "niebezpieczna"
+                r["ratingReason"] = r["o2Budget"]["reason"]
             self._set_route({**r, "letter": letter}, waypoints)
             self.returning = False
             self.add_log(
@@ -391,6 +405,43 @@ class EvaEngine:
             if not self.running and self.t > 0:
                 self.save_checkpoint()
             return self.route
+
+    def _o2_budget(self, route_o2_l: float, waypoints: list[dict]) -> dict:
+        """Tlen planu razem z powrotem pieszo do habitatu z ostatniego punktu wobec zapasu ponad rezerwę
+        (najmniejsza butla w załodze, zużycie przeliczone na najcięższą osobę)."""
+        reserve_pct = self.cfg["eva"]["o2ReservePct"]
+        usable = min(c["person"].o2_capacity_l for c in self.crew) * (1 - reserve_pct / 100)
+        last = waypoints[-1] if waypoints else self.cfg["habitat"]
+        back = 0.0 if last.get("id") == HABITAT_ID else float(self.o2_home[self.rc(last)])
+        heaviest = max(c["person"].body_kg + c["person"].load_kg for c in self.crew) / self._ref_mass_kg
+        need = (route_o2_l + back) * max(heaviest, 1.0)
+        budget = {"needL": round(need, 1), "returnL": round(back, 1), "usableL": round(usable, 1), "reservePct": reserve_pct}
+        if back >= planning.UNREACHABLE:
+            budget.update(ok=False, reason="brak drogi powrotnej do habitatu z ostatniego punktu trasy")
+        elif need > usable:
+            budget.update(
+                ok=False,
+                reason=f"za mało tlenu: plan z powrotem do habitatu wymaga {need:.0f} L O₂, "
+                f"a zapas ponad rezerwę {reserve_pct:g}% to {usable:.0f} L",
+            )
+        else:
+            budget["ok"] = True
+        return budget
+
+    def _release(self) -> list[dict]:
+        """Punkty, których zgłoszona przeszkoda nie może odciąć: habitat i łazik (cele powrotu i tras awaryjnych)."""
+        return [self.cfg["habitat"], self.rover]
+
+    def _plan_home(self, start: dict, waypoints: list[dict]) -> dict:
+        """Trasa do habitatu (albo łazika). Gdy zwykłe reguły jej nie znajdują — zgłoszona przeszkoda zamknęła jedyne
+        wyjście z kieszeni terenu — druga próba z każdą zgłoszoną przeszkodą przejezdną (bardzo drogo): drogę do domu
+        mogą odciąć tylko zakazy terenu."""
+        r = planning.plan(self.model, start, waypoints, self.obstacles, self.layers, release=self._release())
+        if not r["ok"] and self.obstacles:
+            forced = planning.plan(self.model, start, waypoints, self.obstacles, self.layers, release_all=True)
+            if forced["ok"]:
+                return {**forced, "throughObstacle": True}
+        return r
 
     def _set_route(self, r, waypoints):
         self.route = r
@@ -431,16 +482,30 @@ class EvaEngine:
         self.add_log("trasa", f"Nowa trasa {letter} ({reason}): {new['deltaM']:+.0f} m")
         return new
 
-    def replan_from_crew(self, reason: str) -> dict | None:
-        """Nowa trasa od bieżącej pozycji załogi do pozostałych punktów (np. po zgłoszeniu przeszkody)."""
+    def replan_from_crew(self, reason: str, only_if_better: bool = False) -> dict | None:
+        """Nowa trasa od bieżącej pozycji załogi do pozostałych punktów (np. po zgłoszeniu przeszkody).
+        only_if_better: zmiana tylko wtedy, gdy nowa trasa jest wyraźnie tańsza w tlenie albo krótsza (albo bieżąca
+        była zablokowana) — np. po zgłoszeniu „bezpieczne”."""
         remaining = self.waypoints[self.next_wp :]
         if not self.route or not remaining:
             return None
-        onward = planning.plan(self.model, self.poly.at(self.crew_s), remaining, self.obstacles, self.layers)
+        start = self.poly.at(self.crew_s)
+        if all(w["id"] == HABITAT_ID for w in remaining):  # trwa powrót: droga do domu nie może zostać odcięta
+            onward = self._plan_home(start, remaining)
+        else:
+            onward = planning.plan(self.model, start, remaining, self.obstacles, self.layers, release=self._release())
         if not onward["ok"]:
+            if only_if_better:
+                return None
             self.route_blocked = True
             self.alert("BRAK TRASY", onward["error"])
             return None
+        if only_if_better and not self.route_blocked:
+            ahead = planning.path_stats(self.model, self.poly.slice(self.crew_s, self.poly.length), None)
+            new = planning.path_stats(self.model, onward["path"], None)
+            saved_o2, saved_m = ahead["o2L"] - new["o2L"], ahead["lengthM"] - new["lengthM"]
+            if saved_o2 < SAFE_REPLAN_MIN_O2_L and not (saved_m >= SAFE_REPLAN_MIN_M and saved_o2 >= 0):
+                return None
         return self._extend_route(onward, remaining, reason)
 
     def return_to_habitat(self) -> dict:
@@ -455,7 +520,7 @@ class EvaEngine:
             if self.t == 0 and not self.running:  # załoga jest jeszcze w habitacie (faza „idle”)
                 return {"ok": False, "error": "EVA jeszcze się nie zaczęła — załoga jest w habitacie."}
             habitat = {"id": HABITAT_ID, "x": self.cfg["habitat"]["x"], "y": self.cfg["habitat"]["y"], "stopMin": 0}
-            onward = planning.plan(self.model, self.poly.at(self.crew_s), [habitat], self.obstacles, self.layers)
+            onward = self._plan_home(self.poly.at(self.crew_s), [habitat])
             if not onward["ok"]:
                 self.alert("BRAK TRASY", onward["error"])
                 return onward
@@ -505,19 +570,28 @@ class EvaEngine:
             kind = obs.get("kind", "glazy")
             radius = float(obs.get("radiusM", 20))
             source = obs.get("source", "załoga")
+            removed = []
             if kind == "bezpieczne":
                 self._mark_safe(obs)
+                # błędne zgłoszenie przeszkody można cofnąć: „bezpieczne” zachodzące na przeszkodę ją usuwa
+                removed = [o for o in self.obstacles if math.hypot(o["x"] - obs["x"], o["y"] - obs["y"]) < o["radiusM"] + radius]
+                self.obstacles = [o for o in self.obstacles if o not in removed]
                 self.model = self._cost_model()
             else:
                 self.obstacles.append({"x": obs["x"], "y": obs["y"], "radiusM": radius, "kind": kind, "source": source})
             self.o2_home = planning.cost_field(self.model, self.cfg["habitat"], "o2", self.obstacles)
             self.add_log("zgłoszenie", f"{source}: {kind} ({obs['x']:.0f}, {obs['y']:.0f}) r={radius:.0f} m", obs)
+            if removed:
+                self.add_log("zgłoszenie", f"Usunięte przeszkody (zgłoszenie „bezpieczne”): {len(removed)}")
             route = None
-            if self.route and kind != "bezpieczne" and self._route_hits(obs["x"], obs["y"], radius):
-                route = self.replan_from_crew(f"zgłoszenie: {kind}")
+            if self.route and not self.finished:
+                if kind == "bezpieczne":
+                    route = self.replan_from_crew(f"zgłoszenie: {kind}", only_if_better=True)
+                elif self._route_hits(obs["x"], obs["y"], radius):
+                    route = self.replan_from_crew(f"zgłoszenie: {kind}")
             if not self.running and self.t > 0:
                 self.save_checkpoint()
-            return {"observation": obs, "replanned": route is not None, "route": route}
+            return {"observation": obs, "replanned": route is not None, "route": route, "removedObstacles": len(removed)}
 
     def _route_hits(self, x, y, radius) -> bool:
         """Czy przeszkoda (z zapasem) leży na trasie przed załogą."""
@@ -554,9 +628,28 @@ class EvaEngine:
             return {"ok": False, "error": "Ta misja nie ma zdarzenia „głazy”"}
         if not self.route or self.next_wp >= len(self.wp_s):
             return {"ok": False, "error": "Zdarzenie wymaga trasy z punktem przed załogą"}
-        ahead_s = min(self.crew_s + event["aheadM"], self.poly.length - event["radiusM"] - 10)
-        p = self.poly.at(max(ahead_s, self.crew_s))
-        self.alert(event["alert"]["category"], event["alert"]["text"].replace("{dist}", str(event["aheadM"])), event["source"])
+        # głazy leżą na trasie przed załogą, przed następnym punktem, z odstępem od załogi, punktów i habitatu
+        # (inaczej zgłoszenie zamknęłoby załogę albo cel w przeszkodzie)
+        clearance = event["radiusM"] + planning.OBSTACLE_BUFFER_M + BOULDER_CLEARANCE_M
+        keep_away = [self.crew_pos(k) for k in range(len(self.crew))] + self.waypoints[self.next_wp :] + [self.cfg["habitat"]]
+        wanted = self.crew_s + event["aheadM"]
+        spots = sorted(
+            np.arange(self.crew_s + BOULDER_SCAN_STEP_M, self.wp_s[self.next_wp], BOULDER_SCAN_STEP_M), key=lambda s: abs(s - wanted)
+        )
+        found = next(
+            (
+                (float(s), p)
+                for s, p in ((s, self.poly.at(float(s))) for s in spots)
+                if all(math.hypot(p["x"] - o["x"], p["y"] - o["y"]) >= clearance for o in keep_away)
+            ),
+            None,
+        )
+        if found is None:
+            text = "Brak miejsca na głazy przed załogą — zdarzenie pominięte"
+            self.add_log("EVA", text, to_earth=False)
+            return {"ok": False, "error": text}
+        s, p = found
+        self.alert(event["alert"]["category"], event["alert"]["text"].replace("{dist}", str(round(s - self.crew_s))), event["source"])
         return self.add_observation({"kind": "glazy", "x": p["x"], "y": p["y"], "radiusM": event["radiusM"], "source": "dron"})
 
     # ---------- krok symulacji ----------
@@ -709,6 +802,18 @@ class EvaEngine:
                 self._warn_once((who, "noReturn"), f"{who}: za mało tlenu na powrót pieszo — wezwij łazik")
             elif walkback["marginH"] < WALKBACK_WARNING_H:
                 self._warn_once((who, "margin"), f"{who}: zapas na powrót pieszo poniżej {WALKBACK_WARNING_H * 60:.0f} min — zawróć")
+        empty = [c["cfg"]["id"] for c in self.crew if c["person"].o2_l <= 0]
+        if empty:
+            # stan końcowy: symulacja staje (wstrzymana, bez wznowienia do resetu), dalszy marsz nie ma sensu
+            self.running = False
+            self.alert("TLEN", f"EVA przerwana: brak tlenu ({', '.join(empty)}) — potrzebna akcja ratunkowa", highlight="o2")
+            self.save_checkpoint()
+            return
+        lowest = min(c["person"].o2_l / c["person"].o2_capacity_l for c in self.crew)
+        if lowest <= reserve_pct / 100 and not self.returning and not self.finished and ("*", "autoReturn") not in self._warned:
+            self._warned.add(("*", "autoReturn"))
+            self.alert("TLEN", "Tlen poniżej rezerwy — automatyczny powrót do habitatu", highlight="o2")
+            self.return_to_habitat()
 
     def _scenario(self):
         """Scenariusz pokazowy z mission.json: zdarzenia po punkcie trasy albo po innym zdarzeniu."""
@@ -754,9 +859,7 @@ class EvaEngine:
             return {**cached[2], "computedAt": self.clock_str()}
         out = {}
         for name, target in (("habitat", self.cfg["habitat"]), ("rover", self.rover)):
-            r = planning.plan(
-                self.model, position, [{"id": name, "x": target["x"], "y": target["y"], "stopMin": 0}], self.obstacles, self.layers
-            )
+            r = self._plan_home(position, [{"id": name, "x": target["x"], "y": target["y"], "stopMin": 0}])
             if r["ok"]:
                 out[name] = {
                     "path": r["path"],

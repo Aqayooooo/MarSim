@@ -18,7 +18,6 @@ GETS = [
     "/api/spaceweather",
     "/api/link",
     "/api/schedule",
-    "/api/report",
     "/api/provenance",
 ]
 
@@ -32,7 +31,8 @@ def test_every_get_endpoint_answers_json(client, path):
 
 
 def test_report_works_with_and_without_route(client):
-    assert client.get("/api/report").status_code == 200
+    r = client.get("/api/report")  # bez trasy: 409 jak w pozostałych endpointach wymagających trasy
+    assert r.status_code == 409 and r.json()["ok"] is False
     client.post("/api/plan")
     r = client.get("/api/report")
     assert r.status_code == 200 and r.json()

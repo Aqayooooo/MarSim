@@ -56,6 +56,8 @@ export class App {
       onFinish: () => this.#onFinish(),
       onOngoing: (s) => this.#onOngoing(s),
       onLink: (up) => { this.offline = !up; this.emit('net', up); },
+      onO2Reserve: () => this.#onO2Reserve(),
+      onO2Out: (ids) => this.#onO2Out(ids),
     };
     this.sim = this.remote ? new RemoteSim(this.m, ds, hooks) : new Sim(this.m, hooks, world.rasters);
     this.habitat = new HabitatSystems();   // bateria, tlen i przełączniki habitatu (core/habitat.js)
@@ -168,10 +170,13 @@ export class App {
       this.pendingReset = null;
       if (!result) return null;
     }
+    const request = this.planSeq = (this.planSeq ?? 0) + 1;
     let r;
     try {
-      r = await this.ds.planRoute({ start: { x: this.m.rover.x, y: this.m.rover.y }, waypoints: this.m.waypoints });
+      // tryb lokalny: zgłoszone przeszkody omijamy także przy Start EVA i w edytorze punktów (backend zna je sam)
+      r = await this.ds.planRoute({ start: { x: this.m.rover.x, y: this.m.rover.y }, waypoints: this.m.waypoints, obstacles: this.remote ? [] : this.state.obstacles });
     } catch (e) { r = { ok: false, error: e.message }; }
+    if (request !== this.planSeq) return this.state.route;   // nowsze zapytanie (np. kolejne przeciągnięcie WP) zastąpiło to
     if (!r.ok && !r.path) {
       this.lastPlanError = tx(r.error);
       if (!quiet) this.setAlert({ category: t('noRoute'), text: this.lastPlanError });
@@ -197,6 +202,7 @@ export class App {
       wpIds: stats.waypointIds ?? (this.sim.waypoints ?? this.m.waypoints).map((w) => w.id),
       lengthM: stats.lengthM, durationH: stats.durationH, stops: stats.stops, rating: stats.rating || 'bezpieczna',
       o2L: stats.o2L, uncertainty: stats.uncertainty || null, alternatives: stats.alternatives || null, draw,
+      o2Budget: stats.o2Budget ?? null, ratingReason: stats.ratingReason ?? null,   // bilans tlenu planu z powrotem (jak w backendzie)
     };
   }
 
@@ -233,7 +239,7 @@ export class App {
     const old = this.state.route, s = this.sim.crewS;
     const remaining = this.sim.waypoints.slice(this.sim.nextWp);
     const r = await this.ds.planRoute({ start: old.poly.at(s), waypoints: remaining, obstacles: this.state.obstacles });
-    if (!r.ok) { this.sim.running = false; this.routeBlocked = true; this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return; }
+    if (!r.ok) { this.sim.running = false; this.routeBlocked = true; this.setAlert({ category: t('noRoute'), text: tx(r.error) }); return null; }
     const route = this.#spliceRoute(r);
     return { deltaM: route.lengthM - old.lengthM, obstacle };
   }
@@ -288,19 +294,23 @@ export class App {
   }
 
   // ---------- zgłoszenia z terenu ----------
+  /**
+   * Tryb lokalny zwraca { ok: true, replanned, routeBlocked }: replanned — trasa przeliczona wokół przeszkody;
+   * routeBlocked — przeliczenie się nie udało (EVA wstrzymana, alarm „BRAK TRASY” już ustawiony).
+   */
   async reportObservation(obs) {
     if (this.remote) return this.ds.post('observations', obs);
-    if (obs.kind === 'bezpieczne') return { ok: true };
+    const result = (replanned) => ({ ok: true, replanned, routeBlocked: this.routeBlocked });
+    if (obs.kind === 'bezpieczne') return result(false);
     const ob = { id: `obs${this.state.obstacles.length + 1}`, x: obs.x, y: obs.y, radiusM: obs.radiusM, t0: this.now, label: labelFor(obs.kind) };
     this.state.obstacles.push(ob);
     this.emit('obstacle', ob);
-    if (this.state.route && !this.sim.finished) {
-      if (this.sim.nextWp >= this.state.route.wpS.length) return { ok: true };
-      const res = await this.replanAround(ob);
-      this.lastReplan = res;
-      this.emit('replanned', res);
-    }
-    return { ok: true };
+    if (!this.state.route || this.sim.finished || this.sim.aborted || this.sim.nextWp >= this.state.route.wpS.length) return result(false);
+    const res = await this.replanAround(ob);
+    if (!res) return result(false);
+    this.lastReplan = res;
+    this.emit('replanned', res);
+    return result(true);
   }
   #syncObstacles(list) {
     const known = new Set(this.state.obstacles.map((o) => `${o.x}|${o.y}`));
@@ -336,6 +346,11 @@ export class App {
   showCrew() { this.state.crewVisible = true; this.emit('crew'); }
   startEva(timeScale = 470) {
     if (!this.state.route || this.routeBlocked) return null;
+    const budget = this.state.route.o2Budget;
+    if (budget && !budget.ok && this.phase === 'idle') {   // ten sam komunikat co z backendu (POST /api/eva/start)
+      this.setAlert({ category: t('eva.error'), text: tx(`Start EVA odrzucony — ${budget.reason}. Skróć trasę.`) });
+      return null;
+    }
     if (this.drive || this.roverAt) { this.drive = null; this.roverAt = null; this.emit('drive'); }   // EVA zaczyna od łazika przy habitacie
     this.state.crewVisible = true;
     if (this.remote) return this.#evaCommand('eva/start', { timeScale, scenario: !this.autoEvents });
@@ -345,6 +360,7 @@ export class App {
     return { ok: true };
   }
   pauseEva(paused) {
+    if (!paused && this.sim.aborted) { this.setAlert({ category: t('eva.error'), text: tx('EVA przerwana: brak tlenu. Zresetuj symulację.') }); return null; }
     if (!paused && this.routeBlocked) return;
     if (this.remote) return this.#evaCommand(paused ? 'eva/pause' : 'eva/start', paused ? {} : { timeScale: this.sim.timeScale });
     this.sim.running = !paused;
@@ -409,15 +425,19 @@ export class App {
 
   async #onEvent(ev) {   // tylko tryb lokalny
     if (ev.type === 'obstacle') {
+      // przeszkoda leży na trasie przed załogą, ale przed następnym punktem (z zapasem na dysk blokady r + 12 m planera);
+      // gdy na odcinku nie ma na nią miejsca (za blisko załogi albo któregoś z pozostałych WP), zdarzenie przepada
+      const route = this.state.route, clear = ev.radiusM + 15;
       const s = this.sim.crewS + ev.aheadM;
-      const c = this.state.route.poly.at(Math.min(s, this.state.route.poly.length - ev.radiusM - 10));
+      const c = route.poly.at(Math.min(s, (route.wpS[this.sim.nextWp] ?? route.poly.length) - clear));
+      const crew = route.poly.at(this.sim.crewS);
+      if ([crew, ...this.sim.waypoints.slice(this.sim.nextWp)].some((p) => Math.hypot(p.x - c.x, p.y - c.y) < clear)) return;
       const ob = { id: ev.id, x: c.x, y: c.y, radiusM: ev.radiusM, t0: this.now, label: t('lbl.glazy') };
       this.state.obstacles.push(ob);
       this.setAlert({ category: tx(ev.alert.category), text: tx(ev.alert.text.replace('{dist}', Math.round(ev.aheadM))) });
       this.emit('obstacle', ob);
       const res = await this.replanAround(ob);
-      this.lastReplan = res;
-      this.emit('replanned', res);
+      if (res) { this.lastReplan = res; this.emit('replanned', res); }
     }
     if (ev.type === 'space-weather') {
       this.setAlert({ category: tx(ev.alert.category), text: tx(ev.alert.text), source: tx(ev.source) });
@@ -427,6 +447,18 @@ export class App {
       this.state.shelter = { radiusM: this.m.eva.shelterRadiusM, label: t('map.shelter', { m: this.m.eva.shelterMin }), t0: this.now + 0.3 };
       this.emit('sep');
     }
+  }
+
+  /** Tryb lokalny: najsłabsza osoba zeszła do rezerwy O₂ — automatyczny powrót do habitatu. */
+  async #onO2Reserve() {
+    if (!CAN_RETURN.includes(this.phase) || this.sim.returning) return;
+    this.setAlert({ category: tx('TLEN'), text: tx('Tlen poniżej rezerwy — automatyczny powrót do habitatu') });
+    await this.returnToHabitat();   // bez trasy powrotu returnToHabitat sam pokazuje „BRAK TRASY”
+  }
+  /** Tryb lokalny: tlen skończył się przed powrotem — wyjście przerwane (pauza bez wznowienia, jak w backendzie). */
+  #onO2Out(ids) {
+    this.setAlert({ category: tx('TLEN'), text: tx(`EVA przerwana: brak tlenu (${ids.join(', ')}) — potrzebna akcja ratunkowa`) });
+    this.emit('aborted');
   }
 
   // ---------- pętla ----------

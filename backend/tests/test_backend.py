@@ -72,7 +72,7 @@ def test_engine_full_eva():
     from backend.live import report
     from backend.live.engine import EvaEngine
 
-    e = EvaEngine(MISSION, CFG)
+    e = EvaEngine(MISSION, CFG, live_feeds=False)  # bez sieci: test nie może nadpisywać data/cache
     r = e.plan()
     assert "path" in r and r["lengthM"] > 100
     # trasa nie wchodzi w strefy zakazane

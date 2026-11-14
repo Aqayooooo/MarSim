@@ -17,6 +17,7 @@ import math
 from collections import OrderedDict
 
 import numpy as np
+from scipy import ndimage
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra
 
@@ -36,6 +37,7 @@ def sand_forbidden_threshold(eva: dict) -> float:
 SLOPE_SIGMA_MARGIN = 2.0  # nachylenie liczone ostrożnie: wartość + tyle odchyleń standardowych
 MIN_SPEED_MS = 0.15
 OBSTACLE_BUFFER_M = 6.0  # zapas wokół zgłoszonej przeszkody
+OBSTACLE_EXIT_FACTOR = 10.0  # mnożnik kosztu w zgłoszonej przeszkodzie, z której trzeba wyjść (załoga albo habitat w środku)
 UNREACHABLE = 9999.0  # wartość pola kosztu tam, dokąd nie da się dojść
 EXPANDED_STRIDE = 10  # co która komórka trafia do animacji „przeszukiwania”
 EXPANDED_LIMIT = 600
@@ -81,6 +83,7 @@ class CostModel:
         self.blocked = hazard == 2
         self.caution = hazard == 1
         self._searches: dict[tuple, _Search] = {}
+        self._reported: tuple | None = None  # (klucz przeszkód, maska, etykiety spójnych obszarów) ostatnich zgłoszeń
 
     def per_metre(self, kind: str) -> np.ndarray:
         """kind: "o2" (litry tlenu), "time" (sekundy), "dist" (metry — najkrótsza droga bez względu na wysiłek)."""
@@ -145,8 +148,9 @@ class _Search:
     """Graf kosztów dla jednego zestawu przeszkód. Pamięta ostatnie wyniki Dijkstry (kilka celów z jednego punktu,
     powtórne planowanie tej samej trasy, pole powrotu do habitatu po resecie)."""
 
-    def __init__(self, cost: np.ndarray):
+    def __init__(self, cost: np.ndarray, per_m: np.ndarray):
         self.cost = cost
+        self.per_m = per_m  # koszt metra do prostowania trasy (z mnożnikiem w przeszkodzie, z której się wychodzi)
         self.blocked = np.isinf(cost)
         self.graph = _grid_graph(cost)
         self._reach: OrderedDict[tuple[int, int], tuple[np.ndarray, np.ndarray]] = OrderedDict()
@@ -177,21 +181,56 @@ class _Search:
         return [(n // cols, n % cols) for n in reversed(nodes)]
 
 
-def _search(model: CostModel, kind: str, obstacles: list[dict] | None, strict: bool, start_rc: tuple[int, int] | None) -> _Search:
-    """Graf dla danego rodzaju kosztu i przeszkód (z pamięcią ostatnich kilku — trasy awaryjne liczą się często)."""
-    key = (kind, strict, tuple((o["x"], o["y"], o["radiusM"]) for o in obstacles or []))
+def _obstacle_regions(model: CostModel, obstacles: list[dict] | None) -> tuple[tuple, np.ndarray, np.ndarray]:
+    """Maska zgłoszonych przeszkód (z zapasem) i etykiety jej spójnych obszarów (8 sąsiadów, jak w grafie)."""
+    key = tuple((o["x"], o["y"], o["radiusM"]) for o in obstacles or [])
+    if model._reported is None or model._reported[0] != key:
+        mask = obstacle_mask(model.blocked.shape, model.cell, obstacles or [])
+        labels = ndimage.label(mask, structure=np.ones((3, 3), bool))[0] if key else np.zeros(mask.shape, np.int32)
+        model._reported = (key, mask, labels)
+    return model._reported
+
+
+def _search(
+    model: CostModel,
+    kind: str,
+    obstacles: list[dict] | None,
+    strict: bool,
+    start_rc: tuple[int, int] | None,
+    release: list[tuple[int, int]] | None = None,
+    release_all: bool = False,
+) -> _Search:
+    """Graf dla danego rodzaju kosztu i przeszkód (z pamięcią ostatnich kilku — trasy awaryjne liczą się często).
+
+    Zgłoszona przeszkoda, w której stoi załoga (start_rc) albo leży punkt z `release` (np. habitat), nie więzi:
+    cały jej spójny obszar jest przejezdny, ale bardzo drogi (OBSTACLE_EXIT_FACTOR), więc trasa opuszcza go najkrótszą
+    drogą. Prawdziwe zakazy terenu (głazy z mapy, piasek, stromizna) zostają. release_all: tak traktowane są wszystkie
+    zgłoszone przeszkody."""
+    obstacle_key, reported, labels = _obstacle_regions(model, obstacles)
+    if release_all:
+        freed = frozenset(np.unique(labels[labels > 0]).tolist())
+    else:
+        freed = frozenset(int(labels[rc]) for rc in [start_rc, *(release or [])] if rc is not None and labels[rc] > 0)
+    key = (kind, strict, obstacle_key, freed)
     cached = model._searches.get(key)
     if cached is not None and (start_rc is None or not cached.blocked[start_rc]):
         return cached
-    extra = obstacle_mask(model.blocked.shape, model.cell, obstacles or [])
+    extra = reported.copy()
+    if freed:
+        extra[np.isin(labels, list(freed))] = False
     if strict:
         extra |= model.caution
     cost = model.cost_array(kind, extra)
+    per_m = model.per_metre(kind)
+    if freed:
+        factor = np.where(np.isin(labels, list(freed)), OBSTACLE_EXIT_FACTOR, 1.0)
+        cost *= factor
+        per_m = per_m * factor
     if start_rc is not None and np.isinf(cost[start_rc]):
-        # start w polu zakazanym (np. zgłoszenie objęło pozycję załogi): wolno z niego wyjść, drogo, ale nie wejść dalej
-        cost[start_rc] = model.o2_per_m[start_rc] * model.cell * 3
-        return _Search(cost)
-    search = _Search(cost)
+        # start w polu zakazanym terenu: wolno z niego wyjść, drogo, ale nie wejść dalej
+        cost[start_rc] = model.per_metre(kind)[start_rc] * model.cell * 3
+        return _Search(cost, per_m)
+    search = _Search(cost, per_m)
     if len(model._searches) >= _GRAPH_CACHE_SIZE:
         model._searches.pop(next(iter(model._searches)))
     model._searches[key] = search
@@ -316,10 +355,15 @@ def plan(
     layers: dict | None = None,
     kind: str = "o2",
     strict: bool = False,
+    release: list[dict] | None = None,
+    release_all: bool = False,
 ) -> dict:
-    """Trasa start → kolejne punkty o najmniejszym koszcie `kind`. strict=True: strefy „uwaga” też są nieprzekraczalne."""
+    """Trasa start → kolejne punkty o najmniejszym koszcie `kind`. strict=True: strefy „uwaga” też są nieprzekraczalne.
+    release: punkty (np. habitat), których zgłoszona przeszkoda nie może zablokować — patrz _search.
+    release_all: każda zgłoszona przeszkoda jest przejezdna (bardzo drogo) — tylko dla drogi do domu, gdy zwykłe
+    reguły jej nie znajdują (przeszkoda zamknęła jedyne wyjście z kieszeni terenu)."""
     prev = model.to_rc(start)
-    search = _search(model, kind, obstacles, strict, prev)
+    search = _search(model, kind, obstacles, strict, prev, [model.to_rc(p) for p in release or []], release_all)
     cells, wp_idx, expanded = [], [], []
     for wp in waypoints:
         goal = model.to_rc(wp)
@@ -347,7 +391,7 @@ def plan(
     pts[0] = {"x": start["x"], "y": start["y"]}
     for i, wp in zip(wp_idx, waypoints):
         pts[i] = {"x": wp["x"], "y": wp["y"]}
-    pts, wp_idx = _straighten(model, pts, wp_idx, model.per_metre(kind), search.blocked)
+    pts, wp_idx = _straighten(model, pts, wp_idx, search.per_m, search.blocked)
     stats = path_stats(model, pts, layers)
     stop_min = sum(w.get("stopMin", 0) for w in waypoints)
     return {
@@ -391,12 +435,20 @@ def path_stats(model: CostModel, pts: list[dict], layers: dict | None) -> dict:
 
 
 def cost_field(model: CostModel, origin: dict, kind: str = "o2", obstacles: list[dict] | None = None) -> np.ndarray:
-    """Koszt (L O₂ albo s) dojścia z każdej komórki do punktu origin (np. habitatu)."""
-    search = _search(model, kind, obstacles, False, None)
+    """Koszt (L O₂ albo s) dojścia z każdej komórki do punktu origin (np. habitatu).
+
+    Zgłoszona przeszkoda nie odcina punktu origin. Komórkom, z których zwykłe reguły nie prowadzą do origin — wewnątrz
+    zgłoszonych przeszkód (np. gdy tam stoi ktoś z załogi) albo w kieszeni terenu, której jedyne wyjście zamknęła
+    przeszkoda — przypisujemy koszt drogi przez przeszkody (drogo, OBSTACLE_EXIT_FACTOR), zamiast „nieosiągalne”.
+    Nieosiągalne zostaje tylko to, co odcinają zakazy terenu."""
     rc = model.to_rc(origin)
+    search = _search(model, kind, obstacles, False, None, [rc])
     if search.blocked[rc]:
         return np.full(search.cost.shape, UNREACHABLE, dtype=np.float32)
     reach, _ = search.from_cell(rc)
+    if obstacles and (~np.isfinite(reach) & ~model.blocked).any():
+        escape, _ = _search(model, kind, obstacles, False, None, release_all=True).from_cell(rc)
+        reach = np.where(np.isfinite(reach), reach, escape)
     return np.where(np.isfinite(reach), reach, UNREACHABLE).astype(np.float32)
 
 

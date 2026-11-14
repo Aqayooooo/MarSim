@@ -31,11 +31,15 @@ def test_obstacle_blocks_movement_but_consumes_resources(engine):
     assert e.crew[0]["person"].o2_l < before
 
 
-def test_home_obstacle_invalidates_walkback(engine):
+def test_home_obstacle_raises_walkback_but_keeps_it_possible(engine):
+    # zgłoszona przeszkoda nie może odciąć habitatu: powrót drożeje (wyjście przez przeszkodę ×10), ale nadal jest możliwy
     e = engine
     h = e.cfg["habitat"]
+    before = e.snapshot()["crew"][0]["walkback"]["needL"]
     e.add_observation(dict(kind="glazy", x=h["x"], y=h["y"], radiusM=32))
-    assert not e.snapshot()["crew"][0]["walkback"]["ok"]
+    wb = e.snapshot()["crew"][0]["walkback"]
+    assert wb["ok"] and wb["needL"] < planning.UNREACHABLE
+    assert wb["needL"] > before
 
 
 def test_goal_in_forbidden_cell_rejected(engine):

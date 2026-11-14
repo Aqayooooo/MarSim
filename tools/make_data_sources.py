@@ -234,6 +234,13 @@ def main():
         for s in prov["sources"]:
             sc, ins, credit = SC[s["instrument"]]
             en, pl, use_en, use_pl = describe(s["id"])
+            if s["id"] in sources:  # to samo źródło w kilku misjach
+                item = sources[s["id"]]
+                same_file = s.get("sha256") and s["sha256"] == item.get("sha256")
+                if s.get("bytes") and not same_file:  # osobne pobrania (np. zdjęcia Navcam): suma
+                    item["bytes"] = item.get("bytes", 0) + s["bytes"]
+                item["missions"].append(mdir.name)
+                continue
             item = sources.setdefault(
                 s["id"],
                 {

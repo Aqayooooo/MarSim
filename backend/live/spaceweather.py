@@ -19,6 +19,7 @@ from backend.paths import CACHE
 DONKI = "https://api.nasa.gov/DONKI/{kind}?startDate={start}&endDate={end}&api_key={key}"
 NOAA_PROTONS = "https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json"
 CACHE_FILE = CACHE / "spaceweather.json"
+DONKI_KINDS = ("sep", "cme", "flr")
 
 
 def _get(url: str, timeout: int = 40):
@@ -32,12 +33,12 @@ def fetch(api_key: str | None = None, days: int = 7) -> dict:
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=days)
     out = {"fetchedUtc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "errors": []}
-    for kind in ("SEP", "CME", "FLR"):
+    for kind in DONKI_KINDS:
         try:
-            out[kind.lower()] = _get(DONKI.format(kind=kind, start=start, end=end, key=api_key)) or []
+            out[kind] = _get(DONKI.format(kind=kind.upper(), start=start, end=end, key=api_key)) or []
         except Exception as e:
-            out[kind.lower()] = []
-            out["errors"].append(f"DONKI {kind}: {e}")
+            out[kind] = []
+            out["errors"].append(f"DONKI {kind.upper()}: {e}")
     try:
         prot = _get(NOAA_PROTONS)
         ge10 = [p for p in prot if p.get("energy") == ">=10 MeV"]
@@ -48,9 +49,16 @@ def fetch(api_key: str | None = None, days: int = 7) -> dict:
     return out
 
 
+def _donki_missing(d: dict) -> set[str]:
+    """Rodzaje zdarzeń DONKI bez danych: pobieranie się nie udało i nie zastąpiono ich ostatnimi zapisanymi."""
+    errors = d.get("errors", [])
+    reused = set(d.get("donkiStale", []))
+    return {k for k in DONKI_KINDS if k not in reused and any(e.startswith(f"DONKI {k.upper()}:") for e in errors)}
+
+
 def get(max_age_s: int = 1800) -> dict:
     """Bufor: najpierw świeże dane z sieci, a gdy jej brak — ostatnie zapisane."""
-    CACHE.mkdir(parents=True, exist_ok=True)
+    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
     cached = None
     if CACHE_FILE.exists():
         try:
@@ -64,6 +72,12 @@ def get(max_age_s: int = 1800) -> dict:
         if not data.get("protons10MeV") and cached and cached.get("protons10MeV"):
             data["protons10MeV"] = cached["protons10MeV"]
             data["protonsStale"] = True
+        # nieudane pobranie z DONKI (np. 429) nie kasuje zdarzeń zapisanych wcześniej
+        cached_missing = _donki_missing(cached) if cached else set(DONKI_KINDS)
+        for kind in sorted(_donki_missing(data)):
+            if cached and kind in cached and kind not in cached_missing:
+                data[kind] = cached[kind]
+                data.setdefault("donkiStale", []).append(kind)
         if len(data["errors"]) < 4:
             temporary = CACHE_FILE.with_suffix(".tmp")
             temporary.write_text(json.dumps(data), encoding="utf-8")
@@ -87,6 +101,7 @@ def summarize(d: dict, source: str) -> dict:
     for f in d.get("flr", [])[-5:]:
         events.append({"type": "FLR", "time": f.get("peakTime"), "note": f"rozbłysk klasy {f.get('classType', '?')}"})
     events.sort(key=lambda e: e["time"] or "", reverse=True)
+    donki_none = _donki_missing(d) == set(DONKI_KINDS)  # żaden rodzaj zdarzeń nie przyszedł ani z sieci, ani z bufora
     value = pfu or 0
     level = "S4+" if value >= 10000 else "S3" if value >= 1000 else "S2" if value >= 100 else "S1" if value >= 10 else "brak"
     return {
@@ -103,6 +118,7 @@ def summarize(d: dict, source: str) -> dict:
         "summary": "Brak aktualnego pomiaru protonów NOAA"
         if pfu is None
         else ("Ostatni pomiar (nieaktualny): " if d.get("protonsStale") else "")
-        + f"Protony ≥10 MeV przy Ziemi: {value:.2f} pfu (burza: {level}); zdarzenia DONKI z 7 dni: {len(events)}".replace(".", ","),
+        + f"Protony ≥10 MeV przy Ziemi: {value:.2f} pfu (burza: {level}); zdarzenia DONKI z 7 dni: "
+        + ("brak danych" if donki_none else str(len(events))).replace(".", ","),
         "note": "Pomiary przy Ziemi — dla Marsa wskaźnik orientacyjny.",
     }

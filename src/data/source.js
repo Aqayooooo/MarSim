@@ -79,7 +79,7 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
   const samples = new Map();
   const getJson = (f) => fetch(url(f), { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const sample = (name) => {
-    if (mode === 'http') return Promise.resolve(null);
+    if (mode === 'http' || ctx?.mission?.synthetic) return Promise.resolve(null);   // dane syntetyczne nie mają backend/ (bez zbędnego 404)
     meta ||= getJson('backend/meta.json');
     if (name === 'meta') return meta;
     if (!samples.has(name)) samples.set(name, meta.then((m) => (m?.files?.includes(name) ? getJson(`backend/${name}.json`) : null)));
@@ -152,7 +152,9 @@ export function createDataSource({ mode = 'files', base = 'data/demo', api = '' 
       // to samo zapytanie co przy eksporcie: trasa policzona przez backend (Dijkstra na koszcie O₂) razem z wariantami
       const s = await sample('plan');
       if (s && samePlan(s.request, start, waypoints, obstacles)) return structuredClone(s.response);
-      return mockPlan({ terrain: ctx.terrain, hazards: ctx.rasters.hazards, start, waypoints, obstacles, eva: ctx.mission.eva });
+      // habitat i załoga: bilans tlenu z powrotem (o2Budget); zgłoszona przeszkoda nie odcina habitatu ani łazika
+      const { habitat, crew, rover } = ctx.mission;
+      return mockPlan({ terrain: ctx.terrain, hazards: ctx.rasters.hazards, start, waypoints, obstacles, eva: ctx.mission.eva, habitat, crew, release: [habitat, rover] });
     },
 
     /** Trasa z dowolnego startu do dowolnego celu: czysty Dijkstra w przeglądarce (działa też bez serwera; nie zmienia stanu EVA). */
