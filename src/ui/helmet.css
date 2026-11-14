@@ -118,3 +118,14 @@
 .rh-teleport button { color: inherit; border-color: #ffffff38; background: #ffffff12; }
 #rideHud[data-bg="light"] .rh-teleport button { color: #071214; border-color: #0712145c; background: #ffffff66; }
 [data-bg="light"] .visor-teleport button:hover { background: #ffffffa6; }
+
+/* hełm EV1: panele bez żadnego tła ani rozmycia — sam tekst (z cieniem) na obrazie terenu.
+   Specyficzność (#stage.helmet-mode …) wygrywa z regułami wyżej, także z wariantami danger/warning i data-bg="light". */
+#stage.helmet-mode :is(#hud, #rideHud, #habHud, #caption),
+#stage.helmet-mode #hud :is(.visor-summary, .visor-motion, .visor-compass b, .visor-warning, .visor-teleport button, #visorExample),
+#stage.helmet-mode :is(#rideHud, #habHud, #caption)[data-bg],
+#stage.helmet-mode :is(#rideHud, #habHud) :is(.btn, .rh-teleport button) {
+  background: none; backdrop-filter: none; box-shadow: none; }
+#stage.helmet-mode #hud .visor-summary::before { box-shadow: none; }
+#stage.helmet-mode :is(#rideHud, #habHud, #caption) { text-shadow: 0 1px 2px #000c, 0 0 10px #0008; }
+#stage.helmet-mode :is(#rideHud, #habHud, #caption)[data-bg="light"] { text-shadow: 0 0 6px #fffc; }
