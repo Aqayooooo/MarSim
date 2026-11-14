@@ -9,7 +9,9 @@
 #  Jeśli port jest już zajęty przez MarSim, skrypt tylko otwiera przeglądarkę.
 # ============================================================
 set -euo pipefail
-cd "$(dirname "$(readlink -f "$0")")"
+SELF="$0"
+if command -v readlink >/dev/null && readlink -f "$0" >/dev/null 2>&1; then SELF="$(readlink -f "$0")"; fi
+cd "$(dirname "$SELF")"
 ROOT="$PWD"
 
 say() { printf '\033[1;31m[MarSim]\033[0m %s\n' "$*"; }
@@ -63,47 +65,46 @@ for c in python3 python; do
 done
 [[ -n "$PY" ]] || fail "Nie znaleziono Pythona 3.10+. Zainstaluj go (np. sudo apt install python3 python3-venv)."
 
-open_browser() {   # otwiera przeglądarkę, gdy serwer zacznie odpowiadać (maks. ok. 30 s)
-  local url="$1" probe="$2"
-  [[ -n "${MARSIM_NO_BROWSER:-}" ]] && return 0
-  (
-    for _ in $(seq 60); do
-      if "$PY" -c "import urllib.request,sys; urllib.request.urlopen(sys.argv[1], timeout=1)" "$probe" 2>/dev/null; then
-        if command -v xdg-open >/dev/null; then xdg-open "$url" >/dev/null 2>&1
-        elif command -v open >/dev/null; then open "$url"
-        fi
-        exit 0
-      fi
-      sleep 0.5
-    done
-  ) &
-}
+helper() { "$PY" "$ROOT/tools/launcher.py" "$@"; }
 
-port_busy() { "$PY" -c "import socket,sys; s=socket.socket(); s.settimeout(.5); sys.exit(0 if s.connect_ex(('127.0.0.1', int(sys.argv[1])))==0 else 1)" "$1"; }
+open_browser() {   # otwiera przeglądarkę, gdy serwer zacznie odpowiadać (maks. ok. 30 s)
+  [[ -n "${MARSIM_NO_BROWSER:-}" ]] && return 0
+  helper open "$1" "$2" >/dev/null 2>&1 &
+}
 
 if [[ "$MODE" == "demo" ]]; then
   PORT="${PORT:-5173}"
+  if helper busy "$PORT"; then
+    if helper up "http://localhost:$PORT/index.html"; then
+      say "Coś już serwuje interfejs na porcie $PORT — otwieram przeglądarkę."
+      open_browser "http://localhost:$PORT/$LANGQ" "http://localhost:$PORT/index.html"; wait; exit 0
+    fi
+    fail "Port $PORT jest zajęty przez inny program. Spróbuj: PORT=5174 ./uruchom.sh demo"
+  fi
   say "Tryb demo (bez backendu): http://localhost:$PORT/$LANGQ"
   open_browser "http://localhost:$PORT/$LANGQ" "http://localhost:$PORT/index.html"
   exec "$PY" tools/serve.py "$PORT"
 fi
 
 PORT="${PORT:-8000}"
-if port_busy "$PORT"; then
-  if "$PY" -c "import urllib.request,sys; urllib.request.urlopen(sys.argv[1], timeout=2)" "http://localhost:$PORT/api/health" 2>/dev/null; then
+if helper busy "$PORT"; then
+  if helper up "http://localhost:$PORT/api/health"; then
     say "MarSim już działa na porcie $PORT — otwieram przeglądarkę."
-    MARSIM_NO_BROWSER="${MARSIM_NO_BROWSER:-}" open_browser "http://localhost:$PORT/$LANGQ" "http://localhost:$PORT/api/health"
-    wait; exit 0
+    open_browser "http://localhost:$PORT/$LANGQ" "http://localhost:$PORT/api/health"; wait; exit 0
   fi
   fail "Port $PORT jest zajęty przez inny program. Spróbuj: PORT=8001 ./uruchom.sh"
 fi
 
 VPY="$ROOT/.venv/bin/python"
-if [[ ! -x "$VPY" ]] || ! "$VPY" -c 'import fastapi, uvicorn, numpy, scipy, skimage, PIL' 2>/dev/null; then
-  say "Pierwsze uruchomienie: tworzę środowisko .venv i instaluję pakiety (wymaga internetu, raz)…"
-  rm -rf "$ROOT/.venv"
-  "$PY" -m venv .venv || fail "Nie udało się utworzyć .venv. Na Ubuntu/Debianie: sudo apt install python3-venv"
-  "$VPY" -m pip install --disable-pip-version-check -q -r requirements-runtime.txt || fail "Instalacja pakietów nie powiodła się. Tryb awaryjny bez backendu: ./uruchom.sh demo"
+if ! "$VPY" -c 'import fastapi, uvicorn, numpy, scipy, skimage, PIL' 2>/dev/null; then
+  say "Pierwsze uruchomienie: przygotowuję środowisko .venv i instaluję pakiety (wymaga internetu, raz)…"
+  if ! "$VPY" -c 'pass' 2>/dev/null; then   # brak .venv albo uszkodzone (np. usunięty Python bazowy)
+    "$PY" -m venv --clear .venv || fail "Nie udało się utworzyć .venv. Na Ubuntu/Debianie: sudo apt install python3-venv"
+  fi
+  "$VPY" -m pip --version >/dev/null 2>&1 || "$VPY" -m ensurepip --upgrade >/dev/null 2>&1 \
+    || fail "W .venv brakuje pip. Na Ubuntu/Debianie: sudo apt install python3-venv, potem usuń katalog .venv"
+  "$VPY" -m pip install --disable-pip-version-check -r requirements-runtime.txt \
+    || fail "Instalacja pakietów nie powiodła się. Tryb awaryjny bez backendu: ./uruchom.sh demo"
 fi
 
 say "Start backendu: http://localhost:$PORT/$LANGQ"
