@@ -183,7 +183,7 @@ h1 em,h2 em{font-style:italic}
 #notes header b{font-weight:400;color:var(--bone)}
 #notes p{font:400 clamp(16px,1.6vw,21px)/1.6 var(--f-text);color:var(--bone-2);margin:0 0 10px;max-width:78ch}
 #notes p.hand{color:var(--accent-hi);font-weight:400}
-#roles{inset:0;display:grid;background:rgba(5,5,5,.94);border:0;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));overflow:auto}
+#roles{inset:0;display:grid;background:rgba(5,5,5,.975);border:0;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));overflow:auto}
 #roles .in{width:min(1280px,100%);margin:auto}
 #roles h2{font-size:clamp(30px,4vw,52px);margin-bottom:10px}
 #roles .sub{font:400 clamp(14px,1.3vw,17px)/1.5 var(--f-text);color:var(--bone-2);margin:0 0 30px;max-width:92ch}
@@ -578,7 +578,7 @@ function toggleNotes(v = notes.hidden) { notes.hidden = !v; renderNotes(); }
 })();
 let lastFocus = null;
 function toggleRoles(v = roles.hidden) {
-  if (v) { lastFocus = document.activeElement; roles.hidden = false; $('#rolesClose').focus(); }
+  if (v) { lastFocus = document.activeElement; roles.hidden = false; $('#rolesClose').focus({ preventScroll: true }); roles.scrollTop = 0; }   // na małym ekranie panel zaczyna od tytułu, nie od przycisku
   else { roles.hidden = true; lastFocus?.focus?.(); }
 }
 $('#rolesClose').addEventListener('click', () => toggleRoles(false));
