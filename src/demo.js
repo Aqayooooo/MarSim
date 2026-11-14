@@ -76,8 +76,16 @@ export class Director {
       await wait(0.3);
       const nasaRover = app.world?.rasters?.rover?.rover;
       app.setCaption('01', nasaRover ? t('demo.c1r', { rover: nasaRover }) : t('demo.c1'));
-      const layers = app.m.layers, step = 2.4 / Math.max(1, layers.length);
+      // obszar boxwork (Mount Sharp): warstwa Boxwork na końcu, z własnym podpisem o celu naukowym; krok dalej trwa ok. 3 s
+      const box = app.m.layers.find((l) => l.id === 'boxwork');
+      const layers = app.m.layers.filter((l) => l !== box), step = (box ? 1.2 : 2.4) / Math.max(1, layers.length);
       for (const l of layers) { alive(); app.toggleLayer(l.id, true); await wait(step); }
+      if (box) {
+        alive();
+        app.toggleLayer(box.id, true);
+        app.setCaption('01', t('demo.c1b'));
+        await wait(1.2);
+      }
       await wait(0.3);
 
       // 02 · bezpieczna trasa i porównanie wariantów — ok. 4 s
@@ -86,7 +94,13 @@ export class Director {
       const route = await app.planInitial({ animate: true });
       alive();
       if (!route) throw new Error(t('noRoute'));
-      await wait(2.4);
+      await wait(1.2);
+      // bilans tlenu planu z powrotem do habitatu i rezerwą (o2Budget) — bez dodatkowego czasu
+      const o2 = app.state.route?.o2Budget;
+      if (o2?.ok && o2.needL != null) {
+        app.setCaption('02', t('demo.c2o', { need: Math.round(o2.needL), usable: Math.round(o2.usableL), reserve: o2.reservePct }));
+      }
+      await wait(1.2);
       if (app.state.route?.alternatives) {
         app.setCaption('02', t('demo.c2b'));
         app.emit('compare', true);
