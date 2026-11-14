@@ -15,7 +15,7 @@ def test_higher_slope_limit_never_adds_forbidden_cells(mission):
         assert not (higher & ~lower).any()
     same = planning.hazard_for_limit(e.layers, e.cfg["eva"], e.cfg["eva"]["maxSlopeDeg"])
     assert np.array_equal(same == 2, e.layers["hazard"] == 2)  # przy obecnym limicie mapa zakazów bez zmian
-    sand = e.layers["sand"] > planning.SAND_FORBIDDEN_THRESHOLD
+    sand = e.layers["sand"] > planning.sand_forbidden_threshold(e.cfg["eva"])
     assert (hazards[-1][sand & (e.layers["hazard"] == 2)]).all()  # piasek zostaje zakazany przy każdym limicie
 
 

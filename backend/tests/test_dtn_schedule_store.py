@@ -4,6 +4,7 @@ import random
 from datetime import datetime, timezone
 
 import pytest
+from conftest import MISSION_IDS, make_engine
 
 from backend import missions as mis
 from backend.live.dtn import DtnLink
@@ -192,11 +193,9 @@ def test_duplicate_crew_member_is_not_counted_twice():
     assert s.evaluate()["consumables"]["o2NeededL"] == round(50.0 * 1.1 * 2.0)
 
 
-@pytest.mark.parametrize("mission_id", ["mount-sharp", "jezero"])
+@pytest.mark.parametrize("mission_id", MISSION_IDS)
 def test_default_schedule_matches_mission_sol(mission_id):
     """Domyślny plan wyjść powinien zaczynać się w solu misji, nie w solu innej misji."""
-    from conftest import make_engine
-
     eng = make_engine(mission_id)
     sols = [i["sol"] for i in eng.scheduler.items]
     assert min(sols) == mis.config(mission_id)["sol"], f"misja w solu {mis.config(mission_id)['sol']}, plan od sola {min(sols)}"

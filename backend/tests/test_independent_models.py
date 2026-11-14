@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pytest
-from conftest import cells, densify, make_engine
+from conftest import MISSION_IDS, cells, densify, make_engine
 
 from backend import planning
 from backend.models import orbits, physiology, radiation, sun
@@ -426,7 +426,7 @@ def test_hazard_for_limit_relaxes_only_steep_cells():
 
 
 # ============================ planer na danych misji ============================
-@pytest.fixture(scope="module", params=["mount-sharp", "jezero"])
+@pytest.fixture(scope="module", params=MISSION_IDS)
 def mission_engine(request):
     return make_engine(request.param)
 
@@ -456,7 +456,7 @@ def test_mission_route_never_enters_forbidden_cells_or_steep_or_loose_sand(missi
     assert not np.any(e.layers["hazard"][rows, cols] == 2)
     slope_up = e.layers["slope"][rows, cols] + 2 * e.layers["slopeSigma"][rows, cols]
     assert slope_up.max() <= e.cfg["eva"]["maxSlopeDeg"]
-    assert e.layers["sand"][rows, cols].max() <= 0.6
+    assert e.layers["sand"][rows, cols].max() <= planning.sand_forbidden_threshold(e.cfg["eva"])
 
 
 def test_mission_route_length_consistent_with_geometry(mission_plan):

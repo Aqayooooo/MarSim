@@ -26,17 +26,17 @@ for (const f of ['src/main.js', 'src/app.js', 'src/demo.js', 'src/ui/panels.js',
 
 // teksty z danych misji
 const polish = /[ąćęłńóśźż]/i;
-for (const f of ['data/missions/mount-sharp/mission.json', 'data/missions/jezero/mission.json', 'data/demo/mission.json']) {
+for (const f of ['data/missions/mount-sharp/mission.json', 'data/missions/jezero/mission.json', 'data/missions/boxwork/mission.json', 'data/demo/mission.json']) {
   const m = JSON.parse(readFileSync(new URL(`../${f}`, import.meta.url), 'utf8'));
   const texts = [m.mission.title, m.mission.sourceLabel, m.area.label, ...m.layers.flatMap((l) => [l.name, l.desc, ...(l.legend || []).map((e) => e.text)]),
     ...(m.events || []).flatMap((e) => [e.alert?.category, e.alert?.text?.replace('{dist}', '120'), e.source])].filter(Boolean);
   // nazwy własne (instrumenty, łaziki z latami misji) są takie same w obu językach
-  const sameOk = /^(HiRISE|THEMIS|CTX|CRISM|MOLA|RAD|DONKI|NOAA|MT SHARP)\b|^(Curiosity|Perseverance) \d{4}–\d{4}$|^[A-Z0-9 ·+/_,.-]+$/;
+  const sameOk = /^(HiRISE|THEMIS|CTX|CRISM|MOLA|RAD|DONKI|NOAA|MT SHARP|GALE · MOUNT SHARP)\b|^Boxwork$|^(Curiosity|Perseverance) \d{4}–\d{4}$|^[A-Z0-9 ·+/_,.-]+$/;
   for (const s of texts) check(!polish.test(tx(s)) && (tx(s) !== s || sameOk.test(s)), `${f}: brak tłumaczenia „${s}” → „${tx(s)}”`);
 }
 
 // opisy źródeł danych (raport → „Podstawa danych”: część opisu po „ — ”, jak w backend/live/report.py)
-for (const id of ['mount-sharp', 'jezero']) {
+for (const id of ['mount-sharp', 'jezero', 'boxwork']) {
   const p = JSON.parse(readFileSync(new URL(`../data/missions/${id}/provenance.json`, import.meta.url), 'utf8'));
   for (const s of p.sources || []) {
     const use = s.description.split(' — ').at(-1);

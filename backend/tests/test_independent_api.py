@@ -81,10 +81,10 @@ def test_health_reports_mission_version_and_session(c):
     assert isinstance(h["session"], int) and h["session"] >= 1
 
 
-def test_missions_list_has_both_areas_with_one_active(c):
+def test_missions_list_has_all_areas_with_one_active(c):
     body = c.get("/api/missions").json()
     ids = [m["id"] for m in body["missions"]]
-    assert {"mount-sharp", "jezero"} <= set(ids)
+    assert {"mount-sharp", "jezero", "boxwork"} <= set(ids)
     assert [m["id"] for m in body["missions"] if m["active"]] == [body["active"]] == [FIRST]
     for m in body["missions"]:
         assert set(m["label"]) == {"pl", "en"}
@@ -97,6 +97,8 @@ def test_mission_centers_match_readme_coordinates(c):
     assert centers["mount-sharp"]["lon"] == pytest.approx(137.38, abs=0.01)
     assert centers["jezero"]["lat"] == pytest.approx(18.44, abs=0.01)
     assert centers["jezero"]["lon"] == pytest.approx(77.45, abs=0.01)
+    assert centers["boxwork"]["lat"] == pytest.approx(-4.80, abs=0.01)
+    assert centers["boxwork"]["lon"] == pytest.approx(137.38, abs=0.01)
 
 
 def test_mission_switch_changes_active_engine_and_back(c):

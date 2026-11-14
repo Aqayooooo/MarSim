@@ -1,0 +1,136 @@
+{
+  "id": "boxwork",
+  "title": "EVA-1 · formacje boxwork na zboczu Mount Sharp · krater Gale",
+  "areaLabel": "GALE · MOUNT SHARP · BOXWORK · HiRISE",
+  "aoi": {
+    "centerLon": 137.3831,
+    "centerLat": -4.8023,
+    "widthM": 1440,
+    "heightM": 960
+  },
+  "missionDateUtc": "2037-05-20T00:00:00Z",
+  "sol": 263,
+  "startLtst": "09:30",
+  "habitat": {
+    "x": 904.5,
+    "y": 373.5,
+    "mastM": 10
+  },
+  "rover": {
+    "x": 952.5,
+    "y": 337.5,
+    "speedKmh": 12,
+    "mastM": 3
+  },
+  "waypoints": [
+    {
+      "id": "WP1",
+      "x": 392.5,
+      "y": 421.5,
+      "stopMin": 20,
+      "target": "grzbiet boxwork: zacementowana szczelina (ślad wody gruntowej)"
+    },
+    {
+      "id": "WP2",
+      "x": 638.5,
+      "y": 805.5,
+      "stopMin": 20,
+      "target": "zagłębienie między grzbietami: kontakt grzbietu z osadem"
+    }
+  ],
+  "crew": [
+    {
+      "id": "EV1",
+      "bodyKg": 78,
+      "loadKg": 125,
+      "o2CapacityL": 520,
+      "batteryWh": 1100,
+      "co2CapacityL": 600,
+      "priorDoseMsv": 182
+    },
+    {
+      "id": "EV2",
+      "bodyKg": 66,
+      "loadKg": 120,
+      "o2CapacityL": 520,
+      "batteryWh": 1100,
+      "co2CapacityL": 600,
+      "priorDoseMsv": 240
+    }
+  ],
+  "eva": {
+    "walkKmh": 2.5,
+    "maxSlopeDeg": 25,
+    "cautionSlopeDeg": 18,
+    "o2ReservePct": 20,
+    "sigmaZMinM": 0.2,
+    "shelterMin": 15,
+    "shelterRadiusM": 400,
+    "rxHeightM": 1.8,
+    "sandForbiddenThreshold": 0.8,
+    "sandCalibration": "Próg zakazu dla piasku z trasy łazika Curiosity (sole 4507–4837): 90. percentyl prawdopodobieństwa piasku na 86 postojach to 0,77, zaokrąglone w górę do 0,8. Ciemna, pomarszczona jednostka siarczanowa i cienka pokrywa piasku w zagłębieniach boxwork wyglądają dla wskaźników jak piasek, a łazik po nich jeździ. Prawdopodobieństwo piasku bez zmian; powyżej 0,35 teren nadal liczony jak piasek (wolniej, więcej O₂, strefa „uwaga”)."
+  },
+  "habitatStores": {
+    "o2TanksL": 6000,
+    "batteriesWh": 12000,
+    "waterL": 300
+  },
+  "uwbBeacons": [
+    {
+      "id": "B1",
+      "x": 952,
+      "y": 338
+    },
+    {
+      "id": "B2",
+      "x": 756,
+      "y": 407
+    },
+    {
+      "id": "B3",
+      "x": 546,
+      "y": 440
+    },
+    {
+      "id": "B4",
+      "x": 427,
+      "y": 463
+    },
+    {
+      "id": "B5",
+      "x": 580,
+      "y": 608
+    },
+    {
+      "id": "B6",
+      "x": 638,
+      "y": 806
+    }
+  ],
+  "label": {
+    "pl": "Krater Gale · formacje boxwork na Mount Sharp",
+    "en": "Gale crater · Mount Sharp boxwork"
+  },
+  "products": {
+    "dtm": "DTEEC_019698_1750_019988_1750_U01",
+    "image": "ESP_019698_1750",
+    "pair": "ESP_019988_1750",
+    "orthoA": "ESP_019698_1750_RED_A_01_ORTHO",
+    "orthoC": "ESP_019698_1750_RED_C_01_ORTHO",
+    "crism": "FRT0000B6F1_07_SU165J_MTR3"
+  },
+  "extra": {
+    "themis": {
+      "id": "THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp",
+      "instrument": "Mars Odyssey THEMIS",
+      "description": "Kontrolowana mozaika THEMIS w podczerwieni nocnej, 100 m/px (USGS, 2014) — jakościowa bezwładność termiczna",
+      "path": "Mars/THEMIS_controlled_mosaics/Aeolis_NightIR_31Jan2014/THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp.tif"
+    },
+    "ctx": {
+      "id": "Gale_CTX_BlockAdj_dd",
+      "instrument": "MRO CTX",
+      "description": "Mozaika CTX krateru Gale (USGS, strefy eksploracji dla ludzi), ~5 m/px — kontrola spójności zdjęcia",
+      "path": "Mars/CTX_EZs/Gale_CTX_BlockAdj_dd.tif"
+    }
+  }
+}

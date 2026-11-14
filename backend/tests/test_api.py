@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
+from conftest import MISSION_IDS
+
 from backend.live.store import Store
 from backend.server import create_app
 
@@ -145,7 +147,7 @@ def test_mission_select_rejects_bad_ids(api, body, code):
     assert api.post("/api/missions/select", json=body).status_code == code
 
 
-@pytest.mark.parametrize("mission", ["mount-sharp", "jezero"])
+@pytest.mark.parametrize("mission", MISSION_IDS)
 def test_route_never_enters_forbidden_and_explains_alternatives(api, mission):
     api.post("/api/missions/select", json={"id": mission})
     r = api.post("/api/plan", json={}).json()

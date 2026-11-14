@@ -8,7 +8,7 @@ const ROUTE = '#FFDC52', TRAIL = '#F28586', ACCENT = '#F17778';   // ACCENT/TRAI
 const PICK = '#5EE6D0';                                            // własna trasa (Dijkstra)
 export const ALT_COLORS = { chosen: ROUTE, straight: '#FF5A4A', shortest: '#FFA94D', strict: '#7FB2FF' };
 // krycie warstwy, gdy nie jest bieżąca (wyróżniona): zgodnie z obrazem końcowym z nagrania
-const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, rover: 1, geology: 0.6, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
+const DIM = { optical: 1, terrain: 1, thermal: 0.08, minerals: 0.5, sand: 0.55, boulders: 1, rover: 1, geology: 0.6, boxwork: 0.7, hazards: 0.75, comms: 0.7, shadow: 1, sky: 1 };
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
 /** Piksel k obrazu RGBA — bez tworzenia tablicy dla każdego piksela (warstwy mają po 150–600 tys. pikseli). */
@@ -76,6 +76,7 @@ export class Map2D {
         + `${tr('probe.slope')} ${num(terrain.slope(p.x, p.y), 0)}° · <span class="z${zone}">${tr(`probe.z${zone}`)}</span>`
         + `${sand == null ? '' : ` · ${tr('probe.sand')} ${int(sand / 2.55)}%`}${home ? `<br>${home}` : ''}`
         + (rasters.geology && this.app.state.layers.geology?.on ? (() => { const v = rasters.geology.sample(p.x, p.y); const c = v && rasters.geology.meta.classes[v]; return c ? `<br>${tx(c.text)}` : ''; })() : '')
+        + (rasters.boxwork && this.app.state.layers.boxwork?.on ? (() => { const v = rasters.boxwork.sample(p.x, p.y); const c = v && rasters.boxwork.meta.classes[v]; return c ? `<br>${tx(c.text)}` : ''; })() : '')
         + (this.hoverStop ? `<br><span class="rv">${tr('probe.rover', { r: rasters.rover.rover, sol: this.hoverStop.sol, d: this.hoverStop.date || '—', site: this.hoverStop.site, drive: this.hoverStop.drive })} · ${tr('probe.roverClick')}</span>` : '');
       box.hidden = false;
     });
@@ -132,6 +133,17 @@ export class Map2D {
       g.putImageData(im, 0, 0);
       this.geoCanvas = c;
       this.geoLabels = Object.entries(sums).map(([v, s]) => ({ x: (s.x / s.n + 0.5) * R.cellM, y: (s.y / s.n + 0.5) * R.cellM, text: (/\((\w+)\)/.exec(cls[v].text) || [])[1] || '' })).filter((l) => l.text);
+    }
+    // boxwork (klasy z DTM): grzbiety wyraźnie, zagłębienia słabiej — cel naukowy, nie zagrożenie
+    if (rasters.boxwork) {
+      const R = rasters.boxwork, cls = R.meta.classes, [c, g] = this.#canvas(R.width, R.height), im = g.createImageData(R.width, R.height);
+      const col = Object.fromEntries(Object.entries(cls).map(([v, c]) => [v, hexToRgb(c.color)]));
+      for (let k = 0; k < R.data.length; k++) {
+        const v = R.data[k], rgb = v && col[v];
+        if (rgb) px(im.data, k, rgb[0], rgb[1], rgb[2], v === 1 ? 235 : 110);
+      }
+      g.putImageData(im, 0, 0);
+      this.boxCanvas = c;
     }
     // nachylenie: jaśniej = bardziej stromo
     {
@@ -236,6 +248,7 @@ export class Map2D {
     if (this.app.world.rasters.minerals) this.#minerals(A('minerals'));
     if (this.sandCanvas && A('sand') > 0) this.#imageLayer(this.sandCanvas, A('sand'), false);
     if (this.geoCanvas && A('geology') > 0) this.#geology(A('geology'));
+    if (this.boxCanvas && A('boxwork') > 0) this.#imageLayer(this.boxCanvas, A('boxwork'), false);
     if (A('hazards') > 0) { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = A('hazards'); ctx.drawImage(this.hazBlur, 0, 0); ctx.restore(); }
     if (this.commsCanvas && A('comms') > 0) this.#imageLayer(this.commsCanvas, A('comms'), false);
     if (A('shadow') > 0) { const sc = this.#shadowCanvas(app.shadowHour); if (sc) this.#imageLayer(sc, A('shadow'), false); }

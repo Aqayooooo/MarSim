@@ -229,7 +229,7 @@ def build(e) -> dict:
         {"id": "maxSlope", "value": eva["maxSlopeDeg"], "unit": "°"},
         {"id": "cautionSlope", "value": eva["cautionSlopeDeg"], "unit": "°"},
         {"id": "slopeMargin", "value": planning.SLOPE_SIGMA_MARGIN, "unit": "σ"},
-        {"id": "sandForbidden", "value": planning.SAND_FORBIDDEN_THRESHOLD, "unit": ""},
+        {"id": "sandForbidden", "value": planning.sand_forbidden_threshold(eva), "unit": ""},
         {"id": "sandCaution", "value": planning.SAND_TERRAIN_THRESHOLD, "unit": ""},
         {"id": "cautionFactor", "value": planning.CAUTION_FACTOR, "unit": "×"},
         {"id": "obstacleBuffer", "value": planning.OBSTACLE_BUFFER_M, "unit": "m"},

@@ -31,6 +31,17 @@ SC = {
 # opis i użycie według rodzaju produktu (rozpoznawany po identyfikatorze)
 KINDS = [
     (
+        "DTEEC_019698_1750_019988_1750",
+        (
+            "HiRISE stereo digital terrain model (DTM), 1.01 m/px — boxwork area on Mount Sharp",
+            "Model wysokości HiRISE (DTM), 1,01 m/px — obszar boxwork na Mount Sharp",
+            "terrain, slope ±σ, 3D view, route planning, radio line of sight, terrain shadows; Boxwork layer (boxwork area only): "
+            "ridge network from the DTM, illustrative, not used for hazards or planning",
+            "teren, nachylenie ±σ, widok 3D, planowanie trasy, zasięg radiowy, cienie; warstwa Boxwork (tylko obszar boxwork): "
+            "sieć grzbietów z DTM, poglądowo, bez wpływu na zagrożenia i planowanie",
+        ),
+    ),
+    (
         "DTEEC_",
         (
             "HiRISE stereo digital terrain model (DTM), 1.01 m/px",

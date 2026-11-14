@@ -10,11 +10,12 @@ Wersja online (bez serwera): https://aqayooooo.github.io/MarSim/
 
 ## Co umie
 
-- Dwa obszary, każdy 1440 × 960 m: krater Gale (wydmy Bagnold, 4,67° S 137,38° E) i krater Jezero (lądowisko Perseverance, 18,44° N 77,45° E).
+- Trzy obszary, każdy 1440 × 960 m: krater Gale (wydmy Bagnold, 4,67° S 137,38° E), formacje boxwork na zboczu Mount Sharp w kraterze Gale (4,80° S 137,38° E) i krater Jezero (lądowisko Perseverance, 18,44° N 77,45° E).
 - Warstwy z danych NASA: HiRISE (model wysokości 1 m, zdjęcia 0,25 m), CTX, THEMIS, MOLA, CRISM, pogoda kosmiczna z DONKI i NOAA SWPC. Lista wszystkich plików z sumami SHA-256 jest w [data-sources.json](data-sources.json).
 - Trasa liczona algorytmem A* po mapie kosztu tlenu. Limit nachylenia to 25° (z marginesem na niepewność modelu terenu), rezerwa tlenu 20%.
 - Symulacja wyjścia na żywo: pozycja załogi, tlen, zapas na powrót, zgłoszenia przeszkód z terenu (trasa się przelicza), burza słoneczna.
-- Prawdziwe trasy łazików: Curiosity w Gale (sole 956–1262) i Perseverance w Jezero (sole 13–382), z postojami i zdjęciami z Navcam.
+- Prawdziwe trasy łazików: Curiosity w Gale (sole 956–1262) i na boxwork (sole 4507–4837, 2025–2026) oraz Perseverance w Jezero (sole 13–382), z postojami i zdjęciami z Navcam.
+- Cel naukowy na trasie: w obszarze boxwork warstwa grzbietów i pól boxwork liczona z modelu wysokości HiRISE (ślady dawnej wody gruntowej), punkty EVA przy grzbietach.
 - Widok 3D i widok z hełmu, po którym można chodzić, wejść do habitatu i pojechać łazikiem.
 - PL i EN, działa na telefonie, po instalacji także bez internetu.
 
@@ -70,7 +71,7 @@ docker run --rm -p 127.0.0.1:8000:8000 -v marsim-data:/data marsim
 index.html, styles.css   interfejs
 src/                     moduły JS (bez kompilacji), three.js w vendor/
 backend/                 serwer FastAPI, symulacja EVA, SQLite, potok danych NASA
-data/missions/<id>/      gotowe warstwy dla Gale i Jezero
+data/missions/<id>/      gotowe warstwy dla trzech obszarów
 data/demo/               dane przykładowe dla trybu bez serwera
 docs/                    plan, kontrakt danych, planer, bezpieczeństwo
 tools/                   testy i skrypty pomocnicze
@@ -82,6 +83,17 @@ Przebudowa danych NASA (opcjonalna, ok. 0,5 GB surowych plików na obszar):
 pip install -r requirements.txt
 python backend/fetch_data.py --mission jezero
 python backend/build.py --mission jezero
+```
+
+`build.py` zapisuje od nowa `mission.json` i `provenance.json`, więc warstwy dopisywane osobno trzeba potem uruchomić ponownie (w tej kolejności):
+
+```
+python -m backend.pipeline.rover_track <obszar>    # trasa łazika NASA
+python -m backend.pipeline.rover_photos <obszar>   # zdjęcia Navcam z postojów
+python -m backend.pipeline.geology                 # tylko jezero
+python -m backend.pipeline.boxwork                 # tylko boxwork
+python tools/export_backend_sample.py              # dane dla wersji bez serwera
+python tools/make_data_sources.py                  # data-sources.json
 ```
 
 ## Testy
@@ -109,7 +121,7 @@ Więcej szczegółów: [CHANGELOG.md](CHANGELOG.md), [docs/PLANER.md](docs/PLANE
 
 ## English
 
-MarSim is a map and EVA planner for astronauts on Mars, made for NASA Space Apps Challenge 2026. It uses real NASA data (HiRISE, CTX, THEMIS, MOLA, CRISM, DONKI) for two areas, Gale crater and Jezero crater. It plans a safe walking route, tracks oxygen and the walk-back margin during the EVA, and lets you walk the route in 3D from a helmet view. Run `URUCHOM.bat en` on Windows or `./uruchom.sh en` on Linux/macOS.
+MarSim is a map and EVA planner for astronauts on Mars, made for NASA Space Apps Challenge 2026. It uses real NASA data (HiRISE, CTX, THEMIS, MOLA, CRISM, DONKI) for three areas: the Bagnold dunes and the boxwork formations on Mount Sharp in Gale crater, and Jezero crater. It plans a safe walking route, tracks oxygen and the walk-back margin during the EVA, and lets you walk the route in 3D from a helmet view. Run `URUCHOM.bat en` on Windows or `./uruchom.sh en` on Linux/macOS.
 
 ## Licencja
 

@@ -40,7 +40,7 @@ from backend.pipeline import minerals as mnr
 from backend.pipeline import sand as snd
 from backend.pipeline import terrain as ter
 from backend.pipeline.grid import block_mean, cache_remote_window, grid_from_center, open_crs, read_into
-from backend.planning import SAND_FORBIDDEN_THRESHOLD, SAND_TERRAIN_THRESHOLD
+from backend.planning import SAND_TERRAIN_THRESHOLD, sand_forbidden_threshold
 
 PIPELINE_VERSION = "1.1.0"
 MISSION_ID = missions.from_argv()
@@ -285,7 +285,7 @@ def main() -> int:
             j0, j1 = max(0, int((b["x"] - r) // cell)), min(W, int((b["x"] + r) // cell) + 1)
             bblock[i0:i1, j0:j1] |= np.hypot(xx[i0:i1, j0:j1] - b["x"], yy[i0:i1, j0:j1] - b["y"]) < r
     eva = CFG["eva"]
-    forbidden = (slope_up > eva["maxSlopeDeg"]) | (sand3 > SAND_FORBIDDEN_THRESHOLD) | bblock
+    forbidden = (slope_up > eva["maxSlopeDeg"]) | (sand3 > sand_forbidden_threshold(eva)) | bblock
     caution = (slope_up > eva["cautionSlopeDeg"]) | (sand3 > SAND_TERRAIN_THRESHOLD) | (rough3 > 0.5) | (bdens > 1.0)
     hazard = np.where(forbidden, 2, np.where(caution, 1, 0)).astype(np.uint8)
     layers = {"slope": slope, "slopeSigma": slope_sigma, "sand": sand3, "sandConfidence": sand_conf3, "hazard": hazard}
@@ -408,9 +408,10 @@ def main() -> int:
             "sand": {"weights": weights, "indicators": list(weights)},
             "boulders": "metoda cieni (próg 2,6σ lokalnego szumu, weryfikacja oświetlonej ściany), wykrywalne ≥1 m",
             "hazard": (
-                f"zakaz: nachylenie+2σ > {eva['maxSlopeDeg']}° lub piasek > 0,6 lub głaz (H≥0,5 m); "
+                f"zakaz: nachylenie+2σ > {eva['maxSlopeDeg']}° lub piasek > {sand_forbidden_threshold(eva):g} lub głaz (H≥0,5 m); "
                 f"uwaga: nachylenie+2σ > {eva['cautionSlopeDeg']}°, piasek > 0,35, nierówności > 0,5 m, > 1 głaz/100 m²"
-            ),
+            ).replace(".", ",")
+            + (f". {eva['sandCalibration']}" if eva.get("sandCalibration") else ""),
             "comms": f"linia widoczności z masztu habitatu {hab['mastM']} m do odbiornika {eva['rxHeightM']} m nad gruntem",
             "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST",
             **({"minerals": mins["method"]} if mins else {}),

@@ -4,6 +4,7 @@ import json
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 from PIL import Image
 
@@ -11,7 +12,7 @@ from backend.pipeline.rover_track import Window, clip_segment, merge_segments
 
 ROOT = Path(__file__).resolve().parents[2]
 MISSIONS = ROOT / "data" / "missions"
-WITH_TRACK = [m for m in ("mount-sharp", "jezero") if (MISSIONS / m / "roverTrack.json").exists()]
+WITH_TRACK = [m for m in ("mount-sharp", "jezero", "boxwork") if (MISSIONS / m / "roverTrack.json").exists()]
 
 
 def test_clip_segment_keeps_inside_part():
@@ -75,3 +76,25 @@ def test_jezero_geology_layer():
     assert r["width"] * r["cellM"] == m["area"]["widthM"]
     assert set(im.getextrema()) <= set(range(0, 4))
     assert {str(v) for v in range(1, im.getextrema()[1] + 1)} <= set(r["classes"])
+
+
+def test_boxwork_ridge_layer():
+    """Warstwa grzbietów boxwork: raster 1 m na całe okno, klasy 0–2 z legendą, poglądowa (bez wpływu na zagrożenia)."""
+    d = MISSIONS / "boxwork"
+    if not (d / "boxwork.png").exists():
+        pytest.skip("brak warstwy boxwork")
+    m = json.loads((d / "mission.json").read_text(encoding="utf-8"))
+    ids = [layer["id"] for layer in m["layers"]]
+    assert ids.index("boxwork") == ids.index("sky") + 1
+    r = next(layer for layer in m["layers"] if layer["id"] == "boxwork")["raster"]
+    im = Image.open(d / r["file"])
+    assert im.size == (r["width"], r["height"])
+    assert r["width"] * r["cellM"] == m["area"]["widthM"] and r["height"] * r["cellM"] == m["area"]["heightM"]
+    lo, hi = im.getextrema()
+    assert lo == 0 and hi == 2
+    assert set(r["classes"]) == {"1", "2"}
+    a = np.asarray(im)
+    assert 0.01 < (a == 1).mean() < 0.2  # grzbiety to wąskie linie, nie połowa mapy
+    assert (a[a > 0] > 0).all() and ((a == 1) <= (a > 0)).all()
+    prov = json.loads((d / "provenance.json").read_text(encoding="utf-8"))
+    assert "boxwork" in prov["methods"] and prov["outputs"]["boxwork.png"]

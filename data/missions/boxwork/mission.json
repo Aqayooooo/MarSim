@@ -1,0 +1,631 @@
+{
+  "contractVersion": 2,
+  "synthetic": false,
+  "mission": {
+    "id": "boxwork",
+    "title": "EVA-1 · formacje boxwork na zboczu Mount Sharp · krater Gale",
+    "label": {
+      "pl": "Krater Gale · formacje boxwork na Mount Sharp",
+      "en": "Gale crater · Mount Sharp boxwork"
+    },
+    "sourceLabel": "Dane NASA: HiRISE, THEMIS, CTX, MOLA, CRISM",
+    "sol": 263,
+    "startClock": "09:30",
+    "dateUtc": "2037-05-20T00:00:00Z"
+  },
+  "area": {
+    "label": "GALE · MOUNT SHARP · BOXWORK · HiRISE",
+    "widthM": 1440,
+    "heightM": 960,
+    "center": {
+      "lat": -4.8023,
+      "lon": 137.3831
+    },
+    "corners": {
+      "nw": [
+        137.3709531645022,
+        -4.794202109668104
+      ],
+      "ne": [
+        137.39524683549786,
+        -4.794202109668104
+      ],
+      "sw": [
+        137.3709531645022,
+        -4.810397890331895
+      ],
+      "se": [
+        137.39524683549786,
+        -4.810397890331895
+      ]
+    }
+  },
+  "dem": {
+    "file": "dem.f32",
+    "encoding": "float32le",
+    "width": 480,
+    "height": 320,
+    "cellM": 3.0,
+    "unit": "m",
+    "source": "DTEEC_019698_1750_019988_1750_U01",
+    "year": "2010",
+    "sigmaZM": 0.271
+  },
+  "rasters": {
+    "slope": {
+      "file": "slope.f32",
+      "encoding": "float32le",
+      "width": 480,
+      "height": 320,
+      "cellM": 3.0,
+      "unit": "°"
+    },
+    "slopeSigma": {
+      "file": "slopeSigma.f32",
+      "encoding": "float32le",
+      "width": 480,
+      "height": 320,
+      "cellM": 3.0,
+      "unit": "°"
+    },
+    "o2ToHabitat": {
+      "file": "o2ToHabitat.f32",
+      "encoding": "float32le",
+      "width": 480,
+      "height": 320,
+      "cellM": 3.0,
+      "unit": "L"
+    },
+    "timeToHabitat": {
+      "file": "timeToHabitat.f32",
+      "encoding": "float32le",
+      "width": 480,
+      "height": 320,
+      "cellM": 3.0,
+      "unit": "s"
+    }
+  },
+  "layers": [
+    {
+      "id": "optical",
+      "name": "Optyczna",
+      "desc": "HiRISE 25 cm/px",
+      "colorOff": "#45403F",
+      "colorOn": "#9F9F9E",
+      "raster": {
+        "file": "optical.png",
+        "encoding": "png-gray8",
+        "width": 1440,
+        "height": 960,
+        "cellM": 1
+      },
+      "legend": [
+        {
+          "color": "#9F9F9E",
+          "text": "HiRISE ESP_019698_1750, 2010"
+        }
+      ]
+    },
+    {
+      "id": "terrain",
+      "name": "Teren",
+      "desc": "nachylenie ±2° z DTM",
+      "colorOff": "#65615B",
+      "colorOn": "#F8F0E2",
+      "derivedFrom": "slope",
+      "legend": [
+        {
+          "color": "#F8F0E2",
+          "text": "jaśniej = bardziej stromo"
+        }
+      ]
+    },
+    {
+      "id": "thermal",
+      "name": "Termiczna",
+      "desc": "THEMIS noc 100 m/px",
+      "colorOff": "#1C4753",
+      "colorOn": "#3AAFD7",
+      "raster": {
+        "file": "thermal.png",
+        "encoding": "png-gray8",
+        "width": 14,
+        "height": 10,
+        "cellM": 100
+      },
+      "legend": [
+        {
+          "color": "#20469C",
+          "text": "chłodno nocą: luźny materiał"
+        },
+        {
+          "color": "#ED5F26",
+          "text": "ciepło nocą: lita skała"
+        }
+      ]
+    },
+    {
+      "id": "minerals",
+      "name": "Minerały",
+      "desc": "CRISM 18 m/px",
+      "colorOff": "#2f4a2a",
+      "colorOn": "#7CC36E",
+      "raster": {
+        "file": "minerals.png",
+        "encoding": "png-class8",
+        "width": 80,
+        "height": 53,
+        "cellM": 18,
+        "classes": {
+          "1": {
+            "color": "#7CC36E",
+            "text": "oliwin wyraźny (bazalt lub piasek bazaltowy)"
+          },
+          "2": {
+            "color": "#3E7A4B",
+            "text": "oliwin słaby / materiał mieszany"
+          },
+          "3": {
+            "color": "#C9A3FF",
+            "text": "piroksen"
+          },
+          "4": {
+            "color": "#31D7B6",
+            "text": "uwodnienie / siarczany (słaby sygnał)"
+          },
+          "5": {
+            "color": "#4FA3FF",
+            "text": "krzemiany warstwowe Fe/Mg"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#7CC36E",
+          "text": "oliwin wyraźny (bazalt lub piasek bazaltowy)"
+        },
+        {
+          "color": "#3E7A4B",
+          "text": "oliwin słaby / materiał mieszany"
+        },
+        {
+          "color": "#C9A3FF",
+          "text": "piroksen"
+        },
+        {
+          "color": "#31D7B6",
+          "text": "uwodnienie / siarczany (słaby sygnał)"
+        },
+        {
+          "color": "#4FA3FF",
+          "text": "krzemiany warstwowe Fe/Mg"
+        }
+      ]
+    },
+    {
+      "id": "sand",
+      "name": "Piasek",
+      "desc": "5 wskaźników, bez AI",
+      "colorOff": "#5a4a1c",
+      "colorOn": "#E8B13A",
+      "raster": {
+        "file": "sand.png",
+        "encoding": "png-gray8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0
+      },
+      "confidence": {
+        "file": "sandConfidence.png",
+        "encoding": "png-gray8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0
+      },
+      "legend": [
+        {
+          "color": "#E8B13A",
+          "text": "prawdopodobieństwo piasku"
+        },
+        {
+          "color": "#7a6a50",
+          "text": "kreskowanie: niska pewność"
+        }
+      ]
+    },
+    {
+      "id": "boulders",
+      "name": "Głazy",
+      "desc": "metoda cieni, ≥1 m",
+      "colorOff": "#5b3f2a",
+      "colorOn": "#E6BE79",
+      "vector": {
+        "file": "boulders.json"
+      },
+      "legend": [
+        {
+          "color": "#E6BE79",
+          "text": "głaz (średnica w skali)"
+        },
+        {
+          "color": "#8a7660",
+          "text": "niska pewność wykrycia"
+        }
+      ]
+    },
+    {
+      "id": "hazards",
+      "name": "Zagrożenia",
+      "desc": "nachylenie+2σ, piasek, głazy",
+      "colorOff": "#691C0B",
+      "colorOn": "#FF441F",
+      "raster": {
+        "file": "hazards.png",
+        "encoding": "png-class8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0,
+        "classes": {
+          "1": {
+            "color": "#FFBD33",
+            "text": "uwaga"
+          },
+          "2": {
+            "color": "#FD4420",
+            "text": "zakaz"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#FD4420",
+          "text": "zakaz: piasek, stromo, głazy"
+        },
+        {
+          "color": "#FFBD33",
+          "text": "uwaga: nierówno"
+        }
+      ]
+    },
+    {
+      "id": "comms",
+      "name": "Łączność",
+      "desc": "z habitatu, maszt 10 m",
+      "colorOff": "#2d4a3a",
+      "colorOn": "#5FE0A0",
+      "raster": {
+        "file": "comms.png",
+        "encoding": "png-class8",
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0,
+        "classes": {
+          "0": {
+            "color": "#C0392B",
+            "text": "brak zasięgu"
+          },
+          "1": {
+            "color": "#F1C40F",
+            "text": "zasięg na granicy"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#C0392B",
+          "text": "brak zasięgu radiowego"
+        },
+        {
+          "color": "#F1C40F",
+          "text": "zasięg na granicy"
+        }
+      ]
+    },
+    {
+      "id": "shadow",
+      "name": "Cień",
+      "desc": "o godzinie (suwak)",
+      "colorOff": "#3a3550",
+      "colorOn": "#8E7CC3",
+      "hourly": {
+        "pattern": "shadow_{HH}.png",
+        "hours": [
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "width": 480,
+        "height": 320,
+        "cellM": 3.0
+      },
+      "legend": [
+        {
+          "color": "#1a1630",
+          "text": "cień terenu o wybranej godzinie"
+        }
+      ]
+    },
+    {
+      "id": "sky",
+      "name": "Niebo",
+      "desc": "RAD + DONKI + NOAA",
+      "colorOff": "#475E61",
+      "colorOn": "#A7E9FB",
+      "legend": [
+        {
+          "color": "#A7E9FB",
+          "text": "wiatr z modelu, dawka z pomiaru RAD"
+        }
+      ]
+    },
+    {
+      "id": "boxwork",
+      "name": "Boxwork",
+      "desc": "grzbiety z DTM HiRISE",
+      "colorOff": "#5a4a26",
+      "colorOn": "#F2C66D",
+      "raster": {
+        "file": "boxwork.png",
+        "encoding": "png-class8",
+        "width": 1440,
+        "height": 960,
+        "cellM": 1.0,
+        "classes": {
+          "1": {
+            "color": "#F2C66D",
+            "text": "grzbiet boxwork (zacementowana szczelina, wyniesienie z DTM)"
+          },
+          "2": {
+            "color": "#4FB3A9",
+            "text": "pole boxwork: gęsta sieć grzbietów (cel naukowy)"
+          }
+        }
+      },
+      "legend": [
+        {
+          "color": "#F2C66D",
+          "text": "grzbiet boxwork (zacementowana szczelina, wyniesienie z DTM)"
+        },
+        {
+          "color": "#4FB3A9",
+          "text": "pole boxwork: gęsta sieć grzbietów (cel naukowy)"
+        },
+        {
+          "color": "#888888",
+          "text": "z modelu wysokości HiRISE 1 m, bez uczenia maszynowego"
+        }
+      ]
+    },
+    {
+      "id": "rover",
+      "name": "Trasa łazika",
+      "desc": "Curiosity 2025–2026",
+      "colorOff": "#2d4f5c",
+      "colorOn": "#6FD3F2",
+      "vector": {
+        "file": "roverTrack.json"
+      },
+      "legend": [
+        {
+          "color": "#6FD3F2",
+          "text": "przejazd łazika (lokalizacje NASA)"
+        },
+        {
+          "color": "#FFFFFF",
+          "text": "postój — kliknij: zdjęcia z łazika"
+        }
+      ]
+    }
+  ],
+  "habitat": {
+    "x": 904.5,
+    "y": 373.5,
+    "mastM": 10
+  },
+  "rover": {
+    "x": 952.5,
+    "y": 337.5,
+    "speedKmh": 12,
+    "mastM": 3
+  },
+  "waypoints": [
+    {
+      "id": "WP1",
+      "x": 392.5,
+      "y": 421.5,
+      "stopMin": 20,
+      "target": "grzbiet boxwork: zacementowana szczelina (ślad wody gruntowej)",
+      "view": null
+    },
+    {
+      "id": "WP2",
+      "x": 638.5,
+      "y": 805.5,
+      "stopMin": 20,
+      "target": "zagłębienie między grzbietami: kontakt grzbietu z osadem",
+      "view": {
+        "source": "render",
+        "caption": "Render z DTM HiRISE · widok z hełmu"
+      }
+    }
+  ],
+  "crew": [
+    {
+      "id": "EV1",
+      "o2": 100,
+      "o2RatePctH": 12
+    },
+    {
+      "id": "EV2",
+      "o2": 100,
+      "o2RatePctH": 12
+    }
+  ],
+  "eva": {
+    "walkKmh": 2.5,
+    "maxSlopeDeg": 25,
+    "cautionSlopeDeg": 18,
+    "o2ReservePct": 20,
+    "sigmaZMinM": 0.2,
+    "shelterMin": 15,
+    "shelterRadiusM": 400,
+    "rxHeightM": 1.8,
+    "sandForbiddenThreshold": 0.8,
+    "sandCalibration": "Próg zakazu dla piasku z trasy łazika Curiosity (sole 4507–4837): 90. percentyl prawdopodobieństwa piasku na 86 postojach to 0,77, zaokrąglone w górę do 0,8. Ciemna, pomarszczona jednostka siarczanowa i cienka pokrywa piasku w zagłębieniach boxwork wyglądają dla wskaźników jak piasek, a łazik po nich jeździ. Prawdopodobieństwo piasku bez zmian; powyżej 0,35 teren nadal liczony jak piasek (wolniej, więcej O₂, strefa „uwaga”).",
+    "sepO2Factor": 1.25
+  },
+  "environment": {
+    "doseUsvh": 26.7,
+    "dustTau": 0.5,
+    "wind": {
+      "meanMs": 6,
+      "spreadMs": 1.5,
+      "fromDeg": 315
+    },
+    "temperature": [
+      [
+        "06:00",
+        -85
+      ],
+      [
+        "09:20",
+        -50
+      ],
+      [
+        "13:30",
+        -5
+      ],
+      [
+        "18:00",
+        -40
+      ]
+    ]
+  },
+  "sun": {
+    "missionDateUtc": "2037-05-20T00:00:00Z",
+    "ls": 220.14,
+    "declDeg": -16.087,
+    "rAu": 1.3985,
+    "sunsetLtst": 18.09,
+    "hours": [
+      {
+        "ltst": 6,
+        "elevDeg": 1.33,
+        "azDeg": 106.03,
+        "shadowFrac": 0.978
+      },
+      {
+        "ltst": 7,
+        "elevDeg": 15.72,
+        "azDeg": 105.38,
+        "shadowFrac": 0.483
+      },
+      {
+        "ltst": 8,
+        "elevDeg": 30.13,
+        "azDeg": 105.83,
+        "shadowFrac": 0.132
+      },
+      {
+        "ltst": 9,
+        "elevDeg": 44.45,
+        "azDeg": 107.88,
+        "shadowFrac": 0.012
+      },
+      {
+        "ltst": 10,
+        "elevDeg": 58.47,
+        "azDeg": 113.26,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 11,
+        "elevDeg": 71.45,
+        "azDeg": 128.59,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 12,
+        "elevDeg": 78.72,
+        "azDeg": 180.0,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 13,
+        "elevDeg": 71.45,
+        "azDeg": 231.41,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 14,
+        "elevDeg": 58.47,
+        "azDeg": 246.74,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 15,
+        "elevDeg": 44.45,
+        "azDeg": 252.12,
+        "shadowFrac": 0.001
+      },
+      {
+        "ltst": 16,
+        "elevDeg": 30.13,
+        "azDeg": 254.17,
+        "shadowFrac": 0.019
+      },
+      {
+        "ltst": 17,
+        "elevDeg": 15.72,
+        "azDeg": 254.62,
+        "shadowFrac": 0.126
+      },
+      {
+        "ltst": 18,
+        "elevDeg": 1.33,
+        "azDeg": 253.97,
+        "shadowFrac": 0.717
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "boulders",
+      "type": "obstacle",
+      "trigger": {
+        "afterWaypoint": "WP1",
+        "afterM": 40
+      },
+      "aheadM": 150,
+      "radiusM": 35,
+      "source": "zgłoszenie z terenu (dron)",
+      "alert": {
+        "category": "ZAGROŻENIE",
+        "text": "Dron: pole głazów na trasie, {dist} m przed nami"
+      }
+    },
+    {
+      "id": "sep",
+      "type": "space-weather",
+      "source": "DONKI",
+      "trigger": {
+        "afterEvent": "boulders",
+        "afterMin": 3
+      },
+      "alert": {
+        "category": "POGODA KOSMICZNA",
+        "text": "ostrzeżenie SEP · łazik jedzie do załogi"
+      }
+    }
+  ]
+}

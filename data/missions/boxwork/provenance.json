@@ -1,0 +1,361 @@
+{
+  "pipelineVersion": "1.1.0",
+  "builtUtc": "2026-11-14T15:46:34+00:00",
+  "crs": "PROJCRS[\"EQUIRECTANGULAR MARS\",BASEGEOGCRS[\"GCS_MARS\",DATUM[\"D_MARS\",ELLIPSOID[\"MARS_localRadius\",3396190,0,LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]]],PRIMEM[\"Reference_Meridian\",0,ANGLEUNIT[\"degree\",0.0174532925199433,ID[\"EPSG\",9122]]]],CONVERSION[\"unnamed\",METHOD[\"Equidistant Cylindrical (Spherical)\",ID[\"EPSG\",1029]],PARAMETER[\"Latitude of 1st standard parallel\",0,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8823]],PARAMETER[\"Longitude of natural origin\",137.38,ANGLEUNIT[\"degree\",0.0174532925199433],ID[\"EPSG\",8802]],PARAMETER[\"False easting\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8806]],PARAMETER[\"False northing\",0,LENGTHUNIT[\"metre\",1],ID[\"EPSG\",8807]]],CS[Cartesian,2],AXIS[\"easting\",east,ORDER[1],LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]],AXIS[\"northing\",north,ORDER[2],LENGTHUNIT[\"metre\",1,ID[\"EPSG\",9001]]]]",
+  "area": {
+    "widthM": 1440,
+    "heightM": 960,
+    "corners": {
+      "nw": [
+        137.3709531645022,
+        -4.794202109668104
+      ],
+      "ne": [
+        137.39524683549786,
+        -4.794202109668104
+      ],
+      "sw": [
+        137.3709531645022,
+        -4.810397890331895
+      ],
+      "se": [
+        137.39524683549786,
+        -4.810397890331895
+      ]
+    },
+    "center": {
+      "lon": 137.3831,
+      "lat": -4.8023
+    },
+    "note": "Współrzędne planetocentryczne, długość wschodnia, sfera Mars 2000 (IAU)"
+  },
+  "sources": [
+    {
+      "id": "DTEEC_019698_1750_019988_1750_U01",
+      "instrument": "MRO HiRISE",
+      "description": "Model wysokości HiRISE, 1,01 m/px, projekcja równokątna, sfera Mars 2000 (r = 3396,19 km)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_019600_019699/ESP_019698_1750_ESP_019988_1750/DTEEC_019698_1750_019988_1750_U01.IMG",
+      "sha256": null,
+      "bytes": null,
+      "access": "zdalny fragment"
+    },
+    {
+      "id": "ESP_019698_1750_RED_A_01_ORTHO",
+      "instrument": "MRO HiRISE",
+      "description": "Ortoobraz HiRISE 0,25 m/px (do wykrywania głazów)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_019600_019699/ESP_019698_1750_ESP_019988_1750/ESP_019698_1750_RED_A_01_ORTHO.JP2",
+      "sha256": "8fe50227c8c24ec2c0578c2d6d2dd7801da07e0f0acc4b33d80ef14189763047",
+      "bytes": 461937284,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "ESP_019698_1750_RED_C_01_ORTHO",
+      "instrument": "MRO HiRISE",
+      "description": "Ortoobraz HiRISE 1 m/px (podgląd, mapa bazowa)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/DTM/ESP/ORB_019600_019699/ESP_019698_1750_ESP_019988_1750/ESP_019698_1750_RED_C_01_ORTHO.JP2",
+      "sha256": "9473ba60a7dceeb33d2c4da0372e6389edd64261f13bfd1d87662e45998bd669",
+      "bytes": 42000767,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "ESP_019698_1750_RED",
+      "instrument": "MRO HiRISE",
+      "description": "Etykieta PDS zdjęcia: kąt padania i azymut Słońca, czas, Ls",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_019600_019699/ESP_019698_1750/ESP_019698_1750_RED.LBL",
+      "sha256": "7f3abe8c34c39101f0afac769fa54066d8c577af5cc2f60477fc2d434254ecb6",
+      "bytes": 8145,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "ESP_019988_1750_RED",
+      "instrument": "MRO HiRISE",
+      "description": "Etykieta PDS drugiego zdjęcia pary stereo (kąt emisji do oceny dokładności DTM)",
+      "url": "https://hirise-pds.lpl.arizona.edu/PDS/RDR/ESP/ORB_019900_019999/ESP_019988_1750/ESP_019988_1750_RED.LBL",
+      "sha256": "61ce8f7337327cd4aeb24f713c02040d42caeec683a36a0b3548dbf14ad1a7fc",
+      "bytes": 8146,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp",
+      "instrument": "Mars Odyssey THEMIS",
+      "description": "Kontrolowana mozaika THEMIS w podczerwieni nocnej, 100 m/px (USGS, 2014) — jakościowa bezwładność termiczna",
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars/THEMIS_controlled_mosaics/Aeolis_NightIR_31Jan2014/THEMIS_NightIR_ControlledMosaic_Aeolis_30S135E_100mpp.tif",
+      "sha256": null,
+      "access": "zdalny fragment"
+    },
+    {
+      "id": "Gale_CTX_BlockAdj_dd",
+      "instrument": "MRO CTX",
+      "description": "Mozaika CTX krateru Gale (USGS, strefy eksploracji dla ludzi), ~5 m/px — kontrola spójności zdjęcia",
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars/CTX_EZs/Gale_CTX_BlockAdj_dd.tif",
+      "sha256": null,
+      "access": "zdalny fragment"
+    },
+    {
+      "id": "Mars_MGS_MOLA_DEM_mosaic_global_463m",
+      "instrument": "MGS MOLA",
+      "description": "Globalny model wysokości MOLA 463 m/px — kontrola wysokości bezwzględnej DTM",
+      "url": "https://asc-pds-services.s3.us-west-2.amazonaws.com/mosaic/Mars_MGS_MOLA_DEM_mosaic_global_463m.tif",
+      "sha256": null,
+      "access": "zdalny fragment"
+    },
+    {
+      "id": "FRT0000B6F1_07_SU165J_MTR3",
+      "instrument": "MRO CRISM",
+      "description": "Parametry sumaryczne CRISM MTRDR, 18 m/px (Viviano-Beck i in. 2014) — minerały: oliwin, piroksen, uwodnienie, siarczany",
+      "url": "https://pds-geosciences.wustl.edu/mro/mro-m-crism-5-rdr-mptargeted-v1/mrocr_4001/mtrdr/2008/2008_191/frt0000b6f1/frt0000b6f1_07_su165j_mtr3.img",
+      "sha256": "512cfad4c599aac4e7d865549a720fc974eed5348762d08ffc34c5e797aff56b",
+      "bytes": 132804000,
+      "access": "plik lokalny"
+    },
+    {
+      "id": "MSL_traverse",
+      "instrument": "MSL localization",
+      "description": "Trasa i postoje łazika Curiosity (lokalizacje zespołu misji, NASA MMGIS)",
+      "url": "https://mars.nasa.gov/mmgis-maps/MSL/Layers/json/MSL_traverse.json",
+      "sha256": null,
+      "bytes": null,
+      "access": "pobrany plik"
+    },
+    {
+      "id": "MSL_raw_navcam",
+      "instrument": "MSL Navcam",
+      "description": "Surowe zdjęcia Navcam łazika Curiosity z postojów w obszarze (miniatury 320 px)",
+      "url": "https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=msl:mission",
+      "sha256": null,
+      "bytes": 4025473,
+      "access": "pobrany plik"
+    }
+  ],
+  "imaging": {
+    "image": "ESP_019698_1750",
+    "imageTimeUtc": "2010-10-09T09:11:38.350",
+    "pairImage": "ESP_019988_1750",
+    "pairTimeUtc": "2010-10-31T23:30:05.782",
+    "sunElevDeg": 32.51,
+    "sunAzDeg": 282.53,
+    "emissionDeg": [
+      24.097517,
+      14.719113
+    ]
+  },
+  "dtmPrecision": {
+    "rhoPx": 0.2,
+    "gsdM": 0.25,
+    "parallaxHeightRatio": 0.185,
+    "epM": 0.271,
+    "sigmaZUsedM": 0.271,
+    "rule": "σz = max(EP, sigmaZMinM)"
+  },
+  "methods": {
+    "slope": "różnice centralne na siatce 3 m; σ = σz/(√2·d)/(1+g²); do decyzji: nachylenie + 2σ",
+    "sand": {
+      "weights": {
+        "darkness": 0.35,
+        "ripples": 0.25,
+        "thermal": 0.2,
+        "imageSmooth": 0.1,
+        "dtmSmooth": 0.1
+      },
+      "indicators": [
+        "darkness",
+        "ripples",
+        "thermal",
+        "imageSmooth",
+        "dtmSmooth"
+      ]
+    },
+    "boulders": "metoda cieni (próg 2,6σ lokalnego szumu, weryfikacja oświetlonej ściany), wykrywalne ≥1 m",
+    "hazard": "zakaz: nachylenie+2σ > 25° lub piasek > 0,8 lub głaz (H≥0,5 m); uwaga: nachylenie+2σ > 18°, piasek > 0,35, nierówności > 0,5 m, > 1 głaz/100 m². Próg zakazu dla piasku z trasy łazika Curiosity (sole 4507–4837): 90. percentyl prawdopodobieństwa piasku na 86 postojach to 0,77, zaokrąglone w górę do 0,8. Ciemna, pomarszczona jednostka siarczanowa i cienka pokrywa piasku w zagłębieniach boxwork wyglądają dla wskaźników jak piasek, a łazik po nich jeździ. Prawdopodobieństwo piasku bez zmian; powyżej 0,35 teren nadal liczony jak piasek (wolniej, więcej O₂, strefa „uwaga”).",
+    "comms": "linia widoczności z masztu habitatu 10 m do odbiornika 1.8 m nad gruntem",
+    "illumination": "Allison & McEwen (2000), cienie z DTM co godzinę LTST",
+    "minerals": "CRISM MTRDR, parametry Viviano-Beck i in. (2014); klasy: 1: oliwin wyraźny (bazalt lub piasek bazaltowy) (OLINDEX3 > 0,08); 2: oliwin słaby / materiał mieszany (0,05 < OLINDEX3 ≤ 0,08); 3: piroksen (max(LCPINDEX2, HCPINDEX2) > 0,01); 4: uwodnienie / siarczany (słaby sygnał) (BD1900_2 > 0,005 lub SINDEX2 > 0,02 lub BD2100_2 > 0,02); 5: krzemiany warstwowe Fe/Mg (D2300 > 0,01). Warstwa informacyjna — nie zmienia mapy zagrożeń.",
+    "rover": "trasa i postoje z lokalizacji zespołu misji (NASA MMGIS GeoJSON), przeliczone liniowo z lon/lat do siatki równokątnej misji, przesunięte o korektę układu (checks.frameShiftM: kontrolowane mozaiki bazowe misji vs niekontrolowany DTM HiRISE z PDS, wyznaczona z wysokości postojów) i przycięte do okna (Liang–Barsky)",
+    "roverPhotos": "zdjęcia Navcam połączone z postojami po (site, drive); kierunek z modelu CAHV + kurs łazika, elewacja −32…+12°, do 3 miniatur na postój w różnych kierunkach",
+    "boxwork": "DEM 1 m − filtr Gaussa (σ = 15 m), filtr Sato (σ = 2–3–4 m); grzbiet = górne 12% odpowiedzi i wyniesienie > 0,15 m (tło σ = 8 m), obiekty < 40 m² pominięte; pole boxwork = grzbiety ≥ 12% okna 61 m i spójność kierunku < 0,45 (okno 31 m). Poglądowo: nie używane w zagrożeniach ani planowaniu. Boxwork: Siebach i Grotzinger 2014, JGR Planets 119, doi:10.1002/2013JE004508."
+  },
+  "checks": {
+    "dtmMinusMolaM": 74.4,
+    "hiriseVsCtxCorrelation": 0.09,
+    "frameShiftM": {
+      "dxM": 29.0,
+      "dyM": 33.0,
+      "spreadBeforeM": 1.53,
+      "spreadAfterM": 0.722,
+      "applied": true,
+      "n": 86,
+      "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)"
+    }
+  },
+  "stats": {
+    "boulders": 571,
+    "bouldersConfident": 148,
+    "sandFraction": 0.62,
+    "forbiddenFraction": 0.288,
+    "commsCoverage": 0.584,
+    "slopeSigmaMedianDeg": 2.0,
+    "minerals": {
+      "coverage": 1.0,
+      "fractions": {
+        "1": 0.051,
+        "2": 0.42,
+        "3": 0.0,
+        "4": 0.289,
+        "5": 0.002
+      },
+      "olindex3Median": 0.0553,
+      "pixels": 4240
+    },
+    "rover": {
+      "lengthM": 2011.3,
+      "stops": 86,
+      "sols": [
+        4507,
+        4837
+      ],
+      "elevCheck": {
+        "medianOffsetM": -3795.91,
+        "spreadM": 0.72,
+        "n": 86
+      },
+      "frameShift": {
+        "dxM": 29.0,
+        "dyM": 33.0,
+        "spreadBeforeM": 1.53,
+        "spreadAfterM": 0.722,
+        "applied": true,
+        "n": 86,
+        "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)"
+      }
+    },
+    "roverPhotos": {
+      "photos": 256,
+      "stopsWithPhotos": 86,
+      "imagesScanned": 5973,
+      "thumbBytes": 4025473
+    },
+    "boxwork": {
+      "ridgeShare": 0.04,
+      "fieldShare": 0.196,
+      "cellM": 1.0
+    }
+  },
+  "sun": {
+    "missionDateUtc": "2037-05-20T00:00:00Z",
+    "ls": 220.14,
+    "declDeg": -16.087,
+    "rAu": 1.3985,
+    "sunsetLtst": 18.09,
+    "hours": [
+      {
+        "ltst": 6,
+        "elevDeg": 1.33,
+        "azDeg": 106.03,
+        "shadowFrac": 0.978
+      },
+      {
+        "ltst": 7,
+        "elevDeg": 15.72,
+        "azDeg": 105.38,
+        "shadowFrac": 0.483
+      },
+      {
+        "ltst": 8,
+        "elevDeg": 30.13,
+        "azDeg": 105.83,
+        "shadowFrac": 0.132
+      },
+      {
+        "ltst": 9,
+        "elevDeg": 44.45,
+        "azDeg": 107.88,
+        "shadowFrac": 0.012
+      },
+      {
+        "ltst": 10,
+        "elevDeg": 58.47,
+        "azDeg": 113.26,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 11,
+        "elevDeg": 71.45,
+        "azDeg": 128.59,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 12,
+        "elevDeg": 78.72,
+        "azDeg": 180.0,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 13,
+        "elevDeg": 71.45,
+        "azDeg": 231.41,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 14,
+        "elevDeg": 58.47,
+        "azDeg": 246.74,
+        "shadowFrac": 0.0
+      },
+      {
+        "ltst": 15,
+        "elevDeg": 44.45,
+        "azDeg": 252.12,
+        "shadowFrac": 0.001
+      },
+      {
+        "ltst": 16,
+        "elevDeg": 30.13,
+        "azDeg": 254.17,
+        "shadowFrac": 0.019
+      },
+      {
+        "ltst": 17,
+        "elevDeg": 15.72,
+        "azDeg": 254.62,
+        "shadowFrac": 0.126
+      },
+      {
+        "ltst": 18,
+        "elevDeg": 1.33,
+        "azDeg": 253.97,
+        "shadowFrac": 0.717
+      }
+    ]
+  },
+  "outputs": {
+    "boulders.json": "c316e134f97609656ac47a186491ecf74f3268232adcd0a079e2839c47878027",
+    "boxwork.png": "1f1eea1babfad9297de51d9500f956ef7a855a93caf789f4eb6392615890cefc",
+    "comms.png": "0b26802f3743570db453deb1ef22812a51287c283da84711ab554422dedf3b5f",
+    "dem.f32": "bbb527a78a0883e2a15ac64e2d873d6eda0b8035066cc972039031129f0b4461",
+    "hazards.png": "d20cfcb61712a26df817ab2fe4e68e99f568ca10ea469a120dbb82f0716eb68b",
+    "minerals.png": "dc488664849e46f0d62a6024f4a58b600f67d13e31d59483092f096e356c94ba",
+    "mineralsConfidence.png": "e7b5150cf6d9f680ffa125ea52b7717747632872e26cf215ada8ad2a3f800daa",
+    "o2ToHabitat.f32": "c4e2cc18d7382fe00027ec8ac061edd31382243eb6ff310538a7e96c4fe8d285",
+    "optical.png": "334f462e5b02578a8db13c8c444f01ea2d29649d8e9d095358716e0d0fd20fae",
+    "roverTrack.json": "02d502f598c5e215bf9daa396e63bebf214b54c7c32c1f61bc8dd00ba4ef0b42",
+    "sand.png": "41639433de5b04e7f923071de04086989f5ab4238564abbde620c6aea2b8ac7b",
+    "sandConfidence.png": "b86f46a83f76717a63a65c3b7af2cb746c72033d235ac881e18cb94a1ed1c016",
+    "shadow_06.png": "60c84d8476ae8b12d9169b256de6b440f91d521cd8ab418a8e68ea130a96b227",
+    "shadow_07.png": "01c180455692955cbc30828a206f5c975e8539d3a542afbe3cbfcff2383e4937",
+    "shadow_08.png": "54c1108e7cb39bff839adce7b9c795ded366a390d62a8da5a850bc646605d975",
+    "shadow_09.png": "720ece89623e08d34fb6b2413acf40e09213d5f5affa2cc9564f31358396235f",
+    "shadow_10.png": "06601202664464fc6e7c119fd1944f5560efbaf003ebc002c8fff0c88c3d0d1a",
+    "shadow_11.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_12.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_13.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_14.png": "a462ff80f0bebf8a99ba86745bd1b2ad5deb49b47506dc683748d1cc68eb920b",
+    "shadow_15.png": "89d2d3203f97c303a40807b4c80f6efa536ea9669ca050e47d1b86c196669ebb",
+    "shadow_16.png": "ef6e9dc4a12232c07b0adfcd463d6118953649f13b256101af2069ea36915f78",
+    "shadow_17.png": "575fa777f1f2a1d22bcadf7aca57a60285f43386ba06b9e88c94552fedb1c376",
+    "shadow_18.png": "db99e1d8492661c5943fb63a95ec23f9b1f04036c1f1e15c088aad2f5b9935ce",
+    "slope.f32": "5f828e0672cb654f7409ff9ea6742adb2fa5e2f21b484a1825b5e34adfab2756",
+    "slopeSigma.f32": "fb76e72eaa85fc056acadbb2f135c57b3f126e02c20259c770b4fc353236401e",
+    "thermal.png": "597f93a6752dcf60f927f52f7174c99d463867330f0d975680329144b37c28e2",
+    "timeToHabitat.f32": "e09be54adfeaddc1bf8d1413a460f31f696dd57f6bdf135864699e18661f05cd"
+  }
+}

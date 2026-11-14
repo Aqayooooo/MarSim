@@ -98,6 +98,8 @@ W trybie plikowym tę samą odpowiedź daje `src/data/mockPlanner.js` (A* na sia
 - `rasters`: siatki float32 obok DEM: `slope` (°), `slopeSigma` (σ nachylenia, °), `o2ToHabitat` (litry O₂ potrzebne na dojście do habitatu), `timeToHabitat` (s).
 - Nowe warstwy: `sand` (prawdopodobieństwo 0–255 + `confidence`), `boulders` (`vector`: `boulders.json` z polami x, y, diameterM, heightM, confidence),
   `comms` (klasy 0 brak zasięgu, 1 granica, 2 zasięg), `shadow` (`hourly`: `shadow_HH.png` dla godzin LTST).
+- Warstwy tylko dla niektórych obszarów (poglądowe, bez wpływu na zagrożenia i planowanie): `geology` (`png-class8`, 3 m, jezero),
+  `boxwork` (`png-class8`, 1 m, boxwork: 1 grzbiet, 2 pole boxwork), `rover` (wektor `roverTrack.json`: trasa i postoje łazika NASA).
 - `habitat`, `sun` (Ls, deklinacja, zmierzch, wysokość Słońca co godzinę), `dem.source`, `dem.year`, `dem.sigmaZM`.
 - `provenance.json` (obok): źródła z URL i SHA-256, geometria zdjęć, dokładność DTM, metody, kontrole spójności, sumy SHA-256 plików wynikowych.
 

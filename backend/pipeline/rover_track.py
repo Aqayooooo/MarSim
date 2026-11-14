@@ -11,6 +11,7 @@ to interpolacja liniowa między narożnikami z mission.json (tak samo jak w back
 Uruchomienie samodzielne (dopisuje warstwę do zbudowanej misji, bez przeliczania reszty potoku):
   python -m backend.pipeline.rover_track mount-sharp
   python -m backend.pipeline.rover_track jezero
+  python -m backend.pipeline.rover_track boxwork
 """
 
 from __future__ import annotations
@@ -46,6 +47,7 @@ ROVERS = {
         "landing": ("2021-02-18T20:55:00+00:00", 15.88 / 24),
     },
 }
+ROVERS["boxwork"] = ROVERS["mount-sharp"]  # formacje boxwork na Mount Sharp: ta sama trasa Curiosity, inne okno
 
 
 def sol_date(sol: int, landing: tuple[str, float]) -> str:

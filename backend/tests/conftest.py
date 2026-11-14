@@ -3,6 +3,7 @@
 Każdy test dostaje własną bazę (pamięć albo katalog tymczasowy) — testy nie dotykają baz w katalogu danych.
 """
 
+import gc
 import math
 import pathlib
 import sys
@@ -18,11 +19,27 @@ from backend.live.engine import EvaEngine
 from backend.live.store import Store
 from backend.paths import MISSIONS
 
-MISSION_IDS = ["mount-sharp", "jezero"]
+MISSION_IDS = ["mount-sharp", "jezero", "boxwork"]
 
 
 def make_engine(mission_id: str, store: Store | None = None) -> EvaEngine:
     return EvaEngine(MISSIONS / mission_id, mis.config(mission_id), store=store or Store(":memory:"), live_feeds=False)
+
+
+@pytest.fixture(autouse=True)
+def _release_fastapi_callable_cache():
+    """FastAPI (≥ 0.16x) trzyma w lru_cache (4096 wpisów) funkcje endpointów, a te przez domknięcia całe silniki misji.
+    Bez czyszczenia każda aplikacja z testu zostaje w pamięci (~20–50 MB) i pełny zestaw testów nie mieści się w RAM.
+    Silnik siedzi w cyklach referencji, więc po czyszczeniu potrzebny jest też pełny przebieg gc."""
+    yield
+    models = sys.modules.get("fastapi.dependencies.models")
+    if models is None:
+        return
+    caches = [fn for fn in vars(models).values() if callable(getattr(fn, "cache_info", None))]
+    if any(fn.cache_info().currsize for fn in caches):
+        for fn in caches:
+            fn.cache_clear()
+        gc.collect()
 
 
 @pytest.fixture(params=MISSION_IDS)

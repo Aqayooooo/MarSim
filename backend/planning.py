@@ -25,6 +25,14 @@ from backend.models.physiology import Person, metabolic_w, o2_l_per_min
 CAUTION_FACTOR = 1.6  # mnożnik kosztu i czasu w strefie „uwaga”
 SAND_TERRAIN_THRESHOLD = 0.35  # od tego prawdopodobieństwa piasku podłoże liczymy jak piasek (i strefa „uwaga”)
 SAND_FORBIDDEN_THRESHOLD = 0.6  # od tego prawdopodobieństwa piasek jest strefą zakazaną
+
+
+def sand_forbidden_threshold(eva: dict) -> float:
+    """Próg zakazu dla piasku w danym obszarze: domyślnie 0,6, wyżej tylko z kalibracji na trasie łazika NASA
+    (eva.sandForbiddenThreshold w konfiguracji misji, uzasadnienie w eva.sandCalibration)."""
+    return float(eva.get("sandForbiddenThreshold", SAND_FORBIDDEN_THRESHOLD))
+
+
 SLOPE_SIGMA_MARGIN = 2.0  # nachylenie liczone ostrożnie: wartość + tyle odchyleń standardowych
 MIN_SPEED_MS = 0.15
 OBSTACLE_BUFFER_M = 6.0  # zapas wokół zgłoszonej przeszkody
@@ -394,10 +402,10 @@ def cost_field(model: CostModel, origin: dict, kind: str = "o2", obstacles: list
 
 # ---------------- porównanie wariantów trasy („dlaczego ta trasa”) ----------------
 def forbidden_reasons(layers: dict, eva: dict) -> dict:
-    """Dlaczego komórka jest zakazana: stromo (nachylenie+2σ > maks.), luźny piasek (> 0,6) albo głazy."""
+    """Dlaczego komórka jest zakazana: stromo (nachylenie+2σ > maks.), luźny piasek (> próg obszaru, zwykle 0,6) albo głazy."""
     forbidden = layers["hazard"] == 2
     steep = (layers["slope"] + 2 * layers["slopeSigma"]) > eva["maxSlopeDeg"]
-    sand = layers["sand"] > 0.6
+    sand = layers["sand"] > sand_forbidden_threshold(eva)
     return {"steep": forbidden & steep, "sand": forbidden & sand & ~steep, "boulders": forbidden & ~steep & ~sand}
 
 
@@ -522,7 +530,7 @@ def hazard_for_limit(layers: dict, eva: dict, max_slope_deg: float) -> np.ndarra
     pola zakazane tylko przez stromiznę, a dopuszczalne przy wyższym limicie, stają się strefą „uwaga”."""
     slope_up = layers["slope"] + SLOPE_SIGMA_MARGIN * layers["slopeSigma"]
     forbidden = layers["hazard"] == 2
-    other = forbidden & ((slope_up <= eva["maxSlopeDeg"]) | (layers["sand"] > SAND_FORBIDDEN_THRESHOLD))
+    other = forbidden & ((slope_up <= eva["maxSlopeDeg"]) | (layers["sand"] > sand_forbidden_threshold(eva)))
     hazard = layers["hazard"].copy()
     hazard[forbidden & ~other] = 1
     hazard[(slope_up > max_slope_deg) | other] = 2
