@@ -46,7 +46,7 @@ html,body{height:100%;margin:0}
 /* Bodoni Moda ma oś rozmiaru optycznego: przy dużych napisach przeglądarka wybiera wariant „display” z kreskami
    cienkimi jak włos (np. dolna belka „L” prawie znika na tle Marsa). Stały niski rozmiar optyczny i grubość 500
    dają ten sam krój z wyraźnymi cienkimi kreskami. */
-h1,h2,.mk b,.wordmark,.count,.fig .n,.closing,.rt td.who{font-optical-sizing:none;font-variation-settings:"opsz" 14}
+h1,h2,.mk b,.wordmark,.count,.closing,.rt td.who{font-optical-sizing:none;font-variation-settings:"opsz" 14}
 body{background:var(--ink);color:var(--bone);font-family:var(--f-text);overflow:hidden;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 :focus-visible{outline:1px solid var(--accent-hi);outline-offset:4px}
@@ -118,8 +118,9 @@ h1 em,h2 em{font-style:italic}
 
 /* liczby */
 .figs{display:grid;gap:34px 40px}
-.fig .n{font:500 60px/1 var(--f-display);font-variant-numeric:lining-nums;letter-spacing:-.01em;white-space:nowrap}
-.fig .n small{font-size:26px;letter-spacing:0;margin-left:8px;color:var(--bone-2)}
+/* liczby: Inter zamiast Bodoni — cienkie kreski Bodoni słabo widać na ekranie i rzutniku */
+.fig .n{font:500 58px/1 var(--f-text);font-variant-numeric:lining-nums;letter-spacing:-.025em;white-space:nowrap}
+.fig .n small{font-size:24px;font-weight:400;letter-spacing:0;margin-left:8px;color:var(--bone-2)}
 .fig .l{font:400 18px/1.35 var(--f-text);color:var(--bone);margin-top:12px}
 .fig .s{font:400 13px/1.5 var(--f-mono);letter-spacing:.04em;color:var(--bone-3);margin-top:6px}
 .figs.rule .fig{border-top:1px solid var(--hair);padding-top:18px}
