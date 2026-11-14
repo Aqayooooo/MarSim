@@ -13,10 +13,6 @@
   border-top: 1px solid #b8faff38; transform: rotate(-3deg); filter: blur(.4px); }
 .visor-glass::after { content: ''; position: absolute; left: 8%; width: 12%; top: 19%; height: 43%; border-radius: 70%;
   border-left: 8px solid #c4fbff09; transform: rotate(12deg); filter: blur(3px); }
-.visor-id { position: absolute; left: 11%; top: 11%; font-size: 18px; letter-spacing: .22em; font-weight: 600; }
-.visor-id > span:last-of-type { color: var(--visor-dim); }
-.visor-id small { display: block; margin: 7px 0 0 19px; font-size: 9px; letter-spacing: .2em; color: var(--visor-dim); }
-.visor-led { display: inline-block; width: 5px; height: 5px; margin-right: 9px; border-radius: 50%; background: var(--visor); box-shadow: 0 0 9px var(--visor); vertical-align: 3px; }
 .visor-compass { position: absolute; left: 38%; right: 38%; top: 10%; height: 57px; text-align: center; }
 .compass-ruler { height: 15px; border-bottom: 1px solid var(--visor-line); background: repeating-linear-gradient(90deg, transparent 0 19px, var(--visor-line) 19px 20px); mask-image: linear-gradient(90deg, transparent, #000 20% 80%, transparent); }
 .visor-compass b { display: inline-block; font-size: 16px; letter-spacing: .12em; padding: 5px 12px; background: #0a252137; }
@@ -24,87 +20,68 @@
 .visor-cross { position: absolute; left: 50%; top: 46%; display: flex; align-items: center; gap: 12px; transform: translate(-50%, -50%); opacity: .65; }
 .visor-cross i { width: 18px; height: 1px; background: var(--visor-line); }
 .visor-cross span { font-size: 15px; font-weight: 300; }
-.visor-nav { position: absolute; left: 12%; top: 37%; padding-left: 13px; border-left: 1px solid var(--visor-line); transform: perspective(800px) rotateY(12deg); }
+/* lewa strona: sam tekst — dystans i teleport wyżej, prędkość i nachylenie niżej */
+.visor-nav { position: absolute; left: 12%; top: 37%; transform: perspective(800px) rotateY(12deg); }
 .visor-nav small { display: block; font-size: 9px; letter-spacing: .18em; color: var(--visor-dim); margin-bottom: 8px; }
 .visor-nav b { font-size: 17px; font-weight: 500; letter-spacing: .04em; }
-.visor-nav > span { display: block; margin-top: 8px; font-size: 10px; color: var(--visor-dim); }
-.visor-motion { position: absolute; left: 14%; bottom: 21%; display: grid; gap: 8px; transform: perspective(800px) rotateY(12deg); }
+.visor-motion { position: absolute; left: 12%; bottom: 21%; display: grid; gap: 6px; transform: perspective(800px) rotateY(12deg); }
 .visor-motion b { font-size: 26px; font-weight: 400; letter-spacing: -.04em; }
-.visor-motion > span { font-size: 10px; color: var(--visor-dim); letter-spacing: .06em; }
-.visor-motion small { font-size: 10px; margin-top: 7px; color: var(--visor-dim); }
-.visor-wordmark { position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); color: #8c9b9f; font-size: 8px; letter-spacing: .3em; text-shadow: none; }
-.visor-wordmark span { color: #d5dfe0; }
-.visor-summary { position: absolute; width: 345px; right: 12%; bottom: 15%; padding: 15px 19px 12px; border: 1px solid var(--visor-line);
-  border-left: 2px solid #8ce3e2a3; border-radius: 2px 17px 2px 14px; background: linear-gradient(118deg, #06222cce, #0c242a82 72%, #09313b6b);
-  box-shadow: 0 0 35px #54deee0b, inset 0 0 24px #7cebfb05; transform: perspective(1000px) rotateY(-11deg) rotateX(3deg);
-  backdrop-filter: blur(5px); }
-.visor-summary::before { content: ''; position: absolute; top: -5px; left: 18px; width: 44px; height: 3px; background: var(--visor); box-shadow: 0 0 10px #8ce3e277; }
-.visor-summary header { display: flex; align-items: center; gap: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--visor-line); }
-.visor-summary header .visor-led { margin-right: 4px; vertical-align: middle; }
-.visor-summary h2 { font-size: 10px; letter-spacing: .18em; font-weight: 500; text-transform: uppercase; }
-#visorSource { margin-left: auto; font-size: 8px; color: var(--visor-dim); letter-spacing: .08em; }
-.visor-decision { padding: 12px 0 8px; }
-#visorDecision { font-size: 14px; font-weight: 600; letter-spacing: .02em; }
-#visorDetail { margin: 5px 0 3px; font-family: var(--sans); font-size: 11px; line-height: 1.5; color: #cae4e1; }
+.visor-motion > span { font-size: 13px; color: var(--visor-dim); letter-spacing: .06em; }
+/* prawa strona: tylko tlen i energia, bez ramki — lustrzanie do bloku ruchu */
+.visor-summary { position: absolute; width: 190px; right: 12%; bottom: 21%; transform: perspective(1000px) rotateY(-11deg) rotateX(3deg); }
 .visor-metric { position: relative; display: flex; align-items: baseline; justify-content: space-between; padding: 6px 0 13px; margin-bottom: 2px; }
 .visor-metric > span { font-size: 11px; color: #b4d8d6; }
 .visor-metric em { font-style: normal; opacity: .75; }
 .visor-metric b { font-size: 20px; font-weight: 400; letter-spacing: -.04em; }
 .visor-bar { position: absolute; left: 0; right: 0; bottom: 5px; height: 3px; background: #94e8e41c; }
 .visor-bar i { display: block; height: 100%; background: var(--visor); box-shadow: 0 0 8px #91f4e741; transition: width .2s; }
-.visor-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 10px 0 9px; border-bottom: 1px solid var(--visor-line); }
-.visor-facts div > span { display: block; font-size: 9px; color: var(--visor-dim); margin-bottom: 5px; }
-.visor-facts b { font-size: 16px; font-weight: 400; }
-.visor-summary footer { padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-#visorDataNote { font-size: 8px; line-height: 1.5; max-width: 145px; color: var(--visor-dim); }
-#visorExample { pointer-events: auto; cursor: pointer; font-size: 9px; padding: 6px 8px; border: 1px solid var(--visor-line); border-radius: 3px; color: var(--visor); background: #132e3b55; white-space: nowrap; }
-#visorExample:hover { background: #34777b66; border-color: var(--visor); }
 #hud[data-tone="danger"] { --visor: #ffb47d; --visor-dim: #deb392; --visor-line: #ffb47d50; }
 #hud[data-tone="warning"] { --visor: #ffdb92; --visor-dim: #d0c1a1; --visor-line: #ffdb9245; }
-#hud[data-tone="danger"] .visor-summary { border-left-color: #ffb47d; background: linear-gradient(118deg, #321b19e8, #261c189b); }
-#hud.example .visor-summary { box-shadow: 0 0 35px #ff7b361c; }
 .visor-warning { position: absolute; left: 50%; top: 26%; max-width: 48%; transform: translateX(-50%); padding: 8px 18px; font-size: 12px;
   letter-spacing: .08em; color: #ffcb91; background: #351b15b3; border-top: 1px solid #ffcb9177; border-bottom: 1px solid #ffcb9144; text-align: center; }
 .visor-help { position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%); font-size: 9px; letter-spacing: .02em; color: #b5cece99; white-space: nowrap; }
 
-.visor-motion { padding: 10px 16px; border-left: 1px solid var(--visor-line); background: linear-gradient(90deg, #08202c88, #08202c00); text-shadow: 0 1px 3px #031014, 0 0 10px #9be8e644; }
-.visor-motion > span, .visor-motion small { color: #c1dedc; }
 /* telefon i tablet: hełm w tym samym miejscu co mapa, panele stanu zostają pod spodem */
 #stage.compact.helmet-mode #main { top: 0; width: 972px; height: calc(var(--mh, 648) * 1px); border: 1px solid var(--line); border-radius: 11px; }
 #stage.compact.helmet-mode #left, #stage.compact.helmet-mode #right { display: flex; }
 #stage.compact.helmet-mode #caption { top: auto; bottom: 13px; left: 12px; right: 12px; font-size: 16px; }
 #stage.compact .visor-summary { display: none; }   /* te same dane są w panelu stanu pod obrazem; na telefonie byłyby nieczytelne */
 
-/* ---------- panele nad widokiem 3D: przezroczyste tło, tekst biały na ciemnym i czarny na jasnym ----------
-   data-bg ustawia src/ui/backdrop.js z jasności obrazu pod panelem. */
+/* ---------- panele nad widokiem 3D: przezroczyste tło, tekst w kolorze odwrotnym do obrazu pod panelem ----------
+   src/ui/backdrop.js ustawia na panelu data-adapt i płynnie zmieniane --hud-fg (tekst) oraz --hud-halo (text-shadow).
+   Wartości zastępcze = dawny wygląd na ciemnym tle. */
 #hud { --visor: #f2fcfb; --visor-dim: #cfe3e1; --visor-line: #e6fbfa55; text-shadow: 0 1px 2px #000b, 0 0 10px #0007; }
 .visor-summary { background: linear-gradient(118deg, #06222c66, #0c242a40 72%, #09313b30); backdrop-filter: blur(3px); }
 .visor-motion { background: linear-gradient(90deg, #08202c55, #08202c00); }
 .visor-compass b { background: #0a25211f; }
 .visor-warning { background: #351b1580; }
-#visorDetail, .visor-metric > span, .visor-motion > span, .visor-motion small { color: var(--visor-dim); }
-:is(#rideHud, #habHud, #driveHud)[data-bg] { background: rgba(8, 6, 5, .45); backdrop-filter: blur(4px); text-shadow: 0 1px 2px #000a; }
-#caption[data-bg] { background: rgba(12, 9, 6, .5); backdrop-filter: blur(4px); }   /* tylko nad widokiem 3D; na mapie 2D bez zmian */
-#rideHud, #habHud, #driveHud, #caption { transition: background-color .35s, color .35s; }
+.visor-metric > span, .visor-motion > span { color: var(--visor-dim); }
+:is(#rideHud, #habHud, #driveHud)[data-adapt] { background: rgba(8, 6, 5, .45); backdrop-filter: blur(4px); }   /* backdrop.js wlicza to tło */
+#caption[data-adapt] { background: rgba(12, 9, 6, .5); backdrop-filter: blur(4px); }   /* tylko nad widokiem 3D; na mapie 2D bez zmian */
+#rideHud, #habHud, #driveHud, #caption { transition: background-color .35s; }   /* kolor tekstu łagodzi backdrop.js */
 
-/* jasne tło: czarny tekst, jasna półprzezroczysta szyba */
-:where(#hud [data-bg]) { color: var(--visor); }   /* kolor liczony w panelu, nie dziedziczony z #hud — inaczej zmiana zmiennych nie działa */
-#hud [data-bg="light"] { --visor: #071214; --visor-dim: #1f3a3d; --visor-line: #0712145c; text-shadow: 0 0 6px #ffffff8c; }
-#hud[data-tone="danger"] [data-bg="light"] { --visor: #7a2306; --visor-dim: #5e2a14; --visor-line: #7a23065c; }
-#hud[data-tone="warning"] [data-bg="light"] { --visor: #5c4300; --visor-dim: #4a3a12; --visor-line: #5c43005c; }
-#hud .visor-summary[data-bg="light"] { background: linear-gradient(118deg, #ffffff73, #ffffff4d 72%, #ffffff40); }
-#hud .visor-motion[data-bg="light"] { background: linear-gradient(90deg, #ffffff66, #ffffff00); }
-#hud .visor-compass[data-bg="light"] b { background: #ffffff59; }
-#hud .visor-warning[data-bg="light"] { color: #5a1a00; background: #ffffffa6; }
-#hud .visor-help[data-bg="light"] { color: #1f3a3d; }
-#hud [data-bg="light"] .visor-led { background: var(--visor); box-shadow: none; }
-#hud [data-bg="light"] #visorExample { color: var(--visor); background: #ffffff59; }
-:is(#rideHud, #habHud, #driveHud, #caption)[data-bg="light"] { background: rgba(255, 255, 255, .5); color: #1d2a2c; text-shadow: 0 0 6px #fff8; }
-:is(#rideHud, #habHud, #driveHud, #caption)[data-bg="light"] :where(b, #rhLine, #dhLine, #hhStatus, .dh-x, span) { color: #071214; }
-:is(#rideHud, #habHud, #driveHud)[data-bg="light"] :is(.rh-help, .hh-help, .dh-help, .muted) { color: #2c3e40; }
-:is(#rideHud, #habHud, #driveHud)[data-bg="light"] :is(.rh-warn, .hh-flash, .warn) { color: #8a2c00; }
-#habHud[data-bg="light"] .hh-prompt { color: #0b4b4a; }
-:is(#rideHud, #driveHud)[data-bg="light"] .btn { color: #071214; border-color: #0712145c; background: #ffffff66; }
+/* kolor tekstu i obwódki z backdrop.js; --visor* liczone w panelu, nie dziedziczone z #hud, więc paski, diody i linie idą za tekstem */
+#hud [data-adapt], :is(#rideHud, #habHud, #driveHud, #caption)[data-adapt] {
+  --visor: var(--hud-fg, #f2fcfb);
+  --visor-dim: color-mix(in srgb, var(--visor) 78%, transparent);
+  --visor-line: color-mix(in srgb, var(--visor) 35%, transparent);
+  color: var(--visor); text-shadow: var(--hud-halo, 0 1px 2px #000b, 0 0 10px #0007); }
+/* alarm / ostrzeżenie: tekst zabarwiony na pomarańczowo / żółto, jasność zostaje z --hud-fg */
+#hud[data-tone="danger"] [data-adapt], #hud .visor-warning[data-adapt] { --visor: color-mix(in srgb, var(--hud-fg, #f2fcfb) 55%, #ff9a5a); }
+#hud[data-tone="warning"] [data-adapt] { --visor: color-mix(in srgb, var(--hud-fg, #f2fcfb) 55%, #ffd36a); }
+@supports (color: oklch(from red l c h)) {
+  #hud[data-tone="danger"] [data-adapt], #hud .visor-warning[data-adapt] { --visor: oklch(from var(--hud-fg, #f2fcfb) clamp(.2, l, .92) .14 50); }
+  #hud[data-tone="warning"] [data-adapt] { --visor: oklch(from var(--hud-fg, #f2fcfb) clamp(.2, l, .95) .13 92); }
+}
+#hud .visor-warning[data-adapt] { border-color: var(--visor-line); }
+#hud .visor-help[data-adapt] { color: var(--visor); }   /* drobny tekst — bez przygaszenia */
+:is(#rideHud, #habHud, #driveHud, #caption)[data-adapt] :is(b, span):not(.n),
+:is(#rideHud, #habHud, #driveHud)[data-adapt] :is(#rhLine, #dhLine, #hhStatus, #hhZone, #rhCam) { color: var(--visor); }
+:is(#rideHud, #habHud, #driveHud)[data-adapt] :is(.rh-help, .hh-help, .dh-help, .muted) { color: var(--visor-dim); }
+:is(#rideHud, #habHud, #driveHud)[data-adapt] :is(.rh-warn, .hh-flash, .warn) { color: color-mix(in srgb, var(--visor) 45%, #ff8a3d); }
+#habHud[data-adapt] .hh-prompt { color: color-mix(in srgb, var(--visor) 70%, #2fd0cc); }
+#caption[data-adapt] .n { color: color-mix(in srgb, var(--visor) 60%, var(--route, #ffb35c)); }
+:is(#rideHud, #driveHud)[data-adapt] .btn { color: var(--visor); border-color: var(--visor-line); }
 
 /* teleport do punktów trasy (klawisze 1–9, 0 — habitat) */
 .visor-teleport { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 12px; pointer-events: auto; }
@@ -116,16 +93,17 @@
 .rh-teleport { margin-top: 6px; }
 .rh-teleport small { display: none; }
 .rh-teleport button { color: inherit; border-color: #ffffff38; background: #ffffff12; }
-#rideHud[data-bg="light"] .rh-teleport button { color: #071214; border-color: #0712145c; background: #ffffff66; }
-[data-bg="light"] .visor-teleport button:hover { background: #ffffffa6; }
+#rideHud[data-adapt] .rh-teleport button { color: var(--visor); border-color: var(--visor-line); }
 
 /* hełm EV1: panele bez żadnego tła ani rozmycia — sam tekst (z cieniem) na obrazie terenu.
-   Specyficzność (#stage.helmet-mode …) wygrywa z regułami wyżej, także z wariantami danger/warning i data-bg="light". */
+   Specyficzność (#stage.helmet-mode …) wygrywa z regułami wyżej. Kolor tekstu i obwódka — z backdrop.js jak wszędzie. */
 #stage.helmet-mode :is(#hud, #rideHud, #habHud, #caption),
-#stage.helmet-mode #hud :is(.visor-summary, .visor-motion, .visor-compass b, .visor-warning, .visor-teleport button, #visorExample),
-#stage.helmet-mode :is(#rideHud, #habHud, #caption)[data-bg],
+#stage.helmet-mode #hud :is(.visor-summary, .visor-motion, .visor-compass b, .visor-warning, .visor-teleport button),
+#stage.helmet-mode :is(#rideHud, #habHud, #caption)[data-adapt],
 #stage.helmet-mode :is(#rideHud, #habHud) :is(.btn, .rh-teleport button) {
   background: none; backdrop-filter: none; box-shadow: none; }
 #stage.helmet-mode #hud .visor-summary::before { box-shadow: none; }
-#stage.helmet-mode :is(#rideHud, #habHud, #caption) { text-shadow: 0 1px 2px #000c, 0 0 10px #0008; }
-#stage.helmet-mode :is(#rideHud, #habHud, #caption)[data-bg="light"] { text-shadow: 0 0 6px #fffc; }
+#stage.helmet-mode :is(#rideHud, #habHud, #caption) { text-shadow: var(--hud-halo, 0 1px 2px #000c, 0 0 10px #0008); }
+/* hełm EV1: tekst pogrubiony, bez cienia (czytelność daje sam kolor odwrotny do tła z backdrop.js) */
+#stage.helmet-mode :is(#hud, #rideHud, #habHud, #caption),
+#stage.helmet-mode :is(#hud, #rideHud, #habHud, #caption) * { font-weight: 700; text-shadow: none; }
