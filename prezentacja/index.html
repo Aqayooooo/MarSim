@@ -92,7 +92,8 @@ nav button[aria-current="step"]::after{transform:scaleX(1)}
 .tools button{letter-spacing:.14em;text-transform:uppercase;transition:color .3s}
 .tools button:hover{color:var(--bone)}
 .tools kbd{font:inherit;border:1px solid var(--hair);padding:2px 6px;margin-left:8px;color:var(--bone-3)}
-#coords{font-variant-numeric:tabular-nums;min-width:330px;text-align:right}
+#coords{font-variant-numeric:tabular-nums;min-width:330px;text-align:right;margin-right:60px}
+.stamp{position:absolute;left:1750px;top:952px;width:150px;height:106px;opacity:.6;z-index:5;pointer-events:none}
 
 /* slajdy */
 .slide{position:absolute;inset:0;visibility:hidden;pointer-events:none;z-index:3}
@@ -347,6 +348,7 @@ h1 em,h2 em{font-style:italic}
       </div>
       <div id="coords" aria-hidden="true">—</div>
     </footer>
+    <img class="stamp" src="assets/szpont-pieczatka.png" alt="Pieczątka „powered by Szpont”" width="150" height="106">
   </div>
 </div>
 

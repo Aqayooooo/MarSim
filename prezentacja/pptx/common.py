@@ -403,6 +403,10 @@ def chrome(s, idx, count=7):
         s.rect(116, 1014, tw + 24, 36, fill=INK, alpha=.82, name="Stopka tło")
     s.text(128, 1020, 700, 28, label, size=9, color=BONE3 if idx != 5 else BONE2, upper=True, spacing=1.8,
            name="Stopka")
+    # znak wodny w prawym dolnym rogu: okrągła pieczątka mieści się tu na wszystkich slajdach,
+    # na slajdzie 4 przezroczyste rogi obrazka omijają Marsa
+    s.image("szpont-pieczatka.png", 1750, 952, 150, 106, name="Znak wodny", cover=False, alpha=.6,
+            alt="Pieczątka „powered by Szpont”")
 
 
 def new_presentation():
