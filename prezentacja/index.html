@@ -34,19 +34,16 @@
   --veil:rgba(5,5,5,.78);
   --accent:#303F86;
   --accent-hi:#8F9BE0;
-  --f-display:"Bodoni Moda","BodoniLocal","Bodoni 72","Didot",Georgia,serif;
+  --f-display:"Inter","InterLocal",system-ui,-apple-system,"Segoe UI",sans-serif;   /* jeden krój w całej prezentacji (oprócz menu slajdów) */
   --f-text:"Inter","InterLocal",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-mono:"JetBrains Mono","MonoLocal",ui-monospace,Menlo,Consolas,monospace;
+  --f-mono:"Inter","InterLocal",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-nav:"JetBrains Mono","MonoLocal",ui-monospace,Menlo,Consolas,monospace;   /* tylko menu slajdów u góry */
   --ease-cine:cubic-bezier(.65,0,.2,1);
   --ease-out:cubic-bezier(.2,.7,.15,1);
   color-scheme:dark;
 }
 [hidden]{display:none!important}
 html,body{height:100%;margin:0}
-/* Bodoni Moda ma oś rozmiaru optycznego: przy dużych napisach przeglądarka wybiera wariant „display” z kreskami
-   cienkimi jak włos (np. dolna belka „L” prawie znika na tle Marsa). Stały niski rozmiar optyczny i grubość 500
-   dają ten sam krój z wyraźnymi cienkimi kreskami. */
-h1,h2,.mk b,.wordmark,.count,.closing,.rt td.who{font-optical-sizing:none;font-variation-settings:"opsz" 14}
 body{background:var(--ink);color:var(--bone);font-family:var(--f-text);overflow:hidden;-webkit-font-smoothing:antialiased}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 :focus-visible{outline:1px solid var(--accent-hi);outline-offset:4px}
@@ -81,7 +78,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .wordmark{font:italic 500 30px/1 var(--f-display);letter-spacing:.01em}
 .wordmark span{font:400 12px/1 var(--f-mono);font-style:normal;letter-spacing:.24em;text-transform:uppercase;color:var(--bone-3);margin-left:18px;vertical-align:5px}
 nav{display:flex;gap:30px}
-nav button{font:400 12px/1 var(--f-mono);letter-spacing:.2em;text-transform:uppercase;color:var(--bone-3);padding:8px 0;position:relative;transition:color .4s}
+nav button{font:400 12px/1 var(--f-nav);letter-spacing:.2em;text-transform:uppercase;color:var(--bone-3);padding:8px 0;position:relative;transition:color .4s}
 nav button::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--bone);transform:scaleX(0);transform-origin:0 50%;transition:transform .8s var(--ease-cine)}
 nav button:hover{color:var(--bone-2)}
 nav button[aria-current="step"]{color:var(--bone)}
@@ -333,8 +330,6 @@ h1 em,h2 em{font-style:italic}
     <footer class="chrome bottom">
       <div id="speaker"></div>
       <div class="tools">
-        <button type="button" id="bRoles">Podział ról<kbd>R</kbd></button>
-        <button type="button" id="bNotes">Notatki<kbd>N</kbd></button>
         <button type="button" id="bFull">Pełny ekran<kbd>F</kbd></button>
       </div>
       <div id="coords" aria-hidden="true">—</div>
@@ -527,8 +522,6 @@ function toggleRoles(v = roles.hidden) {
   if (v) { lastFocus = document.activeElement; roles.hidden = false; $('#rolesClose').focus(); }
   else { roles.hidden = true; lastFocus?.focus?.(); }
 }
-$('#bNotes').addEventListener('click', (e) => { e.stopPropagation(); toggleNotes(); });
-$('#bRoles').addEventListener('click', (e) => { e.stopPropagation(); toggleRoles(true); });
 $('#rolesClose').addEventListener('click', () => toggleRoles(false));
 roles.addEventListener('click', (e) => { if (e.target === roles) toggleRoles(false); });
 async function toggleFull() {
