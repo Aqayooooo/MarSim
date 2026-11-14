@@ -2,7 +2,7 @@
 // Uruchomienie: node --test tools/test-backdrop.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { textColorFor, ease, lum, luminance, lightness, contrast, toSrgb, TUNING, Backdrop } from '../src/ui/backdrop.js';
+import { textColorFor, ease, darkEdgeAlpha, lum, luminance, lightness, contrast, toSrgb, TUNING, Backdrop } from '../src/ui/backdrop.js';
 
 const srgb = (t) => t.fg.map((v) => Math.round(toSrgb(v)));
 const maxDiff = (a, b) => Math.max(...a.map((v, i) => Math.abs(v - b[i])));
@@ -140,4 +140,17 @@ test('Backdrop: pierwszy pomiar od razu, potem płynnie; clear() sprząta; brak 
   assert.ok(!el.attrs.has('data-adapt'));
   assert.equal(bd.last, 0);
   delete globalThis.document; delete globalThis.getComputedStyle;
+});
+
+test('hełm: biały kontur czarnego tekstu — zero na jasnym tle, pełny na ciemnym, płynnie pomiędzy', () => {
+  assert.equal(darkEdgeAlpha([]), 0);
+  assert.equal(darkEdgeAlpha(Array(50).fill(0.7)), 0, 'jasny piasek — bez konturu');
+  assert.equal(darkEdgeAlpha(Array(50).fill(0.2)), 1, 'cień / ciemny kamień — pełny kontur');
+  assert.equal(darkEdgeAlpha([...Array(50).fill(0.3), ...Array(50).fill(0.8)]), 1, 'kamień pod połową napisu');
+  let prev = darkEdgeAlpha(Array(20).fill(1));
+  for (let v = 0.995; v >= 0; v -= 0.005) {
+    const a = darkEdgeAlpha(Array(20).fill(v));
+    assert.ok(a >= prev && a - prev <= 0.05, `skok krycia ${prev}→${a} przy ${v}`);
+    prev = a;
+  }
 });

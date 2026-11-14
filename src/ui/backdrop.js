@@ -2,7 +2,8 @@
 // Co ~120 ms klatka WebGL jest zmniejszana do 96×40 px; dla każdego panelu liczony jest średni kolor tła
 // (z uwzględnieniem półprzezroczystego tła samego panelu), z niego kolor docelowy tekstu (textColorFor),
 // a w każdej klatce bieżący kolor dąży do docelowego wykładniczo (ease) — bez skoków czerń/biel.
-// Wynik: zmienne CSS --hud-fg (tekst) i --hud-halo (text-shadow) oraz atrybut data-adapt (style w helmet.css).
+// Wynik: zmienne CSS --hud-fg (tekst), --hud-halo (text-shadow poza hełmem), --hud-edge (ostry kontur w hełmie)
+// oraz atrybut data-adapt (style w helmet.css).
 const PANELS = [
   '#hud .visor-compass', '#hud .visor-nav', '#hud .visor-motion', '#hud .visor-summary',
   '#hud .visor-warning', '#hud .visor-help', '#rideHud', '#habHud', '#driveHud', '#caption',
@@ -21,6 +22,12 @@ export const TUNING = {
                     // (> mid, więc tam, gdzie tekst ma jasność tła, obwódka jest biała i go odcina)
   haloW: 0.1,       // szerokość liniowego przejścia obwódki z białej w czarną (w jasności tekstu)
   haloAlpha: 0.8,
+  // hełm: tekst zawsze czarny, biały kontur na ciemniejszym tle. Wkład piksela tła rośnie liniowo od 0 (jasność darkOn)
+  // do 1 (darkFull); krycie konturu = średni wkład × edgeGain, obcięte do 1 — bez progów
+  black: [0.004, 0.004, 0.004],   // liniowe RGB tekstu w hełmie (#0b0b0b)
+  darkOn: 0.6,      // L*/100: jaśniejsze tło (piasek, niebo) — czarny tekst sam jest czytelny, kontur 0
+  darkFull: 0.35,   // ciemniejsze tło (kamień, cień) — pełny wkład piksela
+  edgeGain: 2,      // kamień pod połową napisu wystarcza do pełnego konturu
   tau: 0.5,         // stała czasowa łagodzenia [s]
   tauReduced: 0.15, // przy prefers-reduced-motion
   hideSnapMs: 1000, // panel niewidoczny dłużej — po pojawieniu się kolor od razu, bez łagodzenia
@@ -72,7 +79,7 @@ export function ease(cur, target, dt, tau) {
 }
 
 const css = (lin) => lin.map((v) => Math.round(toSrgb(v)));
-const PROPS = ['--hud-fg', '--hud-halo'];
+const PROPS = ['--hud-fg', '--hud-halo', '--hud-edge'];
 
 export class Backdrop {
   /** @param {HTMLCanvasElement} glCanvas płótno WebGL (czytane tuż po renderze, więc bez preserveDrawingBuffer) */
@@ -108,6 +115,7 @@ export class Backdrop {
       if (s.tFg) {
         for (let i = 0; i < 3; i++) s.fg[i] = ease(s.fg[i], s.tFg[i], dt, tau);
         s.halo = ease(s.halo, s.tHalo, dt, tau);
+        s.edge = ease(s.edge, s.tEdge, dt, tau);
       }
       this.#write(el, s);
     }
@@ -118,6 +126,7 @@ export class Backdrop {
     const cr = this.gl.getBoundingClientRect();
     if (cr.width < 2 || cr.height < 2) return;
     // za każdym razem od nowa: panele bywają usuwane i tworzone później
+    const helmet = !!document.querySelector?.('#stage.helmet-mode');
     const visible = PANELS.flatMap((s) => [...document.querySelectorAll(s)])
       .filter((el) => el.offsetParent !== null || getComputedStyle(el).position === 'fixed');
     if (!visible.length) return;
@@ -133,31 +142,51 @@ export class Backdrop {
       if (x1 <= x0 || y1 <= y0) continue;
       // średnia w liniowym RGB (tak miesza światło), potem z powrotem do sRGB
       let sr = 0, sg = 0, sb = 0, n = 0;
+      const ls = [];
       for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-        const i = (y * W + x) * 4; sr += toLin(img[i]); sg += toLin(img[i + 1]); sb += toLin(img[i + 2]); n++;
+        const i = (y * W + x) * 4, lr = toLin(img[i]), lg = toLin(img[i + 1]), lb = toLin(img[i + 2]);
+        sr += lr; sg += lg; sb += lb; n++; ls.push(lightness(lum(lr, lg, lb)));
       }
       let bg = [toSrgb(sr / n), toSrgb(sg / n), toSrgb(sb / n)];
       bg = overlay(bg, getComputedStyle(el).backgroundColor);   // półprzezroczyste tło panelu (poza hełmem)
-      const t = textColorFor(bg[0], bg[1], bg[2]);
+      const t = helmet && el.closest?.('#hud, #rideHud, #habHud, #caption')
+        ? { fg: TUNING.black, halo: 1, edge: darkEdgeAlpha(ls) }   // hełm: czarny tekst + biały kontur na ciemnym
+        : { ...textColorFor(bg[0], bg[1], bg[2]), edge: 0 };       // panele z własnym tłem poza hełmem: kolor odwrotny
+      const edge = t.edge;
       let s = this.state.get(el);
       if (!s || now - s.seen > TUNING.hideSnapMs) {   // pierwszy pomiar (wejście do 3D, nowy panel): od razu
-        s = { fg: [...t.fg], halo: t.halo, out: null };
+        s = { fg: [...t.fg], halo: t.halo, edge, out: null };
         this.state.set(el, s);
       }
-      s.tFg = t.fg; s.tHalo = t.halo; s.seen = now;
+      s.tFg = t.fg; s.tHalo = t.halo; s.tEdge = edge; s.seen = now;
     }
   }
 
   #write(el, s) {
     const [r, g, b] = css(s.fg), h = Math.round(toSrgb(s.halo));
+    // kontur: biały, krycie z darkEdgeAlpha (ciągłe, łagodzone w czasie)
+    const e = 255, ea = Math.round(s.edge * 100);
     const o = s.out;
-    if (o && Math.abs(o[0] - r) < 1 && Math.abs(o[1] - g) < 1 && Math.abs(o[2] - b) < 1 && Math.abs(o[3] - h) < 1) return;
-    s.out = [r, g, b, h];
+    if (o && Math.abs(o[0] - r) < 1 && Math.abs(o[1] - g) < 1 && Math.abs(o[2] - b) < 1 && Math.abs(o[3] - h) < 1
+      && Math.abs(o[4] - e) < 1 && o[5] === ea) return;
+    s.out = [r, g, b, h, e, ea];
+    el.style.setProperty('--hud-edge', `rgb(${e} ${e} ${e} / ${ea / 100})`);
     const a = TUNING.haloAlpha;
     el.style.setProperty('--hud-fg', `rgb(${r} ${g} ${b})`);
     el.style.setProperty('--hud-halo', `0 1px 2px rgb(${h} ${h} ${h} / ${a}), 0 0 9px rgb(${h} ${h} ${h} / ${(a * 0.6).toFixed(2)})`);
     if (!el.hasAttribute('data-adapt')) el.setAttribute('data-adapt', '');
   }
+}
+
+/**
+ * Krycie białego konturu czarnego tekstu (0…1) z jasności pikseli pod panelem (L* / 100).
+ * Piksel jaśniejszy niż darkOn nic nie wnosi, ciemniejszy niż darkFull — pełny wkład, pomiędzy liniowo.
+ */
+export function darkEdgeAlpha(ls, o = TUNING) {
+  if (!ls.length) return 0;
+  let dark = 0;
+  for (const v of ls) dark += clamp01((o.darkOn - v) / (o.darkOn - o.darkFull));
+  return clamp01(dark / ls.length * o.edgeGain);
 }
 
 /** Nałożenie koloru CSS rgb()/rgba() (tło panelu) na tło sRGB, jak przeglądarka (mieszanie w sRGB). */

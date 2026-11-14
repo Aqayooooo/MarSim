@@ -104,6 +104,12 @@
   background: none; backdrop-filter: none; box-shadow: none; }
 #stage.helmet-mode #hud .visor-summary::before { box-shadow: none; }
 #stage.helmet-mode :is(#rideHud, #habHud, #caption) { text-shadow: var(--hud-halo, 0 1px 2px #000c, 0 0 10px #0008); }
-/* hełm EV1: tekst pogrubiony, bez cienia (czytelność daje sam kolor odwrotny do tła z backdrop.js) */
+/* hełm EV1: tekst pogrubiony, bez rozmytego cienia; kolor odwrotny do tła + kontur tylko tam, gdzie tło ma jasność tekstu */
 #stage.helmet-mode :is(#hud, #rideHud, #habHud, #caption),
-#stage.helmet-mode :is(#hud, #rideHud, #habHud, #caption) * { font-weight: 700; text-shadow: none; }
+#stage.helmet-mode :is(#hud, #rideHud, #habHud, #caption) * { font-weight: 700; text-shadow: none;
+  /* ostry kontur w odcieniu przeciwnym do tekstu; backdrop.js włącza go płynnie (--hud-edge), gdy tło pod napisem
+     ma jasność zbliżoną do tekstu (np. szary kamień pod częścią napisu); paint-order: kontur pod literą, nie na niej */
+  -webkit-text-stroke: max(2px, .2em) var(--hud-edge, transparent); paint-order: stroke fill; }
+/* w hełmie tekst zawsze czarny (także przy ostrzeżeniu i alarmie); biały kontur dokłada backdrop.js na ciemnym tle */
+#stage.helmet-mode #hud [data-adapt], #stage.helmet-mode :is(#rideHud, #habHud, #caption)[data-adapt] { --visor: var(--hud-fg, #0b0b0b); }
+#stage.helmet-mode :is(#hud, #rideHud) kbd { background: none; border-color: var(--visor-line); color: var(--visor); }
