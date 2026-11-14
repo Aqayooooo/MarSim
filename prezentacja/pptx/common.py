@@ -116,16 +116,21 @@ class Slide:
 
     # ---------- animacje wejścia ----------
     @contextlib.contextmanager
-    def step(self, effect="rise", delay=None, dur=None):
+    def step(self, effect="rise", delay=None, dur=None, click=0, exit=False, shapes=()):
         """Wszystko, co narysujesz wewnątrz `with s.step(...)`, wejdzie razem jako jeden krok animacji.
 
         Kroki startują same po wejściu na slajd, jeden po drugim (co STEP_GAP ms), jak .rv w index.html.
         effect: "rise" (zanikanie + lekki ruch w górę, tekst), "wipe" (odsłanianie z góry, zrzuty),
                 "fade" (samo zanikanie: linie, kółka, drobne elementy).
-        delay: własny start kroku w ms od wejścia na slajd (domyślnie wg kolejności).
+        delay: własny start kroku w ms (od wejścia na slajd albo od kliknięcia).
+        click: 0 = start sam po wejściu na slajd; 1, 2… = start po 1., 2.… kliknięciu.
+        exit:  True = kształty znikają (tylko "fade") zamiast się pojawiać.
+        shapes: kształty narysowane wcześniej, które też należą do tego kroku (np. do zniknięcia).
         """
         assert self._step is None, "kroki animacji nie mogą być zagnieżdżone"
-        self._step = dict(effect=effect, delay=delay, dur=dur, ids=[])
+        assert not exit or effect == "fade", "znikanie obsługuje tylko efekt fade"
+        self._step = dict(effect=effect, delay=delay, dur=dur, click=click, exit=exit,
+                          ids=[sh.shape_id for sh in shapes])
         try:
             yield self
         finally:
@@ -444,55 +449,76 @@ PRESET = {"rise": ("42", "0"), "wipe": ("22", "1"), "fade": ("10", "0")}  # Unos
 P_NS = "http://schemas.openxmlformats.org/presentationml/2006/main"
 
 
-def apply_timing(slide, steps):
-    ids = iter(range(3, 10_000))
-    effects = []
-    built = []
-    for k, st in enumerate(steps):
-        start = st["delay"] if st["delay"] is not None else STEP_START + k * STEP_GAP
-        dur = st["dur"] or DUR[st["effect"]]
+def _effect_xml(ids, st, spid, grp, start, node):
+    dur = st["dur"] or DUR[st["effect"]]
+    tgt = f'<p:tgtEl><p:spTgt spid="{spid}"/></p:tgtEl>'
+    vis = lambda val, delay: (f'<p:set><p:cBhvr><p:cTn id="{next(ids)}" dur="1" fill="hold"><p:stCondLst><p:cond delay="{delay}"/></p:stCondLst></p:cTn>'
+                              f'{tgt}<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>'
+                              f'<p:to><p:strVal val="{val}"/></p:to></p:set>')
+    if st["exit"]:
+        beh = (f'<p:animEffect transition="out" filter="fade"><p:cBhvr><p:cTn id="{next(ids)}" dur="{dur}"/>{tgt}</p:cBhvr></p:animEffect>'
+               + vis("hidden", dur - 1))
+        preset, sub, cls = "10", "0", "exit"
+    else:
+        beh = vis("visible", 0)
+        flt = "wipe(down)" if st["effect"] == "wipe" else "fade"
+        beh += f'<p:animEffect transition="in" filter="{flt}"><p:cBhvr><p:cTn id="{next(ids)}" dur="{dur}"/>{tgt}</p:cBhvr></p:animEffect>'
+        if st["effect"] == "rise":
+            for attr, a, b in (("ppt_x", "#ppt_x", "#ppt_x"), ("ppt_y", "#ppt_y+0.028", "#ppt_y")):
+                beh += (f'<p:anim calcmode="lin" valueType="num"><p:cBhvr><p:cTn id="{next(ids)}" dur="{dur}" decel="100000" fill="hold"/>'
+                        f'{tgt}<p:attrNameLst><p:attrName>{attr}</p:attrName></p:attrNameLst></p:cBhvr>'
+                        f'<p:tavLst><p:tav tm="0"><p:val><p:strVal val="{a}"/></p:val></p:tav>'
+                        f'<p:tav tm="100000"><p:val><p:strVal val="{b}"/></p:val></p:tav></p:tavLst></p:anim>')
         preset, sub = PRESET[st["effect"]]
-        for spid in st["ids"]:
-            built.append(spid)
-            tgt = f'<p:tgtEl><p:spTgt spid="{spid}"/></p:tgtEl>'
-            beh = (f'<p:set><p:cBhvr><p:cTn id="{next(ids)}" dur="1" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn>'
-                   f'{tgt}<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>'
-                   f'<p:to><p:strVal val="visible"/></p:to></p:set>')
-            if st["effect"] == "wipe":
-                beh += f'<p:animEffect transition="in" filter="wipe(down)"><p:cBhvr><p:cTn id="{next(ids)}" dur="{dur}"/>{tgt}</p:cBhvr></p:animEffect>'
-            else:
-                beh += f'<p:animEffect transition="in" filter="fade"><p:cBhvr><p:cTn id="{next(ids)}" dur="{dur}"/>{tgt}</p:cBhvr></p:animEffect>'
-            if st["effect"] == "rise":
-                for attr, a, b in (("ppt_x", "#ppt_x", "#ppt_x"), ("ppt_y", "#ppt_y+0.028", "#ppt_y")):
-                    beh += (f'<p:anim calcmode="lin" valueType="num"><p:cBhvr><p:cTn id="{next(ids)}" dur="{dur}" decel="100000" fill="hold"/>'
-                            f'{tgt}<p:attrNameLst><p:attrName>{attr}</p:attrName></p:attrNameLst></p:cBhvr>'
-                            f'<p:tavLst><p:tav tm="0"><p:val><p:strVal val="{a}"/></p:val></p:tav>'
-                            f'<p:tav tm="100000"><p:val><p:strVal val="{b}"/></p:val></p:tav></p:tavLst></p:anim>')
-            effects.append(f'<p:par><p:cTn id="{next(ids)}" presetID="{preset}" presetClass="entr" presetSubtype="{sub}" '
-                           f'fill="hold" grpId="0" nodeType="withEffect"><p:stCondLst><p:cond delay="{start}"/></p:stCondLst>'
-                           f'<p:childTnLst>{beh}</p:childTnLst></p:cTn></p:par>')
-    # numery cTn muszą rosnąć w kolejności dokumentu: przenumeruj od nowa
-    body = "".join(effects)
+        cls = "entr"
+    return (f'<p:par><p:cTn id="{next(ids)}" presetID="{preset}" presetClass="{cls}" presetSubtype="{sub}" '
+            f'fill="hold" grpId="{grp}" nodeType="{node}"><p:stCondLst><p:cond delay="{start}"/></p:stCondLst>'
+            f'<p:childTnLst>{beh}</p:childTnLst></p:cTn></p:par>')
+
+
+def apply_timing(slide, steps):
+    """Oś czasu: grupa 0 startuje sama z wejściem na slajd, grupy 1, 2… po kolejnych kliknięciach."""
+    ids = iter(range(3, 100_000))
+    groups = {}
+    for st in steps:
+        groups.setdefault(st["click"], []).append(st)
+    grp_count, built = {}, []          # grpId: kolejna animacja tego samego kształtu dostaje następny numer
+    pars = []
+    for click in sorted(groups):
+        effects = []
+        for k, st in enumerate(groups[click]):
+            base = STEP_START if click == 0 else 0
+            start = st["delay"] if st["delay"] is not None else base + k * STEP_GAP
+            for spid in st["ids"]:
+                grp = grp_count.get(spid, 0)
+                grp_count[spid] = grp + 1
+                built.append((spid, grp))
+                node = "clickEffect" if (click > 0 and not effects) else "withEffect"
+                effects.append(_effect_xml(ids, st, spid, grp, start, node))
+        cond = ('<p:cond delay="indefinite"/><p:cond evt="onBegin" delay="0"><p:tn val="2"/></p:cond>'
+                if click == 0 else '<p:cond delay="indefinite"/>')
+        pars.append(f'<p:par><p:cTn id="X" fill="hold"><p:stCondLst>{cond}</p:stCondLst><p:childTnLst>'
+                    f'<p:par><p:cTn id="X" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst>'
+                    f'<p:childTnLst>{"".join(effects)}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>')
     xml = (f'<p:timing xmlns:p="{P_NS}"><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot"><p:childTnLst>'
            f'<p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq"><p:childTnLst>'
-           f'<p:par><p:cTn id="X" fill="hold"><p:stCondLst><p:cond delay="indefinite"/><p:cond evt="onBegin" delay="0"><p:tn val="2"/></p:cond></p:stCondLst><p:childTnLst>'
-           f'<p:par><p:cTn id="X" fill="hold"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>{body}</p:childTnLst></p:cTn></p:par>'
-           f'</p:childTnLst></p:cTn></p:par>'
+           f'{"".join(pars)}'
            f'</p:childTnLst></p:cTn><p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>'
            f'<p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst></p:seq>'
-           f'</p:childTnLst></p:cTn></p:par></p:tnLst><p:bldLst>BLD</p:bldLst></p:timing>')
-    el = etree.fromstring(xml.replace("<p:bldLst>BLD</p:bldLst>", ""))
+           f'</p:childTnLst></p:cTn></p:par></p:tnLst></p:timing>')
+    el = etree.fromstring(xml)
+    # numery cTn muszą rosnąć w kolejności dokumentu: przenumeruj od nowa
     for n, ctn in enumerate(el.iter(qn("p:cTn")), start=1):
         ctn.set("id", str(n))
-    # bldLst: wpisy dla kształtów p:sp (pola tekstowe i figury)
+    # bldLst: wpisy dla kształtów p:sp (pola tekstowe i figury), po jednym na każdą animację
     sp_ids = {int(sp.find(".//" + qn("p:cNvPr")).get("id")) for sp in slide.shapes._spTree.iter(qn("p:sp"))}
-    bld = [i for i in dict.fromkeys(built) if i in sp_ids]
+    bld = [(i, g) for i, g in dict.fromkeys(built) if i in sp_ids]
     if bld:
         bl = etree.SubElement(el, qn("p:bldLst"))
-        for i in bld:
-            b = etree.SubElement(bl, qn("p:bldP"))
-            b.set("spid", str(i))
-            b.set("grpId", "0")
+        for i, g in bld:
+            b_ = etree.SubElement(bl, qn("p:bldP"))
+            b_.set("spid", str(i))
+            b_.set("grpId", str(g))
     sld = slide._element
     old = sld.find(qn("p:timing"))
     if old is not None:

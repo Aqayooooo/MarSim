@@ -1,7 +1,7 @@
 # Prezentacja MarSim w PowerPoincie
 
 Generator pliku `../MarSim-prezentacja.pptx`: te same 7 slajdów co `../index.html`
-(slajd 5 w dwóch stanach: wizjer w normie i alarm), z notatkami prowadzącego,
+(na slajdzie 5 kliknięcie przełącza wizjer z normy na alarm tlenu), z notatkami prowadzącego,
 przejściem Przekształcenie (Morph) i animacjami wejścia.
 
 ## Budowanie
