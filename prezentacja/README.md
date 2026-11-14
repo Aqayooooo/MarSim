@@ -27,14 +27,18 @@ Na slajdzie 5 pierwsze kliknięcie przełącza wizjer ze stanu „w normie” na
 
 ## Podział ról
 
-| Mówca | Slajdy | Zakres | Czas |
-|---|---|---|---|
-| Osoba 1 | 1–2 | otwarcie i środowisko Marsa w liczbach | ok. 1:45 |
-| Osoba 2 | 3–4 | dane NASA i planer trasy | ok. 2:15 |
-| Osoba 3 | 5–6 | wizjer hełmu, łazik i habitat | ok. 2:00 |
-| Osoba 4 | 7 + pokaz | stan prac, ograniczenia, zakończenie, pokaz na żywo i pytania | ok. 1:00 + pokaz |
+Cztery role zamiast czterech kawałków slajdów. Każda ma temat na slajdach, zadanie poza slajdami i zakres pytań, na które odpowiada. Prowadzący otwiera i zamyka, więc kolejność mówców to 1 → 2 → 3 → 4 → 1.
 
-Imiona wpisuje się w jednym miejscu: tablica `SPEAKERS` na początku skryptu w `index.html`.
+| Rola | Mówca | Slajdy | Czas | Na slajdach | Poza slajdami | Odpowiada na pytania o |
+|---|---|---|---|---|---|---|
+| Prowadzenie | Osoba 1 | 1 i 7 | ok. 1:40 | otwarcie: problem i dla kogo jest MarSim; zamknięcie: stan prac, ograniczenia, następne kroki | zapowiada pokaz, prowadzi pytania i kieruje je do właściwej osoby | cel projektu, stan prac, plany |
+| Dane | Osoba 2 | 2–3 | ok. 2:05 | środowisko Marsa w liczbach i dane NASA w warstwach mapy | pilnuje czasu całego wystąpienia | źródła danych, dokładność, metody |
+| Planer i pokaz | Osoba 3 | 4 | ok. 1:15 + pokaz | planer trasy: A*, wysiłek i tlen, nachylenie, zakazy | uruchamia MarSim przed wystąpieniem, w pokazie obsługuje aplikację i opowiada o planowaniu trasy | algorytm trasy, model tlenu, testy |
+| Załoga | Osoba 4 | 5–6 | ok. 2:00 | wizjer hełmu w dwóch stanach, łazik i habitat | w pokazie komentuje widok z hełmu i alarm tlenu; gdy pokaz zawiedzie, omawia zrzuty ze slajdów 4–6 | wizjer, łazik, habitat |
+
+Zastępstwa, gdy kogoś zabraknie: Dane ↔ Planer i pokaz, Prowadzenie ↔ Załoga.
+
+Wszystko ustawia się na początku skryptu w `index.html`: imiona w tablicy `SPEAKERS`, przypisanie slajdów w `SPEAKER_OF`, czasy w `TIME`, opisy ról w `ROLES`, a obsadę pokazu w `DEMO`. Numery slajdów i czas każdej roli w panelu (klawisz R) liczą się z tych tablic same, a zdania przekazujące głos w notatkach biorą imię następnego mówcy.
 
 ## Źródła
 

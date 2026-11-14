@@ -183,17 +183,30 @@ h1 em,h2 em{font-style:italic}
 #notes header b{font-weight:400;color:var(--bone)}
 #notes p{font:400 clamp(16px,1.6vw,21px)/1.6 var(--f-text);color:var(--bone-2);margin:0 0 10px;max-width:78ch}
 #notes p.hand{color:var(--accent-hi);font-weight:400}
-#roles{inset:0;display:grid;place-items:center;background:rgba(5,5,5,.94);border:0;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));overflow:auto}
-#roles .in{width:min(1040px,100%)}
-#roles h2{font-size:clamp(34px,5vw,64px);margin-bottom:8px}
-#roles .sub{font:400 clamp(14px,1.4vw,18px)/1.5 var(--f-text);color:var(--bone-2);margin:0 0 28px}
-.rt{width:100%;border-collapse:collapse}
-.rt th{font:400 11px/1 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--bone-3);text-align:left;padding:0 16px 12px 0}
-.rt td{border-top:1px solid var(--hair);padding:16px 16px 16px 0;vertical-align:top;font:400 clamp(14px,1.4vw,18px)/1.45 var(--f-text);color:var(--bone-2)}
-.rt td.who{font:italic 500 clamp(20px,2.2vw,28px)/1.1 var(--f-display);color:var(--bone);white-space:nowrap}
-.rt td.sl,.rt td.tm{font:400 clamp(12px,1.1vw,14px)/1.5 var(--f-mono);color:var(--bone);white-space:nowrap}
-.rt-wrap{overflow-x:auto}
-#roles .close{margin-top:24px;font:400 12px/1 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--bone-3);border:1px solid var(--hair);padding:10px 14px}
+#roles{inset:0;display:grid;background:rgba(5,5,5,.94);border:0;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));overflow:auto}
+#roles .in{width:min(1280px,100%);margin:auto}
+#roles h2{font-size:clamp(30px,4vw,52px);margin-bottom:10px}
+#roles .sub{font:400 clamp(14px,1.3vw,17px)/1.5 var(--f-text);color:var(--bone-2);margin:0 0 30px;max-width:92ch}
+/* oś czasu: kto mówi kiedy; szerokość odcinka = czas na slajdzie */
+.tl-wrap{overflow-x:auto;margin:0 0 34px}
+.tl{display:flex;gap:14px}
+.tl .who{font:500 15px/1.2 var(--f-text);color:var(--bone);white-space:nowrap;margin-bottom:9px}
+.tl .segs{display:flex;gap:3px}
+.tl .seg i{display:block;height:8px;background:var(--bone);opacity:.84}
+.tl .seg span{display:block;margin-top:8px;padding-right:10px;font:400 12px/1.3 var(--f-mono);letter-spacing:.06em;font-variant-numeric:tabular-nums;color:var(--bone-3);white-space:nowrap}
+.tl .x .seg i{box-sizing:border-box;background:none;border:1px solid var(--bone-3);opacity:1}
+/* cztery role: temat na slajdach, zadanie poza slajdami, zakres pytań */
+.rc{display:grid;grid-template-columns:repeat(4,1fr);gap:30px 32px}
+.rc article{border-top:1px solid var(--hair);padding-top:18px}
+.rc .role{font:400 11px/1 var(--f-mono);letter-spacing:.2em;text-transform:uppercase;color:var(--accent-hi);margin:0}
+.rc h3{font:italic 500 clamp(22px,2.1vw,28px)/1.1 var(--f-display);margin:10px 0 8px}
+.rc .meta{font:400 13px/1.4 var(--f-mono);letter-spacing:.06em;font-variant-numeric:tabular-nums;color:var(--bone);margin:0}
+.rc dl{margin:0}
+.rc dt{font:400 11px/1.2 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--bone-3);margin:16px 0 6px}
+.rc dd{margin:0;font:400 clamp(14px,1.2vw,16px)/1.5 var(--f-text);color:var(--bone-2)}
+@media (max-width:1040px){.rc{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.rc{grid-template-columns:1fr}}
+#roles .close{margin-top:28px;font:400 12px/1 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--bone-3);border:1px solid var(--hair);padding:10px 14px}
 #roles .close:hover{color:var(--bone)}
 
 /* Animacje zawsze włączone: systemowe „ograniczaj ruch” (np. GNOME enable-animations=false)
@@ -341,8 +354,9 @@ h1 em,h2 em{font-style:italic}
 <div class="panel" id="roles" hidden role="dialog" aria-modal="true" aria-labelledby="rolesTitle">
   <div class="in">
     <h2 id="rolesTitle">Podział <em>ról</em></h2>
-    <p class="sub">Czworo mówców, siedem slajdów, ok. 7 minut i&nbsp;pokaz na żywo. Każdy kończy zdaniem, które przekazuje głos następnej osobie. Pełny tekst jest w&nbsp;notatkach (klawisz N).</p>
-    <div class="rt-wrap"><table class="rt" id="rolesTable"></table></div>
+    <p class="sub">Czworo mówców, siedem slajdów, ok. 7 minut i&nbsp;pokaz na żywo. Każda rola ma temat na slajdach, zadanie poza slajdami i&nbsp;zakres pytań, na które odpowiada. Zastępstwa: Dane ↔ Planer i&nbsp;pokaz, Prowadzenie ↔ Załoga. Pełny tekst jest w&nbsp;notatkach (klawisz N).</p>
+    <div class="tl-wrap"><div class="tl" id="rolesLine" role="img"></div></div>
+    <div class="rc" id="rolesCards"></div>
     <button type="button" class="close" id="rolesClose">Zamknij · Esc</button>
   </div>
 </div>
@@ -350,41 +364,59 @@ h1 em,h2 em{font-style:italic}
 <script type="module">
 /* ---------- mówcy: tu wpisz imiona zespołu ---------- */
 const SPEAKERS = ['Osoba 1', 'Osoba 2', 'Osoba 3', 'Osoba 4'];
+/* ---------- podział ról: cztery role, nie cztery kawałki slajdów ----------
+   Numery slajdów i czas każdej roli liczą się same z SPEAKER_OF i TIME. */
+const SPEAKER_OF = [0, 1, 1, 2, 3, 3, 0];   // kto mówi na slajdach 1–7 (prowadzący otwiera i zamyka)
+const TIME = ['0:40', '1:05', '1:00', '1:15', '1:00', '1:00', '1:00'];
+const DEMO = [2, 3];                         // pokaz na żywo: operator aplikacji, komentarz
 const ROLES = [
-  { who: 0, slides: '1–2', topic: 'Otwarcie: problem, dla kogo jest MarSim i środowisko Marsa w liczbach.', time: 'ok. 1:45' },
-  { who: 1, slides: '3–4', topic: 'Dane NASA w warstwach mapy i planer trasy: tlen, nachylenie, zakazy.', time: 'ok. 2:15' },
-  { who: 2, slides: '5–6', topic: 'Wizjer hełmu w dwóch stanach, łazik ciśnieniowy i habitat.', time: 'ok. 2:00' },
-  { who: 3, slides: '7 + pokaz', topic: 'Stan prac, ograniczenia, następne kroki, zakończenie. Prowadzi pokaz na żywo i pytania.', time: 'ok. 1:00 + pokaz' },
+  { who: 0, role: 'Prowadzenie',
+    talk: 'Otwiera i zamyka: problem, dla kogo jest MarSim, stan prac, ograniczenia i następne kroki.',
+    off: 'Zapowiada pokaz, potem prowadzi pytania i kieruje je do właściwej osoby.',
+    qa: 'Cel projektu, stan prac, plany.' },
+  { who: 1, role: 'Dane',
+    talk: 'Środowisko Marsa w liczbach i dane NASA w warstwach mapy.',
+    off: 'Pilnuje czasu całego wystąpienia i daje znak, gdy mówca przekracza swój.',
+    qa: 'Źródła danych, dokładność, metody bez uczenia maszynowego.' },
+  { who: 2, role: 'Planer i pokaz',
+    talk: 'Planer trasy: A*, wysiłek i tlen, nachylenie, zakazy.',
+    off: 'Uruchamia MarSim przed wystąpieniem. W pokazie obsługuje aplikację i opowiada o planowaniu trasy.',
+    qa: 'Algorytm trasy, model tlenu, testy.' },
+  { who: 3, role: 'Załoga',
+    talk: 'Wizjer hełmu w dwóch stanach, łazik ciśnieniowy i habitat.',
+    off: 'W pokazie komentuje widok z hełmu i alarm tlenu. Gdy pokaz zawiedzie, omawia zrzuty ze slajdów 4–6.',
+    qa: 'Wizjer, łazik, habitat.' },
 ];
 const NAV = ['Okładka', 'Środowisko', 'Dane', 'Trasa', 'Wizjer', 'Łazik i baza', 'Wdrożenie'];
-const SPEAKER_OF = [0, 0, 1, 1, 2, 2, 3];
 const TOPIC = ['Otwarcie', 'Środowisko', 'Dane NASA', 'Planer trasy', 'Wizjer hełmu', 'Łazik i habitat', 'Wdrożenie'];
-const TIME = ['0:40', '1:05', '1:00', '1:15', '1:00', '1:00', '1:00'];
+const sp = (slide) => SPEAKERS[SPEAKER_OF[slide - 1]];   // mówca slajdu o danym numerze
 const NOTES = [
   ['Dzień dobry, jesteśmy zespołem MarSim.',
    'Pierwsza załoga, która wyjdzie przez śluzę na powierzchnię Marsa, będzie miała tylko to, co niesie: tlen, energię i czas. Pomoc z Ziemi nie przyjdzie na czas, bo sygnał leci od 3 do 22 minut w jedną stronę.',
    'MarSim to mapa i planer wyjść, który liczy to za nią: którędy iść, ile to kosztuje i kiedy najpóźniej trzeba zawrócić. Pokażemy go na prawdziwym terenie krateru Jezero, przy lądowisku łazika Perseverance.',
-   '→ Zacznijmy od tego, w jakim środowisku pracuje astronauta.'],
+   '→ W jakim środowisku pracuje astronauta, opowie ' + sp(2) + '.'],
   ['Atmosfera Marsa to w 95 procentach dwutlenek węgla. Tlenu jest 0,16 procent. Ciśnienie przy powierzchni wynosi około 0,6 kilopaskala, mniej niż jeden procent ziemskiego. Bez skafandra człowiek traci przytomność w kilkanaście sekund.',
    'Średnia temperatura to około minus 60 stopni. Grawitacja 0,38 g zmienia chód i wysiłek, a więc i zużycie tlenu. Dawka promieniowania na powierzchni to około 0,64 milisiwerta na sol, a burza słoneczna może ją gwałtownie podnieść.',
    'Do tego opóźnienie łączności. Decyzja o powrocie musi zapaść na miejscu, w hełmie. Na dole slajdu widać te same wielkości w panelu MarSim, przeliczone dla bieżącego sola i godziny.',
-   '→ Skąd bierzemy dane o terenie, opowie ' + SPEAKERS[1] + '.'],
+   '→ Teraz o tym, skąd bierzemy dane o terenie.'],
   ['Wyzwanie NASA Martian Map prosi o warstwową mapę miejsca albo trasy na Marsie, zbudowaną z danych wielu misji. Mapa ma pomóc zaplanować wyjście: trasę i cele, bieżące warunki i naukę po drodze.',
    'Łączymy pięć instrumentów orbitalnych. HiRISE daje zdjęcia 25 centymetrów na piksel i model wysokości z dokładnością 20 centymetrów. Z cieni na tych zdjęciach wykrywamy głazy od metra wzwyż: w Jezero jest ich 340, w kraterze Gale 649. THEMIS pokazuje luźny piasek, CRISM minerały, MOLA kontroluje wysokości, a DONKI i NOAA dają pogodę kosmiczną na żywo.',
-   'Nie używamy uczenia maszynowego. Każda warstwa ma opisaną metodę, źródło i sumę kontrolną, więc wiadomo, skąd wzięła się każda decyzja na mapie.'],
+   'Nie używamy uczenia maszynowego. Każda warstwa ma opisaną metodę, źródło i sumę kontrolną, więc wiadomo, skąd wzięła się każda decyzja na mapie.',
+   '→ Jak z tych warstw powstaje trasa, pokaże ' + sp(4) + '.'],
   ['Na tej mapie planer wyznacza trasę algorytmem A*. Kosztem jest wysiłek, liczony modelem Pandolfa przeliczonym na grawitację Marsa. Z wysiłku wynika zużycie tlenu.',
    'Zakazane są zbocza, których nachylenie z marginesem dwóch sigma przekracza 25 stopni, i piasek o prawdopodobieństwie powyżej 0,6. Głazy omijamy o 6 metrów.',
    'Trasa A w Jezero ma 1,22 kilometra i zajmuje 75 minut z dwoma postojami. Największe nachylenie to 7,6 stopnia, plus minus 1,5. Zużycie tlenu szacujemy na 92 litry, w przedziale od 62 do 120. Na mapie widać też schron w zasięgu 15 minut. Funkcja Porównaj trasy pokazuje, dlaczego wybrano tę drogę zamiast linii prostej.',
-   '→ Jak to wygląda z perspektywy astronauty, pokaże ' + SPEAKERS[2] + '.'],
+   '→ Jak to wygląda z perspektywy astronauty, pokaże ' + sp(5) + '.'],
   ['Tak wygląda MarSim w hełmie. Wizjer pokazuje tylko to, czego astronauta potrzebuje w tej chwili. Na górze kurs, po lewej odległość do następnego punktu trasy i przyciski teleportu, a trasa jest narysowana na gruncie. Na trasie stoi łazik.',
    'Po prawej tlen i energia. Wizjer pokazuje zawsze osobę w najgorszym stanie, bo załoga wraca razem. Teraz wszystko jest w normie.',
    '[Kliknij: stan 2] Gdy tlenu jest mniej niż rezerwa misji, cały wizjer zmienia barwę na alarmową, a paski pokazują, ile zostało tlenu i energii. Wszystko to liczy serwer misji, więc wizjer pokazuje te same liczby co konsola w habitacie.'],
   ['Astronauta nie jest sam. W tym samym planie jest łazik ciśnieniowy i habitat. Łazik wzorowaliśmy na koncepcji NASA Space Exploration Vehicle: kabina 4,5 na 3 metry, dwanaście kół i dwie śluzy skafandrów z tyłu. Służy jako schron i przekaźnik łączności.',
    'Habitat ma atmosferę eksploracyjną NASA: 56,5 kilopaskala i 34 procent tlenu, co skraca przygotowanie do wyjścia. Są w nim moduł dzienny, kajuty, laboratorium, szklarnia i MOXIE, czyli wytwarzanie tlenu z dwutlenku węgla. Panel habitatu liczy baterię, zbiornik tlenu i bilans mocy razem z zegarem misji.',
-   '→ Na ile to jest gotowe do użycia, powie ' + SPEAKERS[3] + '.'],
+   '→ Na ile to jest gotowe do użycia, powie ' + sp(7) + '.'],
   ['MarSim działa dziś, w wersji 1.4: 290 testów backendu, 30 testów sterowania wyjściem, testy w prawdziwej przeglądarce i 407 kluczy tłumaczeń. Działa bez internetu, zapisuje stan wyjścia co 5 sekund i po awarii serwera wznawia je w pauzie. Każdy produkt danych ma sumę SHA-256, więc wynik można odtworzyć.',
    'Mówimy też wprost o ograniczeniach. Model tlenu trzeba skalibrować danymi z prawdziwego skafandra, a wykrywanie głazów sprawdzić na zdjęciach z łazika. Następny krok to próba z załogą w misji analogowej.',
-   'Zanim astronauta wyjdzie ze śluzy, trasa jest już policzona. Dziękujemy. Chętnie pokażemy MarSim na żywo i odpowiemy na pytania.'],
+   'Zanim astronauta wyjdzie ze śluzy, trasa jest już policzona. Dziękujemy. Chętnie pokażemy MarSim na żywo i odpowiemy na pytania.',
+   '→ Pokaz na żywo poprowadzi ' + SPEAKERS[DEMO[0]] + ', a widok z hełmu skomentuje ' + SPEAKERS[DEMO[1]] + '.'],
 ];
 
 /* ---------- kompozycje: położenie Marsa (px sceny), światło, aureola ---------- */
@@ -514,8 +546,35 @@ function renderNotes() {
 }
 function toggleNotes(v = notes.hidden) { notes.hidden = !v; renderNotes(); }
 (function buildRoles() {
-  $('#rolesTable').innerHTML = '<tr><th>Mówca</th><th>Slajdy</th><th>Zakres</th><th>Czas</th></tr>' +
-    ROLES.map((r) => `<tr><td class="who">${SPEAKERS[r.who]}</td><td class="sl">${r.slides}</td><td>${r.topic}</td><td class="tm">${r.time}</td></tr>`).join('');
+  const secs = (t) => { const [m, s] = t.split(':').map(Number); return m * 60 + s; };
+  const mmss = (n) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+  const total = (list) => list.reduce((n, i) => n + secs(TIME[i]), 0);
+  const ranges = (list) => {   // [0, 6] → „1 i 7”, [1, 2] → „2–3”
+    const out = [];
+    for (const i of list) { const last = out[out.length - 1]; if (last && last[1] === i - 1) last[1] = i; else out.push([i, i]); }
+    return out.map(([a, b]) => (a === b ? `${a + 1}` : `${a + 1}–${b + 1}`)).join(' i ');
+  };
+  // oś czasu: kolejne bloki tego samego mówcy, potem pokaz i pytania (bez ustalonego czasu, więc sam obrys)
+  const blocks = [];
+  SPEAKER_OF.forEach((s, i) => { const last = blocks[blocks.length - 1]; if (last && last.who === s) last.slides.push(i); else blocks.push({ who: s, slides: [i] }); });
+  const seg = (label, flex) => `<div class="seg" style="flex:${flex}"><i></i><span>${label}</span></div>`;
+  const group = (who, segs, flex, cls = '') => `<div class="g${cls}" style="flex:${flex}"><div class="who">${who}</div><div class="segs">${segs}</div></div>`;
+  const demoWho = DEMO.map((w) => SPEAKERS[w]).join(' + ');
+  const line = $('#rolesLine');
+  line.innerHTML =
+    blocks.map((b) => group(SPEAKERS[b.who], b.slides.map((i) => seg(`${i + 1} · ${TIME[i]}`, secs(TIME[i]))).join(''), total(b.slides))).join('') +
+    group(demoWho, seg('Pokaz na żywo', 1), 90, ' x') +
+    group('Wszyscy', seg('Pytania', 1), 70, ' x');
+  line.setAttribute('aria-label', 'Kolejność: ' +
+    blocks.map((b) => `${SPEAKERS[b.who]}, ${b.slides.length > 1 ? 'slajdy' : 'slajd'} ${ranges(b.slides)}, ${mmss(total(b.slides))}`).join('; ') +
+    `; pokaz na żywo: ${demoWho}; pytania: wszyscy.`);
+  $('#rolesCards').innerHTML = ROLES.map((r) => {
+    const mine = SPEAKER_OF.flatMap((s, i) => (s === r.who ? [i] : []));
+    const many = mine.length > 1;
+    return `<article><p class="role">${r.role}</p><h3>${SPEAKERS[r.who]}</h3>` +
+      `<p class="meta">${many ? 'Slajdy' : 'Slajd'} ${ranges(mine)} · ok. ${mmss(total(mine))}${DEMO.includes(r.who) ? ' + pokaz' : ''}</p>` +
+      `<dl><dt>Na slajdach</dt><dd>${r.talk}</dd><dt>Poza slajdami</dt><dd>${r.off}</dd><dt>Odpowiada na pytania o</dt><dd>${r.qa}</dd></dl></article>`;
+  }).join('');
 })();
 let lastFocus = null;
 function toggleRoles(v = roles.hidden) {
