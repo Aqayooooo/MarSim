@@ -4,7 +4,6 @@ Najnowsze na górze. Daty z commitów na gałęzi `pages-demo`, z której publik
 
 ## Niewydane
 
-- **Prezentacja:** w kroku 01 na obszarze boxwork podpis pokazuje warstwę Boxwork jako cel naukowy. W kroku 02 po wyznaczeniu trasy widać bilans tlenu z powrotem do habitatu i rezerwą (`o2Budget`). Długość bez zmian, najwyżej 30 s.
 - **Poprawki z przeglądu (2026-11-14).**
   - **Przeszkody:** zgłoszona przeszkoda nie odcina już załogi ani habitatu, w obu trybach. Obszar, w którym stoi załoga, habitat albo łazik, jest przejezdny z kosztem ×10. Gdy przeszkoda zamyka jedyne wyjście z kotliny, powrót prowadzi przez nią. Wcześniej powrót był niemożliwy, a tlen spadał do 0%. Zgłoszenie „bezpieczne” przelicza trasę i usuwa błędnie zgłoszoną przeszkodę. Głazy ze scenariusza i z drona trafiają przed załogę z zapasem od punktów trasy albo są pomijane.
   - **Tlen:**
