@@ -198,9 +198,8 @@ h1 em,h2 em{font-style:italic}
 #roles .close{margin-top:24px;font:400 12px/1 var(--f-mono);letter-spacing:.18em;text-transform:uppercase;color:var(--bone-3);border:1px solid var(--hair);padding:10px 14px}
 #roles .close:hover{color:var(--bone)}
 
-@media (prefers-reduced-motion: reduce){
-  .rv,.shot,.shot img,nav button::after{transition-duration:.01s!important;transition-delay:0s!important}
-}
+/* Animacje zawsze włączone: systemowe „ograniczaj ruch” (np. GNOME enable-animations=false)
+   wyłączało przejścia slajdów i ruch Marsa, a prezentacja ma być pokazywana z animacjami. */
 </style>
 </head>
 <body>
@@ -415,7 +414,7 @@ const CALLOUTS = [
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const W = 1920, H = 1080, DEG = Math.PI / 180;
-const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduce = false;   // animacje wymuszone niezależnie od systemowego „ograniczaj ruch”
 const slides = $$('.slide');
 const stage = $('#stage');
 let idx = 0, step = 0, scale = 1;
