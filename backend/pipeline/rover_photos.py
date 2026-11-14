@@ -33,7 +33,7 @@ CACHE = ROOT / "backend" / "cache" / "rawimages"
 UA = {"User-Agent": "MarSim-data-pipeline"}
 THUMB_W = 320
 PER_STOP = 3
-EL_RANGE = (-32.0, 12.0)   # bez zdjęć pokładu, kół i nieba
+EL_RANGE = (-32.0, 12.0)  # bez zdjęć pokładu, kół i nieba
 
 CAMERAS = {
     "M20": {"search": "NAVCAM_LEFT", "credit": "NASA/JPL-Caltech", "label": "Navcam"},
@@ -56,15 +56,23 @@ def _get(url: str, cache: Path | None = None) -> bytes:
     if cache:
         cache.parent.mkdir(parents=True, exist_ok=True)
         cache.write_bytes(data)
-    time.sleep(0.3)   # grzecznie wobec serwera NASA
+    time.sleep(0.3)  # grzecznie wobec serwera NASA
     return data
 
 
 def query_m20(sol0: int, sol1: int, search: str, page: int) -> tuple[list[dict], int]:
     q = {
-        "feed": "raw_images", "category": "mars2020", "feedtype": "json", "num": 100, "page": page, "order": "sol asc",
-        "condition_1": "mars2020:mission", "condition_2": f"{sol0}:sol:gte", "condition_3": f"{sol1}:sol:lte",
-        "search": search, "extended": "sample_type::full,",
+        "feed": "raw_images",
+        "category": "mars2020",
+        "feedtype": "json",
+        "num": 100,
+        "page": page,
+        "order": "sol asc",
+        "condition_1": "mars2020:mission",
+        "condition_2": f"{sol0}:sol:gte",
+        "condition_3": f"{sol1}:sol:lte",
+        "search": search,
+        "extended": "sample_type::full,",
     }
     url = "https://mars.nasa.gov/rss/api/?" + urllib.parse.urlencode(q, safe=":,")
     d = json.loads(_get(url, CACHE / "M20" / f"{sol0}-{sol1}-{page}.json"))
@@ -73,8 +81,14 @@ def query_m20(sol0: int, sol1: int, search: str, page: int) -> tuple[list[dict],
 
 def query_msl(sol0: int, sol1: int, search: str, page: int) -> tuple[list[dict], int]:
     q = {
-        "order": "sol asc", "per_page": 100, "page": page, "condition_1": "msl:mission",
-        "condition_2": f"{sol0}:sol:gte", "condition_3": f"{sol1}:sol:lte", "search": search, "extended": "thumbnail::sample_type::noteq",
+        "order": "sol asc",
+        "per_page": 100,
+        "page": page,
+        "condition_1": "msl:mission",
+        "condition_2": f"{sol0}:sol:gte",
+        "condition_3": f"{sol1}:sol:lte",
+        "search": search,
+        "extended": "thumbnail::sample_type::noteq",
     }
     url = "https://mars.nasa.gov/api/v1/raw_image_items/?" + urllib.parse.urlencode(q, safe=":,")
     d = json.loads(_get(url, CACHE / "MSL" / f"{sol0}-{sol1}-{page}.json"))
@@ -125,7 +139,7 @@ def pick_spread(cands: list[dict], n: int) -> list[dict]:
 
 
 def thumb(src: bytes, dest: Path) -> int:
-    from PIL import Image   # tylko w kroku budowania (requirements-runtime: pillow)
+    from PIL import Image  # tylko w kroku budowania (requirements-runtime: pillow)
 
     im = Image.open(io.BytesIO(src))
     im = im.convert("RGB") if im.mode not in ("RGB", "L") else im
@@ -161,7 +175,7 @@ def build(mission_id: str) -> dict | None:
                     continue
                 si = by_stop.get(k)
                 if si is None:
-                    continue   # zdjęcie z innego postoju (poza oknem) albo w trakcie jazdy
+                    continue  # zdjęcie z innego postoju (poza oknem) albo w trakcie jazdy
                 stop = track["stops"][si]
                 if stop.get("yaw") is None:
                     continue
@@ -169,25 +183,44 @@ def build(mission_id: str) -> dict | None:
                     model = it["camera"]["camera_model_component_list"]
                     dim = (it.get("extended") or {}).get("dimension") or "(1280,960)"
                     width = int(vec(dim)[0])
-                    url_thumb, url_large, date = it["image_files"]["small"], it["image_files"].get("large") or it["image_files"]["medium"], it.get("date_taken_utc")
+                    url_thumb, url_large, date = (
+                        it["image_files"]["small"],
+                        it["image_files"].get("large") or it["image_files"]["medium"],
+                        it.get("date_taken_utc"),
+                    )
                     credit, page_url = it.get("credit") or cam["credit"], it.get("link")
                 else:
                     model = it.get("camera_model_component_list") or ""
                     sub = it.get("subframe_rect") or "(1,1,1024,1024)"
                     width = int(vec(sub)[2])
-                    url_thumb = url_large = (it.get("https_url") or it.get("url") or "").replace("http://mars.jpl.nasa.gov", "https://mars.nasa.gov").replace("https://mars.jpl.nasa.gov", "https://mars.nasa.gov")
+                    url_thumb = url_large = (
+                        (it.get("https_url") or it.get("url") or "")
+                        .replace("http://mars.jpl.nasa.gov", "https://mars.nasa.gov")
+                        .replace("https://mars.jpl.nasa.gov", "https://mars.nasa.gov")
+                    )
                     date, credit = it.get("date_taken"), it.get("image_credit") or cam["credit"]
                     page_url = "https://mars.nasa.gov/msl/multimedia/raw-images/?id=" + str(it.get("id")) if it.get("id") else None
                 if width < 640:
-                    continue   # wycinki i miniatury pokładowe
+                    continue  # wycinki i miniatury pokładowe
                 g = geometry(model, width, stop["yaw"])
                 if not g or not (EL_RANGE[0] <= g[1] <= EL_RANGE[1]):
                     continue
-                cands.setdefault(si, []).append({
-                    "id": it["imageid"], "stop": si, "sol": it["sol"], "dateUtc": (date or "")[:19],
-                    "cam": cam["label"], "az": round(g[0], 1), "el": round(g[1], 1), "hfov": round(g[2], 1),
-                    "_thumb": url_thumb, "large": url_large, "page": page_url, "credit": credit,
-                })
+                cands.setdefault(si, []).append(
+                    {
+                        "id": it["imageid"],
+                        "stop": si,
+                        "sol": it["sol"],
+                        "dateUtc": (date or "")[:19],
+                        "cam": cam["label"],
+                        "az": round(g[0], 1),
+                        "el": round(g[1], 1),
+                        "hfov": round(g[2], 1),
+                        "_thumb": url_thumb,
+                        "large": url_large,
+                        "page": page_url,
+                        "credit": credit,
+                    }
+                )
             page += 1
             if not items or page * 100 >= (total or 0):
                 break
@@ -225,8 +258,12 @@ def apply(mission_id: str) -> int:
         "id": f"{key}_raw_navcam",
         "instrument": f"{key} Navcam",
         "description": f"Surowe zdjęcia Navcam łazika {ROVERS[mission_id]['name']} z postojów w obszarze (miniatury 320 px)",
-        "url": "https://mars.nasa.gov/rss/api/?feed=raw_images&category=mars2020" if key == "M20" else "https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=msl:mission",
-        "sha256": None, "bytes": res["thumbBytes"], "access": "pobrany plik",
+        "url": "https://mars.nasa.gov/rss/api/?feed=raw_images&category=mars2020"
+        if key == "M20"
+        else "https://mars.nasa.gov/api/v1/raw_image_items/?condition_1=msl:mission",
+        "sha256": None,
+        "bytes": res["thumbBytes"],
+        "access": "pobrany plik",
     }
     prov["sources"] = [s for s in prov["sources"] if s["id"] != src["id"]] + [src]
     prov.setdefault("methods", {})["roverPhotos"] = (
@@ -235,6 +272,7 @@ def apply(mission_id: str) -> int:
     )
     prov.setdefault("stats", {})["roverPhotos"] = res
     import hashlib
+
     prov.setdefault("outputs", {})["roverTrack.json"] = hashlib.sha256((mdir / "roverTrack.json").read_bytes()).hexdigest()
     (mdir / "provenance.json").write_text(json.dumps(prov, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"[photos] {mission_id}: {res}")

@@ -7,8 +7,15 @@ from backend.live import report
 
 @pytest.mark.parametrize(
     ("n", "word"),
-    [(0, "przystanków"), (1, "przystanek"), (2, "przystanki"), (4, "przystanki"), (5, "przystanków"),
-     (12, "przystanków"), (22, "przystanki")],
+    [
+        (0, "przystanków"),
+        (1, "przystanek"),
+        (2, "przystanki"),
+        (4, "przystanki"),
+        (5, "przystanków"),
+        (12, "przystanków"),
+        (22, "przystanki"),
+    ],
 )
 def test_report_stops_polish_plural(n, word):
     """Podsumowanie raportu: „0 przystanki” / „1 przystanki” było błędne gramatycznie (np. dla trasy powrotnej)."""
@@ -22,8 +29,9 @@ def test_interval_time_bounds_follow_speed_band(gale):
     route = gale.plan()
     u = planning.route_interval(gale.model, gale.layers, route["path"], gale.waypoints)
     stops_h = sum(w.get("stopMin", 0) for w in gale.waypoints) / 60
-    low_m, high_m = (planning.CostModel(gale.layers, gale.model.cell, gale.model.eva, gale.model.person, sigma_margin=s)
-                     for s in planning.SIGMA_RANGE)
+    low_m, high_m = (
+        planning.CostModel(gale.layers, gale.model.cell, gale.model.eva, gale.model.person, sigma_margin=s) for s in planning.SIGMA_RANGE
+    )
     walk_low = planning.path_stats(low_m, route["path"], None)["walkH"]
     walk_high = planning.path_stats(high_m, route["path"], None)["walkH"]
     assert u["durationH"]["low"] == pytest.approx(walk_low / 1.15 + stops_h, abs=2e-3)

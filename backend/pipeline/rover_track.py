@@ -29,21 +29,30 @@ MISSIONS = ROOT / "data" / "missions"
 CACHE = ROOT / "backend" / "cache" / "mmgis"
 MMGIS = "https://mars.nasa.gov/mmgis-maps"
 
-SOL_S = 88775.244   # doba marsjańska [s]
+SOL_S = 88775.244  # doba marsjańska [s]
 ROVERS = {
     # misja MarSim → łazik NASA, którego trasa przechodzi przez okno.
     # landing: lądowanie (UTC) i lokalny czas słoneczny w chwili lądowania (ułamek doby) — do przeliczenia sol → data
-    "mount-sharp": {"key": "MSL", "name": "Curiosity", "credit": "NASA/JPL-Caltech/MSL localization team (MMGIS)",
-                    "landing": ("2012-08-06T05:17:57+00:00", 15.0 / 24)},
-    "jezero": {"key": "M20", "name": "Perseverance", "credit": "NASA/JPL-Caltech/Mars 2020 localization team (MMGIS)",
-               "landing": ("2021-02-18T20:55:00+00:00", 15.88 / 24)},
+    "mount-sharp": {
+        "key": "MSL",
+        "name": "Curiosity",
+        "credit": "NASA/JPL-Caltech/MSL localization team (MMGIS)",
+        "landing": ("2012-08-06T05:17:57+00:00", 15.0 / 24),
+    },
+    "jezero": {
+        "key": "M20",
+        "name": "Perseverance",
+        "credit": "NASA/JPL-Caltech/Mars 2020 localization team (MMGIS)",
+        "landing": ("2021-02-18T20:55:00+00:00", 15.88 / 24),
+    },
 }
 
 
 def sol_date(sol: int, landing: tuple[str, float]) -> str:
     """Data ziemska (UTC) południa danego solu misji."""
-    t0 = datetime.fromisoformat(landing[0]).timestamp() - landing[1] * SOL_S   # północ solu 0
+    t0 = datetime.fromisoformat(landing[0]).timestamp() - landing[1] * SOL_S  # północ solu 0
     return datetime.fromtimestamp(t0 + (sol + 0.5) * SOL_S, timezone.utc).date().isoformat()
+
 
 LAYER = {
     "id": "rover",
@@ -121,7 +130,7 @@ def clip_lines(lines: list[list[tuple[float, float]]], W: float, H: float, min_s
                 cur = [[round(px, 2), round(py, 2)]]
             if math.hypot(cur[-1][0] - qx, cur[-1][1] - qy) >= min_step:
                 cur.append([round(qx, 2), round(qy, 2)])
-            if (qx, qy) != (bx, by):   # wyjazd poza okno
+            if (qx, qy) != (bx, by):  # wyjazd poza okno
                 if len(cur) > 1:
                     out.append(cur)
                 cur = []
@@ -166,6 +175,7 @@ def frame_shift(points: list[tuple[float, float, float]], dem, search: int = 300
     (niekontrolowany). Szukamy (dx, dy) [m, na wschód / na południe], przy którym wysokości postojów najlepiej
     pasują do DTM (najmniejszy rozrzut różnic, odporny na odstające punkty). Pojedyncza translacja — bez obrotu i skali.
     Pomiar niezależny od zdjęć zgadza się z dopasowaniem do kontrolowanych mozaik NASA Trek (Gale ~150/80 m)."""
+
     def spread(dx: float, dy: float):
         r = sorted(z - v for x, y, z in points if (v := dem(x + dx, y + dy)) is not None)
         return ((r[int(len(r) * 0.84)] - r[int(len(r) * 0.16)]) / 2, len(r)) if len(r) >= 20 else (None, len(r))
@@ -182,8 +192,15 @@ def frame_shift(points: list[tuple[float, float, float]], dem, search: int = 300
                     best = (sp, cx + i * step, cy + j * step)
     s1, dx, dy = best
     ok = s0 is not None and s1 < 0.5 * s0 and s1 < 1.0
-    return {"dxM": round(dx, 1) if ok else 0.0, "dyM": round(dy, 1) if ok else 0.0, "spreadBeforeM": round(s0, 2) if s0 is not None else None,
-            "spreadAfterM": round(s1, 3), "applied": ok, "n": n0, "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)"}
+    return {
+        "dxM": round(dx, 1) if ok else 0.0,
+        "dyM": round(dy, 1) if ok else 0.0,
+        "spreadBeforeM": round(s0, 2) if s0 is not None else None,
+        "spreadAfterM": round(s1, 3),
+        "applied": ok,
+        "n": n0,
+        "method": "dopasowanie wysokości postojów łazika do DTM (siatka 4 m, potem 0,5 m)",
+    }
 
 
 def build(mission_id: str, fresh: bool = False) -> dict | None:
@@ -234,7 +251,11 @@ def build(mission_id: str, fresh: bool = False) -> dict | None:
         if not win.inside(x, y):
             continue
         stop = {
-            "x": round(x, 2), "y": round(y, 2), "sol": p.get("sol"), "site": p.get("site"), "drive": p.get("drive"),
+            "x": round(x, 2),
+            "y": round(y, 2),
+            "sol": p.get("sol"),
+            "site": p.get("site"),
+            "drive": p.get("drive"),
             "yaw": round(p["yaw"], 1) if isinstance(p.get("yaw"), (int, float)) else None,
             "elev": p.get("elev_geoid"),
             "date": sol_date(p["sol"], rv["landing"]) if isinstance(p.get("sol"), int) else None,
@@ -267,13 +288,20 @@ def build(mission_id: str, fresh: bool = False) -> dict | None:
         "frameShift": shift,
         # zgodność wysokości lokalizacji łazika z naszym DTM: stała różnica = inny poziom odniesienia (DEM misji jest
         # liczony od własnego minimum), rozrzut = błąd położenia / modelu — po korekcie układu (frameShift) ok. 0,2 m.
-        "elevCheck": {"medianOffsetM": round(med, 2) if med is not None else None, "spreadM": round(spread, 2) if spread is not None else None, "n": len(dz)},
+        "elevCheck": {
+            "medianOffsetM": round(med, 2) if med is not None else None,
+            "spreadM": round(spread, 2) if spread is not None else None,
+            "n": len(dz),
+        },
     }
     out = mdir / "roverTrack.json"
-    if out.exists():   # zdjęcia dopisuje osobny krok (rover_photos.py) — nie gubimy ich przy odświeżeniu trasy
+    if out.exists():  # zdjęcia dopisuje osobny krok (rover_photos.py) — nie gubimy ich przy odświeżeniu trasy
         prev = json.loads(out.read_text(encoding="utf-8"))
-        if prev.get("photos"):   # indeksy postojów mogą się zmienić — przemapowanie po (site, drive)
-            key_of = lambda st: (st.get("site"), st.get("drive"))
+        if prev.get("photos"):  # indeksy postojów mogą się zmienić — przemapowanie po (site, drive)
+
+            def key_of(st):
+                return st.get("site"), st.get("drive")
+
             new_idx = {key_of(st): i for i, st in enumerate(stops)}
             moved = []
             for ph in prev["photos"]:
@@ -285,10 +313,14 @@ def build(mission_id: str, fresh: bool = False) -> dict | None:
     sha = hashlib.sha256(out.read_bytes()).hexdigest()
     years = f"{data['dates'][0][:4]}–{data['dates'][1][:4]}" if data["dates"] else ""
     # opis i legenda stałymi napisami (tłumaczone w src/i18n.js), liczby pokazuje odczyt pod kursorem
-    layer = {**LAYER, "desc": f"{rv['name']} {years}".strip(), "legend": [
-        {"color": "#6FD3F2", "text": "przejazd łazika (lokalizacje NASA)"},
-        {"color": "#FFFFFF", "text": "postój — kliknij: zdjęcia z łazika"},
-    ]}
+    layer = {
+        **LAYER,
+        "desc": f"{rv['name']} {years}".strip(),
+        "legend": [
+            {"color": "#6FD3F2", "text": "przejazd łazika (lokalizacje NASA)"},
+            {"color": "#FFFFFF", "text": "postój — kliknij: zdjęcia z łazika"},
+        ],
+    }
     source = {
         "id": f"{key}_traverse",
         "instrument": f"{key} localization",
@@ -298,7 +330,14 @@ def build(mission_id: str, fresh: bool = False) -> dict | None:
         "bytes": None,
         "access": "pobrany plik",
     }
-    stats = {"lengthM": data["lengthM"], "stops": len(stops), "sols": data["sols"], "elevCheck": data["elevCheck"], "frameShift": shift, "sha256": sha}
+    stats = {
+        "lengthM": data["lengthM"],
+        "stops": len(stops),
+        "sols": data["sols"],
+        "elevCheck": data["elevCheck"],
+        "frameShift": shift,
+        "sha256": sha,
+    }
     return {"layer": layer, "source": source, "stats": stats}
 
 
@@ -323,7 +362,7 @@ def apply(mission_id: str, fresh: bool = False) -> int:
         "z PDS, wyznaczona z wysokości postojów) i przycięte do okna (Liang–Barsky)"
     )
     prov.setdefault("stats", {})["rover"] = {k: v for k, v in res["stats"].items() if k != "sha256"}
-    prov.setdefault("checks", {})["frameShiftM"] = res["stats"]["frameShift"]   # przesunięcie naszej siatki względem układu map NASA
+    prov.setdefault("checks", {})["frameShiftM"] = res["stats"]["frameShift"]  # przesunięcie naszej siatki względem układu map NASA
     prov.setdefault("outputs", {})["roverTrack.json"] = res["stats"]["sha256"]
     (mdir / "provenance.json").write_text(json.dumps(prov, indent=2, ensure_ascii=False), encoding="utf-8")
     (mdir / "mission.json").write_text(json.dumps(mission, indent=2, ensure_ascii=False), encoding="utf-8")

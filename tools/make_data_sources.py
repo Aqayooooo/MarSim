@@ -112,7 +112,8 @@ KINDS = [
             "Geologic map of Jezero crater and Nili Planum, 1:75,000 (USGS SIM 3464, ArcGIS feature service)",
             "Mapa geologiczna krateru Jezero i Nili Planum, 1:75 000 (USGS SIM 3464)",
             "Geology layer (Jezero only): geologic units, illustrative (map offsets ~100–200 m), not used for hazards or planning",
-            "warstwa Geologia (tylko Jezero): jednostki geologiczne, poglądowo (przesunięcia ~100–200 m), bez wpływu na zagrożenia i planowanie",
+            "warstwa Geologia (tylko Jezero): jednostki geologiczne, poglądowo (przesunięcia ~100–200 m), "
+            "bez wpływu na zagrożenia i planowanie",
         ),
     ),
     (
@@ -226,7 +227,11 @@ def main():
                 s["id"],
                 {
                     "id": s["id"],
-                    "type": "rover" if ("localization" in s["instrument"] or "Navcam" in s["instrument"]) else "map" if s["instrument"].startswith("USGS") else "orbital",
+                    "type": "rover"
+                    if ("localization" in s["instrument"] or "Navcam" in s["instrument"])
+                    else "map"
+                    if s["instrument"].startswith("USGS")
+                    else "orbital",
                     "spacecraft": sc,
                     "instrument": ins,
                     "missions": [],
@@ -235,7 +240,8 @@ def main():
                     "url": s["url"],
                     "access": "remote window (only the area of interest is read)"
                     if s.get("access") == "zdalny fragment"
-                    else "downloaded at build time, clipped to the area" if s["instrument"].endswith(("localization", "Navcam", "3464"))
+                    else "downloaded at build time, clipped to the area"
+                    if s["instrument"].endswith(("localization", "Navcam", "3464"))
                     else "downloaded file",
                     **({"bytes": s["bytes"]} if s.get("bytes") else {}),
                     **({"sha256": s["sha256"]} if s.get("sha256") else {}),
@@ -255,7 +261,8 @@ def main():
         "crs": "Mars 2000 sphere (IAU), planetocentric latitude, east longitude",
         "notUsed": {
             "en": [
-                "Rover photos in the waypoint view: it is still a render from the HiRISE DTM (real Navcam images are shown on the Rover track layer)",
+                "Rover photos in the waypoint view: it is still a render from the HiRISE DTM "
+                "(real Navcam images are shown on the Rover track layer)",
                 "MSL Mastcam images: no camera pointing in the raw catalogue, so they cannot be placed on the map",
                 "Synthetic sample data in data/demo/ (used only without the backend)",
             ],

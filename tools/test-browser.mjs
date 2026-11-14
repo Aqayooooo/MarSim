@@ -65,6 +65,12 @@ async function openApp(browser, url, options = {}) {
   return { page, context, errors };
 }
 
+// ruch w 3D sprawdzamy warunkiem, nie stałym czasem: w CI bez GPU klatki są rzadkie
+const MOVE_MS = 20000, WALK_MS = 90000;   // WALK_MS: dłuższe przejścia w habitacie
+const holdUntil = async (page, keys, fn, arg) => {
+  for (const k of keys) await page.keyboard.down(k);
+  try { await page.waitForFunction(fn, arg, { timeout: MOVE_MS }); } finally { for (const k of [...keys].reverse()) await page.keyboard.up(k); }
+};
 const phaseIsNot = (page, phase) => page.waitForFunction((p) => window.marsim.app.phase !== p, phase, { timeout: LOAD_MS });
 
 let browser, staticServer, staticUrl;
@@ -179,17 +185,19 @@ test('hełm jak w grze: marsz W, tempo +, bieg Shift i skok spacją (bez startu 
   await page.waitForFunction(() => window.marsim.view3d?.mode === 'helmet', null, { timeout: LOAD_MS });
   const pos = () => page.evaluate(() => { const h = window.marsim.view3d.helmet; return { x: h.x, y: h.y, z: h.z, speed: h.speed }; });
   const p0 = await pos();
-  await page.keyboard.down('KeyW'); await page.waitForTimeout(800); await page.keyboard.up('KeyW');
+  await holdUntil(page, ['KeyW'], (p) => { const h = window.marsim.view3d.helmet; return Math.hypot(h.x - p.x, h.y - p.y) > 0.3; }, p0);
   const p1 = await pos();
   const walked = Math.hypot(p1.x - p0.x, p1.y - p0.y);
   assert.ok(walked > 0.3, `marsz W: ${walked} m`);
   for (let i = 0; i < 3; i++) await page.keyboard.press('Equal');
   // hudInfo().pace (h.scale) odświeża się w klatce po naciśnięciu klawisza — czekamy na nią zamiast czytać od razu
   await page.waitForFunction(() => window.marsim.view3d.hudInfo().pace === 8, null, { timeout: 5000 });
-  await page.keyboard.down('ShiftLeft'); await page.keyboard.down('KeyW'); await page.waitForTimeout(800);
+  // bieg: Shift mnoży tempo ×3 (skala 8 × 3 = 24) i astronauta idzie dalej; samej prędkości nie łapiemy, bo przy rzadkich
+  // klatkach w CI w jednej klatce dobiega do przeszkody, a kolizja zeruje prędkość
+  await holdUntil(page, ['ShiftLeft', 'KeyW'], (p) => { const v = window.marsim.view3d, h = v.helmet;
+    return v.hudInfo().pace === 24 && Math.hypot(h.x - p.x, h.y - p.y) > 3; }, p1);
   const fast = await pos();
-  await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft');
-  assert.ok(fast.speed > 60, `bieg przy tempie ×8: ${fast.speed} km/h`);
+  assert.ok(Math.hypot(fast.x - p1.x, fast.y - p1.y) > 3, 'bieg przy tempie ×8');
   await page.keyboard.press('Space');
   await page.waitForFunction(() => window.marsim.view3d.helmet.z > 0.05, null, { timeout: 5000 });
   assert.equal(await page.evaluate(() => window.marsim.app.phase), 'idle', 'spacja w hełmie to skok, nie start EVA');
@@ -205,8 +213,9 @@ test('łazik: F przy łaziku — wsiadanie, jazda W/D, kamera na wysięgniku, ka
   assert.equal(await page.evaluate(() => !!window.marsim.view3d.ride), true);
   assert.equal(await page.isVisible('#rideHud'), true);
   const p0 = await page.evaluate(() => ({ ...window.marsim.app.roverPos() }));
-  await page.keyboard.down('KeyW'); await page.waitForTimeout(1500);
-  await page.keyboard.down('KeyD'); await page.waitForTimeout(600); await page.keyboard.up('KeyD'); await page.keyboard.up('KeyW');
+  await holdUntil(page, ['KeyW'], (p) => { const r = window.marsim.app.roverPos(); return Math.hypot(r.x - p.x, r.y - p.y) > 1.5; }, p0).catch(() => {});
+  const h0 = await page.evaluate(() => window.marsim.view3d.ride.heading);
+  await holdUntil(page, ['KeyW', 'KeyD'], (a) => Math.abs(window.marsim.view3d.ride.heading - a) > 1, h0).catch(() => {});
   const s = await page.evaluate(() => { const { app, view3d: v } = window.marsim, p = app.roverPos(); return { x: p.x, y: p.y, boom: v.boom.visible, heading: v.ride.heading }; });
   assert.ok(Math.hypot(s.x - p0.x, s.y - p0.y) > 1, 'łazik pojechał');
   assert.equal(s.boom, true, 'kamera na widocznym wysięgniku');
@@ -230,7 +239,7 @@ test('habitat: z rampy do śluzy, cykl ciśnienia klawiszem E, moduł bez hełmu
     Object.assign(v.helmet, { x: hab.x + 10 * c, y: hab.y - 10 * s, yaw: (Math.atan2(-c, -s) * 180 / Math.PI + 360) % 360, pitch: -5 });
   });
   await page.keyboard.down('KeyW');
-  await page.waitForFunction(() => window.local().x < 6.2, null, { timeout: LOAD_MS });
+  await page.waitForFunction(() => window.local().x < 6.2, null, { timeout: WALK_MS });
   await page.keyboard.up('KeyW');
   await page.waitForFunction(() => window.marsim.view3d.hab.station?.id === 'airlockPanel', null, { timeout: 10000 });
   assert.equal(await page.isVisible('#habHud'), true, 'wskaźniki habitatu w śluzie');
@@ -238,14 +247,14 @@ test('habitat: z rampy do śluzy, cykl ciśnienia klawiszem E, moduł bez hełmu
   assert.equal(await page.evaluate(() => window.marsim.view3d.hab.airlock.state), 'cycling');
   await page.waitForFunction(() => window.marsim.view3d.hab.airlock.state === 'in', null, { timeout: 90000 });
   await page.keyboard.down('KeyW');
-  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'module', null, { timeout: LOAD_MS });
+  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'module', null, { timeout: WALK_MS });
   await page.keyboard.up('KeyW');
   const s = await page.evaluate(() => { const v = window.marsim.view3d; return { off: v.hab.helmetOff, rim: v.interior.group.visible, hud: document.getElementById('hud').hidden }; });
   assert.deepEqual(s, { off: true, rim: false, hud: true }, 'w module hełm zdjęty, wizjer schowany');
   assert.equal(await page.evaluate(() => window.marsim.app.phase), 'idle', 'E w habitacie nie startuje EVA bez stanowiska skafandrów');
   // dalej prosto: przez węzeł z mesą do korytarza sypialni
   await page.keyboard.down('KeyW');
-  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'corridor', null, { timeout: LOAD_MS });
+  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'corridor', null, { timeout: WALK_MS });
   await page.keyboard.up('KeyW');
   assert.ok(await page.evaluate(() => window.local().x < -10), 'korytarz sypialni za węzłem');
   // wyjście z kajuty, idąc obok drzwi (40 cm w bok): ruch zsuwa się w otwór zamiast zawisać na framudze
@@ -256,7 +265,7 @@ test('habitat: z rampy do śluzy, cykl ciśnienia klawiszem E, moduł bez hełmu
   });
   await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'cabin1', null, { timeout: 10000 });
   await page.keyboard.down('KeyW');
-  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'corridor', null, { timeout: 15000 });
+  await page.waitForFunction(() => window.marsim.view3d.hab.zone?.id === 'corridor', null, { timeout: WALK_MS });
   await page.keyboard.up('KeyW');
   assert.deepEqual(errors, []);
   await context.close();

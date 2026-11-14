@@ -1108,13 +1108,18 @@ export class View3D {
     (this.backdrop ||= new Backdrop(r.domElement)).sample();   // kolor tekstu paneli wg jasności tła
   }
 
+  /** dt: czas od poprzedniej klatki (main.js obcina do 0,5 s). Przy wolnym renderowaniu ruch liczy się w kilku krokach
+   *  po najwyżej 0,05 s — czas w grze nadąża za zegarem, a kolizje dalej dostają małe kroki. Rysowanie raz na klatkę. */
   render(dt) {
     this.#placeMarkers();
-    if (this.mode === 'helmet') { if (this.ride) this.#rideStep(dt); else this.#helmetStep(dt); }
-    else if (this.mode === 'drive') this.#driveStep(dt);
-    else if (this.flight) this.#flightStep(dt);
-    else this.controls.update();
-    if (this.hab) this.#habitatStep(dt);
+    const n = Math.max(1, Math.ceil(dt / 0.05)), h = dt / n;
+    for (let i = 0; i < n; i++) {
+      if (this.mode === 'helmet') { if (this.ride) this.#rideStep(h); else this.#helmetStep(h); }
+      else if (this.mode === 'drive') this.#driveStep(h);
+      else if (this.flight) this.#flightStep(h);
+      if (this.hab) this.#habitatStep(h);
+    }
+    if (this.mode !== 'helmet' && this.mode !== 'drive' && !this.flight) this.controls.update();
     this.#syncFrame();
     this.#draw();
   }

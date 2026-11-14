@@ -741,7 +741,12 @@ class EvaEngine:
         position = self.crew_pos(0)
         # na postoju (ta sama pozycja, łazik, przeszkody i model kosztu) wynik byłby identyczny — bez ponownego planowania
         key = (
-            position["x"], position["y"], self.rover["x"], self.rover["y"], self.cfg["habitat"]["x"], self.cfg["habitat"]["y"],
+            position["x"],
+            position["y"],
+            self.rover["x"],
+            self.rover["y"],
+            self.cfg["habitat"]["x"],
+            self.cfg["habitat"]["y"],
             tuple((o["x"], o["y"], o["radiusM"]) for o in self.obstacles),
         )
         cached = self._emerg_cache

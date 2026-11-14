@@ -26,7 +26,10 @@ SERVICE = "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Jez
 CACHE = ROOT / "backend" / "cache" / "usgs"
 CELL = 3.0
 MISSION = "jezero"
-CITATION = "Sun, V.Z., and Stack, K.M., 2020, Geologic map of Jezero crater and the Nili Planum region, Mars: USGS SIM 3464, 1:75,000, doi:10.3133/sim3464"
+CITATION = (
+    "Sun, V.Z., and Stack, K.M., 2020, Geologic map of Jezero crater and the Nili Planum region, Mars: "
+    "USGS SIM 3464, 1:75,000, doi:10.3133/sim3464"
+)
 
 # klasy rastra: symbol jednostki USGS → (klasa, kolor, nazwa PL, nazwa EN w i18n)
 UNITS = {
@@ -39,10 +42,23 @@ MANTLE = (3, "#3B3F52", "ciemny materiał płaszczowy (cienka pokrywa)")
 def query(layer: int, win: Window, pad_deg: float = 0.01) -> dict:
     lon0, lon1 = sorted((win.lon0, win.lon1))
     lat0, lat1 = sorted((win.lat0, win.lat1))
-    env = {"xmin": lon0 - pad_deg, "ymin": lat0 - pad_deg, "xmax": lon1 + pad_deg, "ymax": lat1 + pad_deg, "spatialReference": {"wkid": 104905}}
+    env = {
+        "xmin": lon0 - pad_deg,
+        "ymin": lat0 - pad_deg,
+        "xmax": lon1 + pad_deg,
+        "ymax": lat1 + pad_deg,
+        "spatialReference": {"wkid": 104905},
+    }
     q = {
-        "where": "1=1", "geometry": json.dumps(env), "geometryType": "esriGeometryEnvelope", "inSR": 104905, "outSR": 104905,
-        "spatialRel": "esriSpatialRelIntersects", "outFields": "*", "returnGeometry": "true", "f": "json",
+        "where": "1=1",
+        "geometry": json.dumps(env),
+        "geometryType": "esriGeometryEnvelope",
+        "inSR": 104905,
+        "outSR": 104905,
+        "spatialRel": "esriSpatialRelIntersects",
+        "outFields": "*",
+        "returnGeometry": "true",
+        "f": "json",
     }
     url = f"{SERVICE}/{layer}/query?" + urllib.parse.urlencode(q)
     cache = CACHE / f"jezero_{layer}.json"
@@ -116,14 +132,22 @@ def build() -> dict | None:
     cls.save(out, optimize=True)
     legend.append({"color": "#888888", "text": "granice z mapy 1:75 000, dokładność ~100–200 m"})
     layer = {
-        "id": "geology", "name": "Geologia", "desc": "USGS SIM 3464, 1:75 000", "colorOff": "#4a3f5c", "colorOn": "#B39DDB",
+        "id": "geology",
+        "name": "Geologia",
+        "desc": "USGS SIM 3464, 1:75 000",
+        "colorOff": "#4a3f5c",
+        "colorOn": "#B39DDB",
         "raster": {"file": "geology.png", "encoding": "png-class8", "width": w, "height": h, "cellM": CELL, "classes": classes},
         "legend": legend,
     }
     source = {
-        "id": "USGS_SIM3464_Jezero", "instrument": "USGS SIM 3464",
+        "id": "USGS_SIM3464_Jezero",
+        "instrument": "USGS SIM 3464",
         "description": "Mapa geologiczna krateru Jezero (Sun & Stack 2020), jednostki i cechy powierzchni",
-        "url": SERVICE, "sha256": None, "bytes": None, "access": "pobrany plik",
+        "url": SERVICE,
+        "sha256": None,
+        "bytes": None,
+        "access": "pobrany plik",
     }
     return {"layer": layer, "source": source, "stats": stats, "sha256": hashlib.sha256(out.read_bytes()).hexdigest()}
 
@@ -137,7 +161,7 @@ def apply() -> int:
     mission = json.loads((mdir / "mission.json").read_text(encoding="utf-8"))
     prov = json.loads((mdir / "provenance.json").read_text(encoding="utf-8"))
     layers = [x for x in mission["layers"] if x["id"] != "geology"]
-    i = next((k + 1 for k, x in enumerate(layers) if x["id"] == "sky"), len(layers))   # po „Niebie”, przed trasą łazika
+    i = next((k + 1 for k, x in enumerate(layers) if x["id"] == "sky"), len(layers))  # po „Niebie”, przed trasą łazika
     mission["layers"] = layers[:i] + [res["layer"]] + layers[i:]
     prov["sources"] = [s for s in prov["sources"] if s["id"] != res["source"]["id"]] + [res["source"]]
     prov.setdefault("methods", {})["geology"] = (

@@ -246,13 +246,14 @@ app.on('waypoint', async ({ wp }) => {
 // ---------- pętla klatek ----------
 let last = performance.now();
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000);
+  const raw = Math.min(0.5, (now - last) / 1000);   // 3D liczy to w krokach po 0,05 s (View3D.render)
+  const dt = Math.min(0.1, raw);
   last = now;
   app.update(dt);
   const v = app.state.view;
   if (v === 'map') { map.render(dt); if (view3d?.backdrop?.last) view3d.backdrop.clear(); }
   else if (VIEWS_3D.includes(v) && view3d) {
-    view3d.render(dt);
+    view3d.render(raw);
     if (v === 'helmet') {          // w hełmie pieszo — wizjer; w łaziku (F) — wskaźniki jazdy; w habitacie — jego wskaźniki
       const riding = !!view3d.ride, inHab = !riding && view3d.inHabitat;
       setHidden($('hud'), riding || inHab);
