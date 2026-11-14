@@ -180,6 +180,6 @@ def build(prs, mode="deck"):
         "Teraz wszystko jest w normie.\n\n"
         "[Kliknij: alarm tlenu] Gdy tlenu jest mniej niż rezerwa misji, cały wizjer zmienia barwę na alarmową, "
         "a paski pokazują, ile zostało tlenu i energii. Konsola w habitacie widzi "
-        "dokładnie te same liczby."
+        "dokładnie te same liczby. Przy rezerwie MarSim sam prowadzi załogę z powrotem do habitatu."
     )
     return [s]

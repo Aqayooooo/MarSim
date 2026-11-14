@@ -24,6 +24,10 @@ NOTES = (
     "7,6 stopnia, plus minus 1,5. Zużycie tlenu szacujemy na 92 litry, w przedziale od 62 do 120. Na mapie "
     "widać też schron w zasięgu 15 minut. Funkcja Porównaj trasy pokazuje, dlaczego wybrano tę drogę "
     "zamiast linii prostej.\n\n"
+    "Przed wyjściem planer sprawdza też zapas tlenu: trasa z powrotem do habitatu potrzebuje 116 litrów, "
+    "a ponad rezerwę 20 procent mamy 416. Za długi plan dostaje ocenę niebezpieczna i nie da się go uruchomić. "
+    "Gdy w trakcie wyjścia tlen spadnie do rezerwy, załoga sama zawraca, a zgłoszona przeszkoda nigdy nie "
+    "odcina drogi do habitatu.\n\n"
     "→ Jak to wygląda z perspektywy astronauty, pokaże Osoba 4."
 )
 
@@ -75,6 +79,12 @@ def build(prs):
         s.text(sx, 848, sw, 28,
                "Zrzut z MarSim · warstwa zagrożeń, trasa A, łazik, habitat i załoga EV1–EV2",
                size=10, color=BONE3, spacing=0.8, line=1.2, name="Podpis zrzutu mapy")
+    # bilans tlenu z powrotem (o2Budget, MarSim od 2026-11-14): pod zrzutem, przed pieczątką w prawym dolnym rogu
+    with s.step("rise", delay=1000):
+        s.text(sx, 900, 820, 84,
+               "Przed wyjściem planer sprawdza, czy tlenu starczy na powrót z\u00a0rezerwą\u00a020%. "
+               "Przy rezerwie załoga sama zawraca.",
+               size=12, color=BONE2, line=1.35, name="Zapas tlenu")
 
     chrome(s, 3)
     s.notes(NOTES)

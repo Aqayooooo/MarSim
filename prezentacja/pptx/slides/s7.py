@@ -10,9 +10,9 @@ X, WC = 1100, 692          # lewa krawędź i szerokość kolumny
 
 FIGS = [
     ("5", "instrumentów NASA"),
-    ("989", f"głazów ≥{NB}1{NB}m z{NB}orbity"),
+    ("1560", f"głazów ≥{NB}1{NB}m z{NB}orbity"),
     ("0", "internetu w terenie"),
-    ("2", f"obszary misji: Gale i{NB}Jezero"),
+    ("3", f"obszary misji w{NB}Gale i{NB}Jezero"),
 ]
 
 STEPS = [
@@ -23,8 +23,8 @@ STEPS = [
 
 NOTES = [
     "Mówi: Osoba 1 · ok. 1:00",
-    "MarSim działa dziś, w wersji 1.4. Łączy dane pięciu instrumentów NASA, na zdjęciach z orbity wykrył 989 "
-    "głazów od metra wzwyż w dwóch obszarach misji, Gale i Jezero, i działa bez internetu. Po awarii wyjście wraca "
+    "MarSim działa dziś, w wersji 1.4. Łączy dane pięciu instrumentów NASA, na zdjęciach z orbity wykrył 1560 "
+    "głazów od metra wzwyż w trzech obszarach misji, dwóch w kraterze Gale i jednym w Jezero, i działa bez internetu. Po awarii wyjście wraca "
     "do ostatniego stanu, więc nic nie ginie, a każdą liczbę na mapie da się odtworzyć z danych NASA.",
     "Mówimy też wprost o ograniczeniach. Model tlenu trzeba skalibrować danymi z prawdziwego skafandra, a wykrywanie "
     "głazów sprawdzić na zdjęciach z łazika. Następny krok to próba z załogą w misji analogowej.",

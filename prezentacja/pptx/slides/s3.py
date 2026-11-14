@@ -25,14 +25,14 @@ INSTRUMENTS = [
 SITES = {
     # nazwa: (strona etykiety, linie danych)
     "Jezero": ("l", ["18,44° N · 77,45° E", "340 głazów ≥ 1 m"]),
-    "Gale": ("r", ["4,67° S · 137,38° E", "649 głazów ≥ 1 m"]),
+    "Gale": ("r", ["4,67° S · 137,38° E", "wydmy i boxwork", "1220 głazów ≥ 1 m"]),
 }
 
 NOTES = """Mówi: Osoba 2 · ok. 1:00
 
 Wyzwanie NASA Martian Map prosi o warstwową mapę miejsca albo trasy na Marsie, zbudowaną z danych wielu misji. Mapa ma pomóc zaplanować wyjście: trasę i cele, bieżące warunki i naukę po drodze.
 
-Łączymy pięć instrumentów orbitalnych. HiRISE daje zdjęcia 25 centymetrów na piksel i model wysokości z dokładnością 20 centymetrów. Z cieni na tych zdjęciach wykrywamy głazy od metra wzwyż: w Jezero jest ich 340, w kraterze Gale 649. THEMIS pokazuje luźny piasek, CRISM minerały, MOLA kontroluje wysokości, a DONKI i NOAA dają pogodę kosmiczną na żywo.
+Łączymy pięć instrumentów orbitalnych. HiRISE daje zdjęcia 25 centymetrów na piksel i model wysokości z dokładnością 20 centymetrów. Z cieni na tych zdjęciach wykrywamy głazy od metra wzwyż: w Jezero jest ich 340, a w kraterze Gale 1220: 649 przy wydmach Bagnold i 571 przy formacjach boxwork na zboczu Mount Sharp, które bada teraz łazik Curiosity. THEMIS pokazuje luźny piasek, CRISM minerały, MOLA kontroluje wysokości, a DONKI i NOAA dają pogodę kosmiczną na żywo. W każdym obszarze na mapie jest też prawdziwa trasa łazika NASA, Curiosity albo Perseverance, z postojami i zdjęciami z kamery Navcam.
 
 Nie używamy uczenia maszynowego. Każda warstwa ma opisaną metodę i źródło, więc wiadomo, skąd wzięła się każda decyzja na mapie.
 
@@ -40,7 +40,7 @@ Nie używamy uczenia maszynowego. Każda warstwa ma opisaną metodę i źródło
 
 
 def marker(s, name, x, y, side, lines):
-    """Znacznik miejsca jak .mk w index.html: kółko, kreska 56 px, nazwa kursywą i dwie linie danych."""
+    """Znacznik miejsca jak .mk w index.html: kółko, kreska 56 px, nazwa kursywą i linie danych (2–3)."""
     s.ellipse(x, y, 6, line=BONE, line_w=1, name=f"Znacznik {name} obrys")
     s.ellipse(x, y, 2, fill=BONE, name=f"Znacznik {name} kropka")
     w = 230
@@ -52,7 +52,7 @@ def marker(s, name, x, y, side, lines):
         tx, align = x + 80, "left"
     s.text(tx, y - 30, w, 38, [[(name, {"italic": True})]], size=15, color=BONE, align=align, line=1.0,
            name=f"Znacznik {name} nazwa")
-    s.text(tx, y + 10, w, 56, lines, size=10, color=BONE, align=align, line=1.2, spacing=.4,
+    s.text(tx, y + 10, w, 30 * len(lines), lines, size=10, color=BONE, align=align, line=1.2, spacing=.4,
            name=f"Znacznik {name} dane")
 
 
