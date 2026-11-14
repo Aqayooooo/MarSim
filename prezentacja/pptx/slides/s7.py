@@ -24,8 +24,8 @@ STEPS = [
 NOTES = [
     "Mówi: Osoba 1 · ok. 1:00",
     "MarSim działa dziś, w wersji 1.4. Łączy dane pięciu instrumentów NASA, na zdjęciach z orbity wykrył 989 "
-    "głazów od metra wzwyż w dwóch obszarach misji, Gale i Jezero, i działa bez internetu. Zapisuje stan wyjścia "
-    "co 5 sekund i po awarii serwera wznawia je w pauzie. Każdy produkt danych ma sumę SHA-256, więc wynik można odtworzyć.",
+    "głazów od metra wzwyż w dwóch obszarach misji, Gale i Jezero, i działa bez internetu. Po awarii wyjście wraca "
+    "do ostatniego stanu, więc nic nie ginie, a każdą liczbę na mapie da się odtworzyć z danych NASA.",
     "Mówimy też wprost o ograniczeniach. Model tlenu trzeba skalibrować danymi z prawdziwego skafandra, a wykrywanie "
     "głazów sprawdzić na zdjęciach z łazika. Następny krok to próba z załogą w misji analogowej.",
     "Zanim astronauta wyjdzie ze śluzy, trasa jest już policzona. Dziękujemy. Chętnie pokażemy MarSim na żywo "
@@ -59,8 +59,8 @@ def build(prs):
     # akapit (.body)
     with s.step("rise"):                                   # --d:3 → 660 ms
         s.text(X, 514, WC, 124,
-               f"Działa bez internetu. Stan wyjścia zapisuje co 5 sekund i{NB}wznawia go po awarii serwera. "
-               "Każdy produkt danych ma sumę SHA-256.",
+               "Po awarii wyjście wraca do ostatniego stanu, nic nie ginie. "
+               "Każdą liczbę na mapie da się odtworzyć z danych NASA.",
                size=14, color=BONE2, line=1.2, name="Akapit")
 
     # numerowana lista kroków (.steps): linie między wierszami, numer w kolorze akcentu

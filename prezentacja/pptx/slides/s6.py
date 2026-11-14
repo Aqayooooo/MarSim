@@ -6,15 +6,15 @@ NB = " "  # twarda spacja (&nbsp; w index.html)
 SPECS = [
     ("Łazik · wzór NASA SEV", [
         ("4,5 × 3 m", " kabina"),
-        ("12 kół", " Ø 0,99 m"),
+        ("Schron", " dla załogi na trasie"),
         ("2 śluzy", " skafandrów"),
         ("6–18 m", " wysięgnik kamery"),
     ]),
     ("Habitat", [
-        ("56,5 kPa", ", 34% O₂"),
+        ("56,5 kPa", ": krótsze przygotowanie"),
         ("4 kajuty", f" i{NB}laboratorium"),
         ("MOXIE", f" i{NB}szklarnia"),
-        ("bilans mocy", f" z{NB}zegarem"),
+        ("Zapas", " energii i tlenu na bieżąco"),
     ]),
 ]
 
@@ -114,11 +114,11 @@ def build(prs):
     s.notes(
         "Mówi: Osoba 4 · ok. 1:00\n\n"
         "Astronauta nie jest sam. W tym samym planie jest łazik ciśnieniowy i habitat. Łazik wzorowaliśmy na "
-        "koncepcji NASA Space Exploration Vehicle: kabina 4,5 na 3 metry, dwanaście kół i dwie śluzy skafandrów "
+        "koncepcji NASA Space Exploration Vehicle: kabina 4,5 na 3 metry i dwie śluzy skafandrów "
         "z tyłu. Służy jako schron i przekaźnik łączności.\n\n"
         "Habitat ma atmosferę eksploracyjną NASA: 56,5 kilopaskala i 34 procent tlenu, co skraca przygotowanie "
         "do wyjścia. Są w nim moduł dzienny, kajuty, laboratorium, szklarnia i MOXIE, czyli wytwarzanie tlenu "
-        "z dwutlenku węgla. Panel habitatu liczy baterię, zbiornik tlenu i bilans mocy razem z zegarem misji.\n\n"
+        "z dwutlenku węgla. Panel habitatu pokazuje na bieżąco zapas energii i tlenu.\n\n"
         "→ Na ile to jest gotowe do użycia, powie Osoba 1."
     )
     return [s]

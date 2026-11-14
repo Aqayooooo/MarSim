@@ -25,7 +25,7 @@ FIGS = [  # (liczba, jednostka, etykieta, podpis)
     ("0,38", "g", "grawitacja", "3,71 m/s² · inny chód i wysiłek"),
     ("0,64", "mSv", "dawka promieniowania na sol", "pomiar RAD, łazik Curiosity"),
     ("3–22", "min", "opóźnienie sygnału z Ziemi", "w jedną stronę"),
-    ("24:39", "h", "długość sola", "zegar misji w czasie LTST"),
+    ("24:39", "h", "długość sola", "zegar misji w czasie marsjańskim"),
 ]
 
 NOTES = """Mówi: Osoba 2 · ok. 1:05
@@ -126,7 +126,7 @@ def build(prs):
     end = _figs(s, 534)                      # siatka liczb (--d:3): dwa kroki, górny i dolny rząd
 
     with s.step("rise"):                     # tag z odczytem panelu (--d:5)
-        s.text(X, end + 4, WID, 26, "Panel MarSim, sol 212, 10:11 LTST: grunt −43 °C · wiatr 7,2 m/s · pył τ 0,50 · 27 µSv/h",
+        s.text(X, end + 4, WID, 26, "Panel MarSim, sol 212, 10:11: grunt −43 °C · wiatr 7,2 m/s · pył 0,50 · 27 µSv/h",
                size=10, color=BONE3, spacing=.3, name="Panel MarSim odczyt")
 
     chrome(s, 1)

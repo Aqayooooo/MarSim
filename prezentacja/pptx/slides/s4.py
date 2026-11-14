@@ -8,9 +8,9 @@ GAP_X = 40       # odstęp między kolumnami liczb
 FIG_W = (COL_W - GAP_X) / 2
 
 FIGS = [
-    ("1,22", "km", "trasa A, dwa punkty EVA", "wydajność 97% wobec linii prostej"),
+    ("1,22", "km", "trasa A, dwa punkty EVA", "tylko 3% dłuższa niż linia prosta"),
     ("75", "min", "czas z postojami", "przedział 62–87 min"),
-    ("7,6°", "±1,5°", "największe nachylenie", "DTM HiRISE, σz 0,2 m"),
+    ("7,6°", "±1,5°", "największe nachylenie", "model terenu HiRISE, ±0,2 m"),
     ("92", "L O₂", "zużycie tlenu", "przedział 62–120 L"),
 ]
 
@@ -18,8 +18,8 @@ NOTES = (
     "Mówi: Osoba 3 · ok. 1:15\n\n"
     "Na tej mapie planer wyznacza trasę algorytmem A*. Kosztem jest wysiłek, liczony modelem Pandolfa "
     "przeliczonym na grawitację Marsa. Z wysiłku wynika zużycie tlenu.\n\n"
-    "Zakazane są zbocza, których nachylenie z marginesem dwóch sigma przekracza 25 stopni, i piasek "
-    "o prawdopodobieństwie powyżej 0,6. Głazy omijamy o 6 metrów.\n\n"
+    "Omijamy zbocza powyżej 25 stopni, z zapasem na błąd pomiaru wysokości, i miejsca, gdzie prawdopodobnie "
+    "jest luźny piasek. Głazy omijamy o 6 metrów.\n\n"
     "Trasa A w Jezero ma 1,22 kilometra i zajmuje 75 minut z dwoma postojami. Największe nachylenie to "
     "7,6 stopnia, plus minus 1,5. Zużycie tlenu szacujemy na 92 litry, w przedziale od 62 do 120. Na mapie "
     "widać też schron w zasięgu 15 minut. Funkcja Porównaj trasy pokazuje, dlaczego wybrano tę drogę "
@@ -60,8 +60,8 @@ def build(prs):
 
     with s.step("rise", delay=830):                        # --d:4
         s.text(X, 796, BODY_W, 184,
-               "Trasę wyznacza A* z\u00a0modelem wysiłku Pandolfa dla 0,38 g. Zakaz: nachylenie z\u00a0marginesem 2σ "
-               "powyżej 25° i\u00a0piasek powyżej 0,6. Głazy omijane o\u00a06 m, schron w\u00a0zasięgu 15 minut.",
+               "Planer szuka drogi o\u00a0najmniejszym zużyciu tlenu przy grawitacji Marsa. Omija zbocza "
+               "powyżej 25°, luźny piasek i\u00a0głazy, a\u00a0schron jest zawsze 15 minut drogi.",
                size=14, color=BONE2, line=1.35, name="Opis algorytmu")
 
     # ---------- zrzut mapy (po backdrop, przykrywa Marsa) ----------

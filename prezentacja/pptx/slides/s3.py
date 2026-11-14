@@ -14,11 +14,11 @@ PAD = 4
 
 INSTRUMENTS = [
     # nazwa, misja, rozdzielczość (linie), zastosowanie (linie)
-    ("HiRISE", "Mars Reconnaissance Orbiter", ["0,25 m ·", "DTM 1 m"], ["głazy od 1 m,", "nachylenie ±σ"]),
+    ("HiRISE", "Mars Reconnaissance Orbiter", ["0,25 m"], ["głazy od 1 m,", "nachylenie zboczy"]),
     ("CTX", "Mars Reconnaissance Orbiter", ["6 m"], ["kontekst terenu"]),
     ("CRISM", "Mars Reconnaissance Orbiter", ["18 m"], ["minerały, w tym oliwin"]),
-    ("THEMIS", "Mars Odyssey", ["100 m"], ["bezwładność cieplna:", "luźny piasek"]),
-    ("MOLA", "Mars Global Surveyor", ["463 m"], ["kontrola wysokości DTM"]),
+    ("THEMIS", "Mars Odyssey", ["100 m"], ["luźny piasek, w którym", "można ugrzęznąć"]),
+    ("MOLA", "Mars Global Surveyor", ["463 m"], ["wysokość terenu"]),
     ("DONKI · NOAA SWPC", "pogoda kosmiczna", ["na żywo"], ["burze słoneczne, protony"]),
 ]
 
@@ -34,7 +34,7 @@ Wyzwanie NASA Martian Map prosi o warstwową mapę miejsca albo trasy na Marsie,
 
 Łączymy pięć instrumentów orbitalnych. HiRISE daje zdjęcia 25 centymetrów na piksel i model wysokości z dokładnością 20 centymetrów. Z cieni na tych zdjęciach wykrywamy głazy od metra wzwyż: w Jezero jest ich 340, w kraterze Gale 649. THEMIS pokazuje luźny piasek, CRISM minerały, MOLA kontroluje wysokości, a DONKI i NOAA dają pogodę kosmiczną na żywo.
 
-Nie używamy uczenia maszynowego. Każda warstwa ma opisaną metodę, źródło i sumę kontrolną, więc wiadomo, skąd wzięła się każda decyzja na mapie.
+Nie używamy uczenia maszynowego. Każda warstwa ma opisaną metodę i źródło, więc wiadomo, skąd wzięła się każda decyzja na mapie.
 
 → Jak z tych warstw powstaje trasa, pokaże Osoba 3."""
 
@@ -96,8 +96,8 @@ def build(prs):
 
     with s.step("rise"):            # tag (--d:5)
         s.text(X, y + 16, 1130, 30,
-               "Bez uczenia maszynowego. Głazy z geometrii cieni, piasek z pięciu wskaźników fizycznych, "
-               "każda warstwa z sumą SHA-256.",
+               "Bez uczenia maszynowego: głazy wykrywamy z cieni na zdjęciach, a każda decyzja na mapie "
+               "ma podane źródło i metodę.",
                size=10, color=BONE3, line=1.2, name="Podpis metody")
 
     with s.step("fade"):            # znaczniki Jezero i Gale: na końcu, gdy planeta dojedzie

@@ -9,7 +9,7 @@ IDX = 4
 # zrzut wizjera (px sceny), jak .shot.hud w index.html
 HX, HY, HW, HH = 128, 318, 1600, 662
 
-ALT_NORM = ("Widok z hełmu w MarSim: kurs, odległość do WP2 z przyciskami teleportu, łazik na trasie, "
+ALT_NORM = ("Widok z hełmu w MarSim: kurs, odległość do WP2, łazik na trasie, "
             "tlen i energia w normie")
 ALT_ALARM = "Ten sam widok w stanie alarmu: wizjer w barwie alarmowej, tlen 18%, energia 22%"
 
@@ -17,7 +17,7 @@ ALT_ALARM = "Ten sam widok w stanie alarmu: wizjer w barwie alarmowej, tlen 18%,
 # bo tekst 14 pt jest prawie dwa razy większy niż 15 px w HTML
 CALLOUTS = [
     dict(at=(.5, .143), box=(.64, .025), label="Kurs", text="Kurs i pas horyzontu"),
-    dict(at=(.16, .385), box=(.035, .5), label="Nawigacja", text="Odległość do punktu trasy i teleport"),
+    dict(at=(.16, .385), box=(.035, .5), label="Nawigacja", text="Odległość do punktu trasy"),
     dict(at=(.57, .47), box=(.6825, .19), label="Łazik", text="Schron i przekaźnik w\u00a0zasięgu wzroku"),
     dict(at=(.55, .72), box=(.25, .79), label="Trasa", text="Bezpieczna trasa na gruncie"),
     dict(at=(.767, .686), box=(.715, .43), label="Stan skafandra",
@@ -127,8 +127,8 @@ def _slide(prs, mode):
                 size=36)
     with step("rise", delay=_at(2)):
         s.text(1040, 128, 560, 126,
-               "Dane skafandra liczy serwer misji. Wizjer pokazuje zawsze osobę w najgorszym stanie, "
-               "bo załoga wraca razem.",
+               "Wizjer pokazuje zawsze osobę w najgorszym stanie, bo załoga wraca razem. "
+               "Te same liczby widzi konsola w habitacie.",
                size=14, color=BONE2, line=1.25, name="Opis")
     if not alarm_only:
         with step("rise", delay=_at(3)):
@@ -174,12 +174,12 @@ def build(prs, mode="deck"):
     s.notes(
         "Mówi: Osoba 4 · ok. 1:00\n\n"
         "Tak wygląda MarSim w hełmie. Wizjer pokazuje tylko to, czego astronauta potrzebuje w tej chwili. "
-        "Na górze kurs, po lewej odległość do następnego punktu trasy i przyciski teleportu, a trasa jest "
+        "Na górze kurs, po lewej odległość do następnego punktu trasy, a trasa jest "
         "narysowana na gruncie. Na trasie stoi łazik.\n\n"
         "Po prawej tlen i energia. Wizjer pokazuje zawsze osobę w najgorszym stanie, bo załoga wraca razem. "
         "Teraz wszystko jest w normie.\n\n"
         "[Kliknij: alarm tlenu] Gdy tlenu jest mniej niż rezerwa misji, cały wizjer zmienia barwę na alarmową, "
-        "a paski pokazują, ile zostało tlenu i energii. Wszystko to liczy serwer misji, więc wizjer pokazuje "
-        "te same liczby co konsola w habitacie."
+        "a paski pokazują, ile zostało tlenu i energii. Konsola w habitacie widzi "
+        "dokładnie te same liczby."
     )
     return [s]
