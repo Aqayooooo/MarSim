@@ -9,9 +9,9 @@ NB = " "  # twarda spacja, jak &nbsp; w index.html
 X, WC = 1100, 692          # lewa krawędź i szerokość kolumny
 
 FIGS = [
-    ("290", "testów backendu"),
-    ("30", "testów sterowania EVA"),
-    ("407", "kluczy PL/EN"),
+    ("5", "instrumentów NASA"),
+    ("989", f"głazów ≥{NB}1{NB}m z{NB}orbity"),
+    ("0", "internetu w terenie"),
     ("2", f"obszary misji: Gale i{NB}Jezero"),
 ]
 
@@ -23,9 +23,9 @@ STEPS = [
 
 NOTES = [
     "Mówi: Osoba 1 · ok. 1:00",
-    "MarSim działa dziś, w wersji 1.4: 290 testów backendu, 30 testów sterowania wyjściem, testy w prawdziwej "
-    "przeglądarce i 407 kluczy tłumaczeń. Działa bez internetu, zapisuje stan wyjścia co 5 sekund i po awarii "
-    "serwera wznawia je w pauzie. Każdy produkt danych ma sumę SHA-256, więc wynik można odtworzyć.",
+    "MarSim działa dziś, w wersji 1.4. Łączy dane pięciu instrumentów NASA, na zdjęciach z orbity wykrył 989 "
+    "głazów od metra wzwyż w dwóch obszarach misji, Gale i Jezero, i działa bez internetu. Zapisuje stan wyjścia "
+    "co 5 sekund i po awarii serwera wznawia je w pauzie. Każdy produkt danych ma sumę SHA-256, więc wynik można odtworzyć.",
     "Mówimy też wprost o ograniczeniach. Model tlenu trzeba skalibrować danymi z prawdziwego skafandra, a wykrywanie "
     "głazów sprawdzić na zdjęciach z łazika. Następny krok to próba z załogą w misji analogowej.",
     "Zanim astronauta wyjdzie ze śluzy, trasa jest już policzona. Dziękujemy. Chętnie pokażemy MarSim na żywo "
